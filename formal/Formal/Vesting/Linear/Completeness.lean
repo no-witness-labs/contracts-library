@@ -46,6 +46,7 @@ theorem claim_complete_partial
     validSchedule d ∧
     now < d.endTime ∧
     (∃ h, d.beneficiary = .key h) ∧                          -- C1 (key case)
+    outAddr.addressCredential = scriptAddress.addressCredential ∧ -- C3
     outQty ≥ required a.total d.startTime d.endTime now →     -- C4
       validatorAccepts ctx spendValidator := by
   -- General (∀) version: too large for Z3 (hangs). Left as `sorry`. The
