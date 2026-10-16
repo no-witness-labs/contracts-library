@@ -34,8 +34,8 @@ formal/
 
 Each contract gets its own `Completeness`/`Soundness`/`Robustness` under its
 folder, because the properties differ per contract. The layout follows
-`francolq/aiken-good-practices` (`order-book/verify`). Every theorem carries a
-doc comment citing the spec section it discharges (e.g. `§9 B1`).
+`francolq/aiken-good-practices` (`order-book/verify`). Contract READMEs map theorems
+to the spec clauses they cover.
 
 ## Prerequisites
 
@@ -120,4 +120,4 @@ These apply to any contract:
 ## Contracts
 
 - **vesting/linear** — see [`Formal/Vesting/Linear/README.md`](Formal/Vesting/Linear/README.md)
-  for its coverage tables and open targets.
+  for its coverage tables and proof status.

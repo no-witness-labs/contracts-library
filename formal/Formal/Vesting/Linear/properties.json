@@ -41,7 +41,7 @@
     "id": "LV-005",
     "title": "Key-authorized claim acceptance",
     "category": "vesting-escrow",
-    "summary": "In constructed single-native-asset contexts, checked cases cover symbolic identities, a nonnegative total, start < now < finish, and sufficient continuation funding, with fixed address/ADA scaffolding. Fixed full-retention cases also cover other reference times. The broader partial-claim target remains unproved.",
+    "summary": "The compiled validator accepts constructed single-native-asset claims before vesting ends when the schedule is valid, the beneficiary key authorizes the claim, and the continuation preserves the input datum and payment credential and holds at least the required remainder. Other variants cover unconstrained recovery and fixed full-retention claims at any time.",
     "theorems": [
       "Formal.Vesting.Linear.Completeness.claim_accept_generic_schedule",
       "Formal.Vesting.Linear.Completeness.claim_accept_concrete",
@@ -89,7 +89,7 @@
     "id": "LV-010",
     "title": "Partial claims preserve the datum and remainder",
     "category": "vesting-escrow",
-    "summary": "In the fixed one-input/one-output midpoint context, acceptance forces the arbitrary output datum to match the input. The native-token quantity must be at least 50. The broader native-asset soundness target remains unproved.",
+    "summary": "For valid single-native-asset schedules before vesting ends, acceptance by the compiled validator in contexts built with mkClaimCtx and withAsset forces the output datum to match the input and the output quantity to be at least the required remainder.",
     "theorems": [
       "Formal.Vesting.Linear.Soundness.claim_sound_partial_concrete",
       "Formal.Vesting.Linear.Soundness.claim_sound_partial"
@@ -108,7 +108,7 @@
     "id": "LV-012",
     "title": "Unauthorized key claims are rejected",
     "category": "vesting-escrow",
-    "summary": "In the fixed midpoint context, claims with no signature or a single non-beneficiary signer are rejected. The broader no-signature key-beneficiary target remains unproved.",
+    "summary": "The compiled validator rejects claims with a key beneficiary and no signatories in contexts built with mkClaimCtx and withAsset. The fixed midpoint case also rejects a single non-beneficiary signer.",
     "theorems": [
       "Formal.Vesting.Linear.Robustness.reject_unauthorized_claim_no_sig",
       "Formal.Vesting.Linear.Robustness.reject_wrong_signer",
@@ -119,7 +119,7 @@
     "id": "LV-013",
     "title": "Underfunded partial continuations are rejected",
     "category": "vesting-escrow",
-    "summary": "In the fixed single-native-asset midpoint context, a continuation holding fewer than 50 tokens causes rejection. The broader native-asset shortfall-rejection target remains unproved.",
+    "summary": "For valid single-native-asset schedules before vesting ends, the compiled validator rejects contexts built with mkClaimCtx and withAsset when the output holds less than the required remainder.",
     "theorems": [
       "Formal.Vesting.Linear.Robustness.reject_over_release_concrete",
       "Formal.Vesting.Linear.Robustness.reject_over_release"
@@ -129,7 +129,7 @@
     "id": "LV-014",
     "title": "Changed continuation datums are rejected",
     "category": "vesting-escrow",
-    "summary": "In the fixed one-input/one-output midpoint context, any output datum differing from the input datum causes rejection. The broader partial-claim datum-change target remains unproved.",
+    "summary": "For valid single-asset schedules before vesting ends, the compiled validator rejects contexts built with mkClaimCtx and withAsset whose output datum differs from the input datum.",
     "theorems": [
       "Formal.Vesting.Linear.Robustness.reject_datum_tamper_concrete",
       "Formal.Vesting.Linear.Robustness.reject_datum_tamper"

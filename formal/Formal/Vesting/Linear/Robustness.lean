@@ -29,9 +29,8 @@ open Formal.Vesting.Linear.Soundness (mkClaimCtx mkClaimCtxW mkClaimCtxHashInput
 open Formal.Vesting.Linear.Script (spendValidator)
 -- `dConcrete`/`dScript` come from `Spec` (opened above).
 
-/-- **R1 — unauthorized claim is rejected.** No signatory satisfies the
-beneficiary key ⇒ the validator rejects the `Claim`. General target; the
-concrete instances below are the proved ones. -/
+/-- R1: A claim with a key beneficiary and no signatories is rejected in the
+constructed spend context. -/
 theorem reject_unauthorized_claim
     (d : VestingDatum) (a : VestedAsset)
     (inLovelace outLovelace inQty outQty now : Int)
@@ -41,9 +40,12 @@ theorem reject_unauthorized_claim
     let ctx := mkClaimCtx d inValue outAddr outValue outDatum now [] claimRedeemer
     (∃ h, d.beneficiary = .key h) →   -- key-auth instance, but NO signatories
       validatorRejects ctx spendValidator := by
-  -- General version (∀ d/amounts/addr) hangs, like the completeness analogues.
-  -- See the concrete instances below.
-  sorry
+  dsimp only
+  intro h
+  rcases d with ⟨beneficiary, locker, vesting, startTime, endTime, recoveryTime⟩
+  rcases h with ⟨key, hk⟩
+  cases hk
+  blaster
 
 /-- **R1, concrete: no signatory ⇒ reject.** The honest claim of
 `claim_accept_concrete`, but with an EMPTY signatory list, is rejected: the
@@ -79,8 +81,9 @@ theorem reject_wrong_signer (w : ByteString)
       spendValidator := by
   blaster
 
-/-- **R2 — over-release is rejected.** A `Claim` whose continuation holds less
-than the required remainder is rejected (spec §9 R2, I2/B1). -/
+/-- R2: For a valid schedule before vesting ends, the compiled validator rejects
+the constructed single-native-asset claim when its output holds less than the
+required remainder. -/
 theorem reject_over_release
     (d : VestingDatum) (a : VestedAsset)
     (inLovelace outLovelace inQty outQty now : Int)
@@ -94,11 +97,12 @@ theorem reject_over_release
     d.vesting = [a] ∧ validSchedule d ∧ now < d.endTime ∧
     outQty < required a.total d.startTime d.endTime now →   -- too little kept
       validatorRejects ctx spendValidator := by
-  -- Unproven (`sorry`): the ∀-quantified statement makes blaster execute the
-  -- CEK machine over an unconstrained datum/schedule/amounts, which does not
-  -- terminate. The concrete `reject_over_release_concrete` proves the same for
-  -- the standard instance.
-  sorry
+  dsimp only
+  intro h
+  rcases d with ⟨beneficiary, locker, vesting, startTime, endTime, recoveryTime⟩
+  rcases h with ⟨hPolicy, hVesting, hSchedule, hTime, hQty⟩
+  cases hVesting
+  cases beneficiary <;> blaster
 
 /-- **R2, concrete: under-funded continuation ⇒ reject.** The honest claim, but
 the continuation keeps `outQty < required` (here required = 50 at `now = 1500`).
@@ -118,8 +122,8 @@ theorem reject_over_release_concrete (outQty : Int)
       spendValidator := by
   blaster
 
-/-- **R3 — schedule tampering is rejected.** A continuation whose datum differs
-from the input's is rejected (spec §9 R3, I3). -/
+/-- R3: Before vesting ends, the compiled validator rejects the constructed
+one-input/one-output claim when the output datum differs from the input's. -/
 theorem reject_datum_tamper
     (d : VestingDatum) (a : VestedAsset)
     (inLovelace outLovelace inQty outQty now : Int)
@@ -131,10 +135,12 @@ theorem reject_datum_tamper
     d.vesting = [a] ∧ validSchedule d ∧ now < d.endTime ∧
     outDatum ≠ datumData d →           -- tampered continuation datum
       validatorRejects ctx spendValidator := by
-  -- Unproven (`sorry`): same reason as the other ∀ targets — symbolic execution
-  -- over an unconstrained datum/schedule does not terminate. The concrete
-  -- `reject_datum_tamper_concrete` proves the same for the standard instance.
-  sorry
+  dsimp only
+  intro h
+  rcases d with ⟨beneficiary, locker, vesting, startTime, endTime, recoveryTime⟩
+  rcases h with ⟨hVesting, hSchedule, hTime, hDatum⟩
+  cases hVesting
+  cases beneficiary <;> blaster
 
 /-- **R3, concrete: tampered continuation datum ⇒ reject.** The honest claim of
 `claim_accept_concrete`, but the continuation carries a datum `outDatum` that

@@ -11,7 +11,7 @@ For the milestone 1.2 review scope and checklist, see
 [issue #12](https://github.com/no-witness-labs/contracts-library/issues/12).
 
 [`properties.json`](properties.json) indexes the existing properties and theorem
-variants. Its summaries flag unfinished targets.
+variants. Its summaries describe their scope.
 
 ## Validator snapshot
 
@@ -50,6 +50,7 @@ theorem's hypotheses describe the covered cases.
 
 | Theorem | Spec clause |
 |---|---|
+| `claim_complete_partial` | `C0–C4, I3` (constructed single-native-asset claim, valid schedule, `now < end`, matching payment credential) |
 | `claim_accept_generic_schedule` | C0–C4, I3 (general single-asset partial claim: symbolic identities, total, **schedule**, `now`, amount) |
 | `claim_accept_anytime` | C0–C4 across all `now`, symbolic ada (full-retention) |
 | `claim_complete_full` | §8.2, I4 (full claim once `now ≥ end`) |
@@ -61,9 +62,9 @@ theorem's hypotheses describe the covered cases.
 
 | Theorem | Spec clause |
 |---|---|
-| `reject_unauthorized_claim_no_sig`, `reject_wrong_signer` | R1 (unauthorized claim) |
-| `reject_over_release_concrete` | R2 (over-release) |
-| `reject_datum_tamper_concrete` | R3 (schedule/datum tampering) |
+| `reject_unauthorized_claim`, `reject_unauthorized_claim_no_sig`, `reject_wrong_signer` | R1 (unauthorized claim) |
+| `reject_over_release`, `reject_over_release_concrete` | R2 (over-release) |
+| `reject_datum_tamper`, `reject_datum_tamper_concrete` | R3 (schedule/datum tampering) |
 | `reject_datum_hash_input` | R4 (datum-hash input) |
 | `reject_premature_cancel` | R6 (cancel before recovery, strict) |
 | `reject_unauthorized_cancel` | I5 (unauthorized cancel) |
@@ -76,24 +77,19 @@ theorem's hypotheses describe the covered cases.
 
 | Theorem | Spec clause |
 |---|---|
-| `claim_sound_partial_concrete` | I2 + I3 (acceptance forces datum reproduction and `≥ required`) |
+| `claim_sound_partial`, `claim_sound_partial_concrete` | I2 + I3 (acceptance forces datum reproduction and `≥ required`) |
 | `cancel_sound` | I5 / C7 (acceptance forces `now > recovery_time`) |
 
-## Unfinished proof targets
+## Proof status
 
-`claim_complete_partial`, `claim_sound_partial`, `reject_unauthorized_claim`,
-`reject_over_release`, and `reject_datum_tamper` contain `sorry` and remain
-unproved. A successful build does not complete them. Review their statements
-and assumptions before attempting general proofs; the restricted theorems
-above do not discharge these targets.
+All five general targets tracked in [issue #17](https://github.com/no-witness-labs/contracts-library/issues/17) have proofs.
+The catalogue's theorem references have no `sorryAx` dependencies; they retain
+Blaster's SMT trust axiom.
 
-The continuation datum is kept **arbitrary** in the soundness and robustness
-theorems, so the proofs *derive* datum-reproduction rather than assume it.
+`claim_sound_partial` derives datum reproduction from acceptance; it does not
+assume the output datum matches.
 
 ## Remaining work
 
 - **Multi-asset bundles** (`vesting` of length > 1): structural/unbounded, so
   likely only feasible at fixed small lengths.
-- **Unified `∀` statements**: the `sorry` targets above; would need a proof
-  strategy beyond direct symbolic execution (e.g. lemmas about the validator's
-  structure).
