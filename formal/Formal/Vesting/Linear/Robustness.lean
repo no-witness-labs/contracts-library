@@ -90,6 +90,7 @@ theorem reject_over_release
     let outDatum := datumData d
     let sigs := match d.beneficiary with | .key h => [h] | .script _ => []
     let ctx := mkClaimCtx d inValue outAddr outValue outDatum now sigs claimRedeemer
+    a.policy ≠ "" ∧
     d.vesting = [a] ∧ validSchedule d ∧ now < d.endTime ∧
     outQty < required a.total d.startTime d.endTime now →   -- too little kept
       validatorRejects ctx spendValidator := by

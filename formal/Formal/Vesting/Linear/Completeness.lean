@@ -43,6 +43,7 @@ theorem claim_complete_partial
     let sigs := match d.beneficiary with | .key h => [h] | .script _ => []
     let ctx := mkClaimCtx d inValue outAddr outValue outDatum now sigs r
     d.vesting = [a] ∧
+    a.policy ≠ "" ∧
     validSchedule d ∧
     now < d.endTime ∧
     (∃ h, d.beneficiary = .key h) ∧                          -- C1 (key case)
