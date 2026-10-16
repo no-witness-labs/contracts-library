@@ -120,8 +120,8 @@ theorem reject_over_release_concrete (outQty : Int)
       spendValidator := by
   blaster
 
-/-- **R3 — schedule tampering is rejected.** A continuation whose datum differs
-from the input's is rejected (spec §9 R3, I3). -/
+/-- R3: Before vesting ends, the compiled validator rejects the constructed
+one-input/one-output claim when the output datum differs from the input's. -/
 theorem reject_datum_tamper
     (d : VestingDatum) (a : VestedAsset)
     (inLovelace outLovelace inQty outQty now : Int)
@@ -133,10 +133,12 @@ theorem reject_datum_tamper
     d.vesting = [a] ∧ validSchedule d ∧ now < d.endTime ∧
     outDatum ≠ datumData d →           -- tampered continuation datum
       validatorRejects ctx spendValidator := by
-  -- Unproven (`sorry`): same reason as the other ∀ targets — symbolic execution
-  -- over an unconstrained datum/schedule does not terminate. The concrete
-  -- `reject_datum_tamper_concrete` proves the same for the standard instance.
-  sorry
+  dsimp only
+  intro h
+  rcases d with ⟨beneficiary, locker, vesting, startTime, endTime, recoveryTime⟩
+  rcases h with ⟨hVesting, hSchedule, hTime, hDatum⟩
+  cases hVesting
+  cases beneficiary <;> blaster
 
 /-- **R3, concrete: tampered continuation datum ⇒ reject.** The honest claim of
 `claim_accept_concrete`, but the continuation carries a datum `outDatum` that

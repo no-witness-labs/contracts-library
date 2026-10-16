@@ -129,7 +129,7 @@
     "id": "LV-014",
     "title": "Changed continuation datums are rejected",
     "category": "vesting-escrow",
-    "summary": "In the fixed one-input/one-output midpoint context, any output datum differing from the input datum causes rejection. The broader partial-claim datum-change target remains unproved.",
+    "summary": "For valid single-asset schedules before vesting ends, the compiled validator rejects contexts built with mkClaimCtx and withAsset whose output datum differs from the input datum.",
     "theorems": [
       "Formal.Vesting.Linear.Robustness.reject_datum_tamper_concrete",
       "Formal.Vesting.Linear.Robustness.reject_datum_tamper"
