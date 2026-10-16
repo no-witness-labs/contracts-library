@@ -81,8 +81,9 @@ theorem reject_wrong_signer (w : ByteString)
       spendValidator := by
   blaster
 
-/-- **R2 — over-release is rejected.** A `Claim` whose continuation holds less
-than the required remainder is rejected (spec §9 R2, I2/B1). -/
+/-- R2: For a valid schedule before vesting ends, the compiled validator rejects
+the constructed single-native-asset claim when its output holds less than the
+required remainder. -/
 theorem reject_over_release
     (d : VestingDatum) (a : VestedAsset)
     (inLovelace outLovelace inQty outQty now : Int)
@@ -96,11 +97,12 @@ theorem reject_over_release
     d.vesting = [a] ∧ validSchedule d ∧ now < d.endTime ∧
     outQty < required a.total d.startTime d.endTime now →   -- too little kept
       validatorRejects ctx spendValidator := by
-  -- Unproven (`sorry`): the ∀-quantified statement makes blaster execute the
-  -- CEK machine over an unconstrained datum/schedule/amounts, which does not
-  -- terminate. The concrete `reject_over_release_concrete` proves the same for
-  -- the standard instance.
-  sorry
+  dsimp only
+  intro h
+  rcases d with ⟨beneficiary, locker, vesting, startTime, endTime, recoveryTime⟩
+  rcases h with ⟨hPolicy, hVesting, hSchedule, hTime, hQty⟩
+  cases hVesting
+  cases beneficiary <;> blaster
 
 /-- **R2, concrete: under-funded continuation ⇒ reject.** The honest claim, but
 the continuation keeps `outQty < required` (here required = 50 at `now = 1500`).

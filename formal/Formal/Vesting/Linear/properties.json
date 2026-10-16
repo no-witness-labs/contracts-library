@@ -119,7 +119,7 @@
     "id": "LV-013",
     "title": "Underfunded partial continuations are rejected",
     "category": "vesting-escrow",
-    "summary": "In the fixed single-native-asset midpoint context, a continuation holding fewer than 50 tokens causes rejection. The broader native-asset shortfall-rejection target remains unproved.",
+    "summary": "For valid single-native-asset schedules before vesting ends, the compiled validator rejects contexts built with mkClaimCtx and withAsset when the output holds less than the required remainder.",
     "theorems": [
       "Formal.Vesting.Linear.Robustness.reject_over_release_concrete",
       "Formal.Vesting.Linear.Robustness.reject_over_release"
