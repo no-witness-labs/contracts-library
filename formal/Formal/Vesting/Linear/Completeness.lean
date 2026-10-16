@@ -1,10 +1,8 @@
 /-
 Linear vesting — COMPLETENESS: `spec ⇒ accepts` (spec §8).
 
-If a transaction satisfies the spec's preconditions for an action (authorized,
-schedule well-formed, continuation reproduces the datum and holds the required
-remainder), the compiled validator accepts it. This rules out *false
-negatives* — honest spends getting stuck (frozen funds).
+Acceptance proofs for the constructed contexts under their stated hypotheses.
+These do not establish completeness for arbitrary transactions.
 -/
 import Blaster
 import PlutusCore.UPLC
@@ -80,7 +78,7 @@ theorem claim_accept_concrete :
       spendValidator := by
   blaster
 
-/-- Complementary coverage to `claim_accept_generic_identities` (not subsumed by
+/-- Complementary coverage to `claim_accept_generic_schedule` (not subsumed by
 it): `now` is **unconstrained** (any time, including before `start` and after
 `end`) and both ada amounts are symbolic. The continuation keeps the whole
 bundle (token qty 100 = total), so the required remainder is met for any `now`

@@ -4,9 +4,8 @@ Linear vesting — ROBUSTNESS: explicit rejection theorems (spec §9 R-clauses,
 Soundness: soundness says "if accepted, then good"; robustness names specific
 bad transactions and proves they are *not* accepted.
 
-The headline one is no-double-satisfaction (§5.1, I2): two contract inputs
-sharing a datum cannot be satisfied by a single continuation; the `k`-scaling
-rule forces `k × required`.
+The fixed two-input examples (§5.1, I2) require two separate continuations,
+each holding its own required remainder.
 -/
 import Blaster
 import PlutusCore.UPLC
