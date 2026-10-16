@@ -1,10 +1,9 @@
 # Formal proofs
 
-Machine-checked proofs of the contract **specifications** under [`docs/<contract>/spec.md`](../docs).
-This is a fourth artifact alongside `onchain/`, `offchain/`, and the spec
-(`docs/<contract>/spec.md`): the
-proofs are *about the spec* (the source of truth), not about any one
-implementation. See [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) §2.
+Lean specifications and proof targets for the contracts described under
+[`docs/<contract>/spec.md`](../docs). The modules include pure model lemmas
+and statements about imported compiled validators. A statement's hypotheses
+and constructed context delimit its scope.
 
 Proofs are written in [Lean 4](https://lean-lang.org/) and discharged with
 [Lean-Blaster](https://github.com/input-output-hk/Lean-blaster), an SMT (Z3)
@@ -27,7 +26,8 @@ formal/
         ├── Linear.lean      # aggregator for the vesting/linear contract
         └── Linear/
             ├── Spec.lean          # pure model: `vested`, datum encoding (no UPLC)
-            ├── Completeness.lean  # spec ⇒ accepts (§8); `#import_uplc`s the flat
+            ├── Script.lean        # imports the compiled spend validator
+            ├── Completeness.lean  # spec ⇒ accepts (§8)
             ├── Soundness.lean     # accepts ⇒ spec (§9) + shared context scaffold
             └── Robustness.lean    # rejection theorems incl. no-double-satisfaction
 ```
@@ -89,10 +89,10 @@ A failing `blaster` goal can be debugged with its options, e.g.
 
 ## How each contract is verified
 
-For each contract the compiled validator is loaded once (via `#import_uplc`) and
-every theorem runs `blaster` against that concrete program; the
-datum/redeemer/value encodings mirror the on-chain types. Proofs are organized
-in three directions plus the pure spec arithmetic:
+`Spec.lean` contains pure model lemmas. `Script.lean` loads the compiled
+validator once via `#import_uplc`; the other proof modules use it with
+constructed script contexts. The modules separate pure spec arithmetic
+from completeness, soundness, and rejection targets:
 
 - **Spec** (`Spec.lean`): the contract's arithmetic and relations, no UPLC.
 - **Completeness** (`spec ⇒ accepts`, spec §8): honest actions are accepted.
@@ -113,10 +113,9 @@ These apply to any contract:
 - Keep symbolic **structure** bounded. A fully symbolic `Value` (an arbitrary
   `Data` list) makes `quantity_of` run over an unbounded structure and does not
   terminate; shape values with builders and leave only Int/Datum leaves symbolic.
-- Fully `∀`-quantified statements over an unconstrained `ScriptContext` generally
-  do not terminate. Prove concrete instances; if a general statement is worth
-  recording, keep it as a documented `sorry` target (we leave
-  `warn.sorry` enabled so those surface as build warnings).
+- Fully quantified contexts can make direct symbolic execution intractable.
+  A declaration containing `sorry` is an unfinished proof target. A passing
+  build or a proof of a restricted instance does not discharge that target.
 
 ## Contracts
 

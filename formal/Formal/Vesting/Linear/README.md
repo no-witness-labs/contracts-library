@@ -1,7 +1,7 @@
 # vesting/linear — formal proofs
 
-Machine-checked proofs for the **linear vesting** contract, against the compiled
-validator. See the spec [`spec.md`](../../../../docs/vesting/spec.md)
+Lean model lemmas and compiled-validator proof targets for **linear vesting**.
+See the spec [`spec.md`](../../../../docs/vesting/spec.md)
 (the source of truth, with §8 completeness / §9 soundness clauses) and the
 on-chain types [`types.ak`](../../../../onchain/lib/vesting/types.ak). For the
 toolchain, build, and general `blaster` notes, see the
@@ -30,9 +30,8 @@ with the Lean `.flat` proof artifact.
 
 Where a theorem fixes values, the standard instance is: schedule
 `start/end/recovery = 1000/2000/3000`, asset total 100, `now` in the open window
-`(1000, 2000)`, beneficiary/locker as key credentials. The encodings mirror
-`types.ak` and `cardano/address` exactly. Coverage for this single-asset
-instance is comprehensive across all three directions.
+`(1000, 2000)`, beneficiary/locker as key credentials. The tables and each
+theorem's hypotheses describe the covered cases.
 
 ### Spec arithmetic (`Spec.lean`, no UPLC)
 
@@ -77,19 +76,13 @@ instance is comprehensive across all three directions.
 | `claim_sound_partial_concrete` | I2 + I3 (acceptance forces datum reproduction and `≥ required`) |
 | `cancel_sound` | I5 / C7 (acceptance forces `now > recovery_time`) |
 
-## Not proved (documented `∀`-targets, left as `sorry`)
+## Unfinished proof targets
 
-These surface as build warnings (`warn.sorry` is enabled). Each is the fully
-`∀`-quantified version of a proved concrete theorem
-(`claim_complete_partial`, `claim_sound_partial`, `reject_unauthorized_claim`,
-`reject_over_release`, `reject_datum_tamper`), kept to document the intended
-general statement.
-
-**Why they are not proved:** the `∀` over an unconstrained
-datum/schedule/amounts/addresses makes `blaster` symbolically execute the CEK
-machine over an unbounded `ScriptContext`, which does not terminate. The concrete
-instances discharge the same properties for the standard instance; the spec's
-§8/§9 carry the general statements in prose.
+`claim_complete_partial`, `claim_sound_partial`, `reject_unauthorized_claim`,
+`reject_over_release`, and `reject_datum_tamper` contain `sorry` and remain
+unproved. A successful build does not complete them. Review their statements
+and assumptions before attempting general proofs; the restricted theorems
+above do not discharge these targets.
 
 The continuation datum is kept **arbitrary** in the soundness and robustness
 theorems, so the proofs *derive* datum-reproduction rather than assume it.
