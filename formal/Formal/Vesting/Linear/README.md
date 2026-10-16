@@ -81,6 +81,8 @@ theorem's hypotheses describe the covered cases.
 
 ## Unfinished proof targets
 
+Track completion in [issue #17](https://github.com/no-witness-labs/contracts-library/issues/17).
+
 `claim_complete_partial`, `claim_sound_partial`, `reject_unauthorized_claim`,
 `reject_over_release`, and `reject_datum_tamper` contain `sorry` and remain
 unproved. A successful build does not complete them. Review their statements
