@@ -10,6 +10,9 @@ toolchain, build, and general `blaster` notes, see the
 For the milestone 1.2 review scope and checklist, see
 [issue #12](https://github.com/no-witness-labs/contracts-library/issues/12).
 
+[`properties.json`](properties.json) indexes the existing properties and theorem
+variants. Its summaries flag unfinished targets.
+
 ## Validator snapshot
 
 [`validator-metadata.json`](validator-metadata.json) records the upstream source
