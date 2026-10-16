@@ -139,12 +139,9 @@ def mkClaimCtxDouble
 
 /-! ## Soundness theorems -/
 
-/-- **Partial-claim soundness (accepts ⇒ spec).** Single-asset instance.
-
-If the validator accepts a `Claim` over `mkClaimCtx` with the beneficiary key
-signed and a well-formed schedule, then the continuing output reproduces the
-datum and keeps at least the required remainder of the asset (spec §9 R2/R3,
-I2/I3). The output's datum/value are free, so accepting *forces* them. -/
+/-- Before vesting ends, acceptance of the constructed single-native-asset
+claim with a valid schedule implies that its output reproduces the input datum
+and holds at least the required remainder (spec §9 I2/I3). -/
 theorem claim_sound_partial
     (d : VestingDatum) (a : VestedAsset)
     (inLovelace outLovelace inQty outQty now : Int)
@@ -165,11 +162,12 @@ theorem claim_sound_partial
       outDatum = datumData d ∧
       -- ... and keeps the required remainder (I2/B1).
       outQty ≥ required a.total d.startTime d.endTime now := by
-  -- The general (∀ datum/amounts/addresses) version is too large for Z3 even
-  -- over the concrete validator (hangs for minutes). Left as `sorry`; the
-  -- concrete instance `claim_sound_partial_concrete` below proves the soundness
-  -- direction for the fixed datum with symbolic (attacker-controlled) outputs.
-  sorry
+  dsimp only
+  intro h
+  rcases d with ⟨beneficiary, locker, vesting, startTime, endTime, recoveryTime⟩
+  rcases h with ⟨hVesting, hPolicy, hSchedule, hTime, hAccept⟩
+  cases hVesting
+  cases beneficiary <;> blaster
 
 /-- **Partial-claim soundness (accepts ⇒ spec), concrete instance.** Fix the
 datum/schedule/`now`; leave the continuation's claimed amount `outQty` and datum

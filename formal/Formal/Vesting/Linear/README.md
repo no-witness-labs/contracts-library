@@ -11,7 +11,7 @@ For the milestone 1.2 review scope and checklist, see
 [issue #12](https://github.com/no-witness-labs/contracts-library/issues/12).
 
 [`properties.json`](properties.json) indexes the existing properties and theorem
-variants. Its summaries flag unfinished targets.
+variants. Its summaries describe their scope.
 
 ## Validator snapshot
 
@@ -77,23 +77,19 @@ theorem's hypotheses describe the covered cases.
 
 | Theorem | Spec clause |
 |---|---|
-| `claim_sound_partial_concrete` | I2 + I3 (acceptance forces datum reproduction and `≥ required`) |
+| `claim_sound_partial`, `claim_sound_partial_concrete` | I2 + I3 (acceptance forces datum reproduction and `≥ required`) |
 | `cancel_sound` | I5 / C7 (acceptance forces `now > recovery_time`) |
 
-## Unfinished proof targets
+## Proof status
 
-Track completion in [issue #17](https://github.com/no-witness-labs/contracts-library/issues/17).
+All five general targets tracked in [issue #17](https://github.com/no-witness-labs/contracts-library/issues/17) have proofs.
+The catalogue's theorem references have no `sorryAx` dependencies; they retain
+Blaster's SMT trust axiom.
 
-`claim_sound_partial` contains `sorry` and remains unproved. A successful build
-does not complete it. Review its statement and assumptions before attempting a
-general proof; `claim_sound_partial_concrete` does not discharge this target.
-
-The continuation datum is kept **arbitrary** in the soundness and robustness
-theorems, so the proofs *derive* datum-reproduction rather than assume it.
+`claim_sound_partial` derives datum reproduction from acceptance; it does not
+assume the output datum matches.
 
 ## Remaining work
 
 - **Multi-asset bundles** (`vesting` of length > 1): structural/unbounded, so
   likely only feasible at fixed small lengths.
-- **General soundness**: complete the remaining `claim_sound_partial` target
-  above.

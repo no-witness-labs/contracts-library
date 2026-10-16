@@ -89,7 +89,7 @@
     "id": "LV-010",
     "title": "Partial claims preserve the datum and remainder",
     "category": "vesting-escrow",
-    "summary": "In the fixed one-input/one-output midpoint context, acceptance forces the arbitrary output datum to match the input. The native-token quantity must be at least 50. The broader native-asset soundness target remains unproved.",
+    "summary": "For valid single-native-asset schedules before vesting ends, acceptance by the compiled validator in contexts built with mkClaimCtx and withAsset forces the output datum to match the input and the output quantity to be at least the required remainder.",
     "theorems": [
       "Formal.Vesting.Linear.Soundness.claim_sound_partial_concrete",
       "Formal.Vesting.Linear.Soundness.claim_sound_partial"
