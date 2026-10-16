@@ -108,7 +108,7 @@
     "id": "LV-012",
     "title": "Unauthorized key claims are rejected",
     "category": "vesting-escrow",
-    "summary": "In the fixed midpoint context, claims with no signature or a single non-beneficiary signer are rejected. The broader no-signature key-beneficiary target remains unproved.",
+    "summary": "The compiled validator rejects claims with a key beneficiary and no signatories in contexts built with mkClaimCtx and withAsset. The fixed midpoint case also rejects a single non-beneficiary signer.",
     "theorems": [
       "Formal.Vesting.Linear.Robustness.reject_unauthorized_claim_no_sig",
       "Formal.Vesting.Linear.Robustness.reject_wrong_signer",

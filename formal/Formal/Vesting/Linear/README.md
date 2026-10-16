@@ -61,7 +61,7 @@ theorem's hypotheses describe the covered cases.
 
 | Theorem | Spec clause |
 |---|---|
-| `reject_unauthorized_claim_no_sig`, `reject_wrong_signer` | R1 (unauthorized claim) |
+| `reject_unauthorized_claim`, `reject_unauthorized_claim_no_sig`, `reject_wrong_signer` | R1 (unauthorized claim) |
 | `reject_over_release_concrete` | R2 (over-release) |
 | `reject_datum_tamper_concrete` | R3 (schedule/datum tampering) |
 | `reject_datum_hash_input` | R4 (datum-hash input) |
@@ -83,11 +83,10 @@ theorem's hypotheses describe the covered cases.
 
 Track completion in [issue #17](https://github.com/no-witness-labs/contracts-library/issues/17).
 
-`claim_complete_partial`, `claim_sound_partial`, `reject_unauthorized_claim`,
-`reject_over_release`, and `reject_datum_tamper` contain `sorry` and remain
-unproved. A successful build does not complete them. Review their statements
-and assumptions before attempting general proofs; the restricted theorems
-above do not discharge these targets.
+`claim_complete_partial`, `claim_sound_partial`, `reject_over_release`, and
+`reject_datum_tamper` contain `sorry` and remain unproved. A successful build does
+not complete them. Review their statements and assumptions before attempting
+general proofs; the restricted theorems above do not discharge these targets.
 
 The continuation datum is kept **arbitrary** in the soundness and robustness
 theorems, so the proofs *derive* datum-reproduction rather than assume it.

@@ -29,9 +29,8 @@ open Formal.Vesting.Linear.Soundness (mkClaimCtx mkClaimCtxW mkClaimCtxHashInput
 open Formal.Vesting.Linear.Script (spendValidator)
 -- `dConcrete`/`dScript` come from `Spec` (opened above).
 
-/-- **R1 — unauthorized claim is rejected.** No signatory satisfies the
-beneficiary key ⇒ the validator rejects the `Claim`. General target; the
-concrete instances below are the proved ones. -/
+/-- R1: A claim with a key beneficiary and no signatories is rejected in the
+constructed spend context. -/
 theorem reject_unauthorized_claim
     (d : VestingDatum) (a : VestedAsset)
     (inLovelace outLovelace inQty outQty now : Int)
@@ -41,9 +40,12 @@ theorem reject_unauthorized_claim
     let ctx := mkClaimCtx d inValue outAddr outValue outDatum now [] claimRedeemer
     (∃ h, d.beneficiary = .key h) →   -- key-auth instance, but NO signatories
       validatorRejects ctx spendValidator := by
-  -- General version (∀ d/amounts/addr) hangs, like the completeness analogues.
-  -- See the concrete instances below.
-  sorry
+  dsimp only
+  intro h
+  rcases d with ⟨beneficiary, locker, vesting, startTime, endTime, recoveryTime⟩
+  rcases h with ⟨key, hk⟩
+  cases hk
+  blaster
 
 /-- **R1, concrete: no signatory ⇒ reject.** The honest claim of
 `claim_accept_concrete`, but with an EMPTY signatory list, is rejected: the
