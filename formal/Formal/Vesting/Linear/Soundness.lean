@@ -201,8 +201,8 @@ theorem claim_sound_partial_concrete (outQty : Int) (outDatum : Data) :
 (recovery = 3000) and sign the locker (so acceptance is possible); leave `now`
 symbolic. If the validator accepts a `Cancel`, then `now > recovery_time`
 (`3000 < now`): the locker cannot recover before the recovery time (strict;
-spec §9 R6, C7). The positive form of `reject_premature_cancel`; together they
-give `accepts ⟺ 3000 < now` for the signed locker. -/
+spec §9 R6, C7). Together with `cancel_complete`, this gives
+`accepts ⟺ 3000 < now` for the same signed-locker context. -/
 theorem cancel_sound (now : Int) :
     validatorAccepts
       (mkClaimCtx dConcrete

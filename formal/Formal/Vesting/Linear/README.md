@@ -42,7 +42,7 @@ theorem's hypotheses describe the covered cases.
 |---|---|
 | `vested_preStart` | B3 (nothing vests before `start`) |
 | `vested_full` | I4 (all vested at/after `end`) |
-| `vested_le_total` | B1 (no over-release) |
+| `vested_le_total` | Total cap (`vested ≤ total`), not B1's floor bound |
 | `vested_nonneg`, `required_nonneg` | `vested ∈ [0, total]` |
 | `vested_mono` | B2 (`vested` non-decreasing in `now`) |
 
