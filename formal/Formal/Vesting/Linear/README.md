@@ -50,6 +50,7 @@ theorem's hypotheses describe the covered cases.
 
 | Theorem | Spec clause |
 |---|---|
+| `claim_complete_partial` | `C0–C4, I3` (constructed single-native-asset claim, valid schedule, `now < end`, matching payment credential) |
 | `claim_accept_generic_schedule` | C0–C4, I3 (general single-asset partial claim: symbolic identities, total, **schedule**, `now`, amount) |
 | `claim_accept_anytime` | C0–C4 across all `now`, symbolic ada (full-retention) |
 | `claim_complete_full` | §8.2, I4 (full claim once `now ≥ end`) |
@@ -83,10 +84,9 @@ theorem's hypotheses describe the covered cases.
 
 Track completion in [issue #17](https://github.com/no-witness-labs/contracts-library/issues/17).
 
-`claim_complete_partial` and `claim_sound_partial` contain `sorry` and remain
-unproved. A successful build does not complete them. Review their statements and
-assumptions before attempting general proofs; the restricted theorems above do
-not discharge these targets.
+`claim_sound_partial` contains `sorry` and remains unproved. A successful build
+does not complete it. Review its statement and assumptions before attempting a
+general proof; `claim_sound_partial_concrete` does not discharge this target.
 
 The continuation datum is kept **arbitrary** in the soundness and robustness
 theorems, so the proofs *derive* datum-reproduction rather than assume it.
@@ -95,6 +95,5 @@ theorems, so the proofs *derive* datum-reproduction rather than assume it.
 
 - **Multi-asset bundles** (`vesting` of length > 1): structural/unbounded, so
   likely only feasible at fixed small lengths.
-- **Unified `∀` statements**: the `sorry` targets above; would need a proof
-  strategy beyond direct symbolic execution (e.g. lemmas about the validator's
-  structure).
+- **General soundness**: complete the remaining `claim_sound_partial` target
+  above.

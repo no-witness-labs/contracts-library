@@ -41,7 +41,7 @@
     "id": "LV-005",
     "title": "Key-authorized claim acceptance",
     "category": "vesting-escrow",
-    "summary": "In constructed single-native-asset contexts, checked cases cover symbolic identities, a nonnegative total, start < now < finish, and sufficient continuation funding, with fixed address/ADA scaffolding. Fixed full-retention cases also cover other reference times. The broader partial-claim target remains unproved.",
+    "summary": "The compiled validator accepts constructed single-native-asset claims before vesting ends when the schedule is valid, the beneficiary key authorizes the claim, and the continuation preserves the input datum and payment credential and holds at least the required remainder. Other variants cover unconstrained recovery and fixed full-retention claims at any time.",
     "theorems": [
       "Formal.Vesting.Linear.Completeness.claim_accept_generic_schedule",
       "Formal.Vesting.Linear.Completeness.claim_accept_concrete",

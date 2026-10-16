@@ -25,12 +25,10 @@ open Formal.Vesting.Linear.Spec
 open Formal.Vesting.Linear.Soundness (mkClaimCtx mkClaimCtxW mkClaimCtxDouble withAsset scriptAddress)
 open Formal.Vesting.Linear.Script (spendValidator)
 
-/-- **Partial-claim completeness (spec ⇒ accepts).** Single-asset instance.
-
-A `Claim` that meets every §8 must-accept clause — beneficiary key signed (C1),
-well-formed schedule (C0), inline datum reproduced in the continuation (C2/C3),
-and the continuation holding at least the required remainder (C4) — is accepted
-by the compiled validator. -/
+/-- The compiled validator accepts the constructed single-native-asset claim
+before vesting ends when the schedule is valid, the beneficiary key appears in
+the signatories, and the continuation reproduces the input datum and payment
+credential and holds at least the required remainder. -/
 theorem claim_complete_partial
     (d : VestingDatum) (a : VestedAsset)
     (inLovelace outLovelace inQty outQty now : Int)
@@ -50,10 +48,15 @@ theorem claim_complete_partial
     outAddr.addressCredential = scriptAddress.addressCredential ∧ -- C3
     outQty ≥ required a.total d.startTime d.endTime now →     -- C4
       validatorAccepts ctx spendValidator := by
-  -- General (∀) version: too large for Z3 (hangs). Left as `sorry`. The
-  -- concrete instance below is the fast end-to-end check; generalize from it
-  -- one parameter at a time.
-  sorry
+  dsimp only
+  intro h
+  rcases d with ⟨beneficiary, locker, vesting, startTime, endTime, recoveryTime⟩
+  rcases outAddr with ⟨paymentCredential, stakingCredential⟩
+  rcases h with ⟨hVesting, hPolicy, hSchedule, hTime, ⟨key, hKey⟩, hAddress, hQty⟩
+  cases hVesting
+  cases hKey
+  cases hAddress
+  blaster
 
 /-- A specific, well-formed partial `Claim`, fully concrete:
 - one asset `assetA`, total 100, schedule `[1000, 2000]`, recovery 3000;
