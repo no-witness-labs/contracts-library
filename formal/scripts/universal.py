@@ -36,27 +36,27 @@ from pathlib import Path
 PURPOSES = {
     "mint": {
         "info": "(.MintingScript cs)", "key": "(.Minting cs)", "binders": "(cs : ByteString)",
-        "overrides": "txInfoMint := [(Data.B cs, Data.Map [(Data.B name, Data.I qty)])]",
+        "overrides": "txInfoMint := [(Data.B cs, Data.Map [(Data.B h.name, Data.I h.qty)])]",
         "consequence": "accepted a mint or burn under this script's hash; if the fallback is meant to handle "
                        "minting, declare the handler, otherwise anyone can mint"},
     "withdraw": {
-        "info": "(.RewardingScript (.ScriptCredential h))", "key": "(.Rewarding (.ScriptCredential h))",
-        "binders": "(h : ByteString)", "overrides": "txInfoWdrl := [(.ScriptCredential h, 0)]",
+        "info": "(.RewardingScript (.ScriptCredential cred))", "key": "(.Rewarding (.ScriptCredential cred))",
+        "binders": "(cred : ByteString)", "overrides": "txInfoWdrl := [(.ScriptCredential cred, 0)]",
         "consequence": "accepted a reward withdrawal for this script's credential; if the fallback is meant to "
                        "handle it, declare the handler, otherwise anyone can take the rewards"},
     "publish": {
-        "info": "(.CertifyingScript 0 (.TxCertRegStaking (.ScriptCredential h) none))",
-        "key": "(.Certifying 0 (.TxCertRegStaking (.ScriptCredential h) none))", "binders": "(h : ByteString)",
-        "overrides": "txInfoTxCerts := [.TxCertRegStaking (.ScriptCredential h) none]",
+        "info": "(.CertifyingScript 0 (.TxCertRegStaking (.ScriptCredential cred) none))",
+        "key": "(.Certifying 0 (.TxCertRegStaking (.ScriptCredential cred) none))", "binders": "(cred : ByteString)",
+        "overrides": "txInfoTxCerts := [.TxCertRegStaking (.ScriptCredential cred) none]",
         "consequence": "accepted a certificate for this script's credential (register, delegate, retire); "
                        "declare the handler or anyone can publish them"},
     "vote": {
-        "info": "(.VotingScript (.DRepVoter (.ScriptCredential h)))", "key": "(.Voting (.DRepVoter (.ScriptCredential h)))",
-        "binders": "(h : ByteString)", "overrides": "txInfoVotes := [(.DRepVoter (.ScriptCredential h), [])]",
+        "info": "(.VotingScript (.DRepVoter (.ScriptCredential cred)))", "key": "(.Voting (.DRepVoter (.ScriptCredential cred)))",
+        "binders": "(cred : ByteString)", "overrides": "txInfoVotes := [(.DRepVoter (.ScriptCredential cred), [])]",
         "consequence": "accepted a vote with this script as a DRep; declare the handler or anyone can vote with it"},
     "propose": {
-        "info": "(.ProposingScript 0 ⟨0, .ScriptCredential h, Data.I 0⟩)", "key": "(.Proposing 0 ⟨0, .ScriptCredential h, Data.I 0⟩)",
-        "binders": "(h : ByteString)", "overrides": "txInfoProposalProcedures := [⟨0, .ScriptCredential h, Data.I 0⟩]",
+        "info": "(.ProposingScript 0 ⟨0, .ScriptCredential cred, Data.I 0⟩)", "key": "(.Proposing 0 ⟨0, .ScriptCredential cred, Data.I 0⟩)",
+        "binders": "(cred : ByteString)", "overrides": "txInfoProposalProcedures := [⟨0, .ScriptCredential cred, Data.I 0⟩]",
         "consequence": "accepted a governance proposal guarded by this script; declare the handler or anyone can propose"},
 }
 
@@ -80,17 +80,18 @@ def resolve(ref, defs):
 class DataGen:
     """Build a Data term with the blueprint's shape: symbolic leaves, a Bool choice per sum type."""
 
-    def __init__(self, defs, prefix=""):
+    def __init__(self, defs, prefix="", ref="h."):
         self.defs = defs
         self.prefix = prefix
-        self.binders = []  # (name, lean type)
+        self.ref = ref  # how a term refers to a leaf: a field of the `h : Holes` argument
+        self.binders = []  # (field name, lean type)
         self.n = 0
 
     def fresh(self, ty, hint):
         self.n += 1
         name = f"{self.prefix}{hint}{self.n}"
         self.binders.append((name, ty))
-        return name
+        return f"{self.ref}{name}"
 
     def gen(self, schema, hint="x"):
         if "$ref" in schema:
@@ -133,19 +134,6 @@ class DataGen:
         return [("", self.gen(schema, hint), 0)]
 
 
-def binders_str(flags, leaves, bytes_=BYTES, ints=INTS, extra=""):
-    parts = []
-    if flags:
-        parts.append(f"({' '.join(flags)} : Bool)")
-    parts += [f"({n} : {t})" for n, t in leaves]
-    if bytes_:
-        parts.append(f"({' '.join(bytes_)} : ByteString)")
-    if ints:
-        parts.append(f"({' '.join(ints)} : Int)")
-    if extra:
-        parts.append(extra)
-    return " ".join(parts)
-
 
 OPENS = [
     "open PlutusCore.UPLC.Term (Program)",
@@ -167,6 +155,10 @@ blueprint. Nothing here was written by the validator's author. Design notes, lim
 review history are in `Universal/Notes.lean`; this header is the short form.
 
 ## What is open
+
+Every open value is a field of the `Holes` structure below; each check quantifies over one
+`h : Holes` and pins the fields it needs with hypotheses. The transaction is composed from the
+builders in `Universal.Harness`.
 
 - Shape flags: a second script input, a second output, where the first output goes (own script,
   a key, another script), two signers, one minted asset, a finite or absent lower validity bound.
@@ -203,38 +195,13 @@ def generate(name, cbor_path, declared, datum_term, out_datum_term, redeemer_var
     script_id = f"universal{camel}Script"
     prep_id = f"universal{camel}Prepared"
     undeclared = [p for p in PURPOSES if p not in declared]
-    leaf_args = " ".join(n for n, _ in leaves)
-    leaf_binders = " ".join(f"({n} : {t})" for n, t in leaves)
-    flag_args = " ".join(FLAGS)
-    val_args = " ".join(BYTES + INTS)
-    lean_flags = [f for f in FLAGS if f != "out1Foreign"]
-    real = "realistic inLov inLov2 outLov outLov2"
+    fields = [(f, "Bool") for f in FLAGS] + list(leaves) + [(x, "ByteString") for x in BYTES] + [(x, "Int") for x in INTS]
 
-    def spend(flags, rterm, full=False):
-        """A spend context. Only UP-011 needs the independent output datum and the foreign-script
-        destination; every other check pins them (output datum = input datum, no foreign script) so
-        Blaster does not pay for choices the check never uses."""
-        od = f"(datumOut {leaf_args})" if full else f"(datum {leaf_args})"
-        if not full:
-            flags = " ".join("false" if f == "out1Foreign" else f for f in flags.split())
-        return f"spendCtx {flags} (datum {leaf_args}) {od} {rterm} {val_args}"
-
-    # ---- Base module: the script, the shapes, the generic transaction ----
-    b = []
-    b.append(f"-- Generated by scripts/universal.py from the blueprint entry `{name}`. Do not edit; regenerate.")
-    b.append("import Blaster")
-    b.append("import PlutusCore.UPLC")
-    b.append("import CardanoLedgerApi.V3")
-    b.append("import CardanoLedgerApi.V1.Time")
-    b.append("import PlutusCore.UPLC.PreProcess")
-    b.append("import Formal.Common")
-    b.append("")
-    b.append(header_notes(name))
-    b.append("")
-    b.append(f"namespace {ns}")
-    b.append("")
-    b += OPENS
-    b.append("")
+    # ---- Base module: the script, the holes, the transaction composed from the harness ----
+    b = [f"-- Generated by scripts/universal.py from the blueprint entry `{name}`. Do not edit; regenerate.",
+         "import Blaster", "import PlutusCore.UPLC", "import CardanoLedgerApi.V3", "import CardanoLedgerApi.V1.Time",
+         "import PlutusCore.UPLC.PreProcess", "import Formal.Common", "import Universal.Harness", "",
+         header_notes(name), "", f"namespace {ns}", ""] + OPENS + ["open Universal.Harness", ""]
     b.append(f'#import_uplc {script_id} PlutusV3 single_cbor_hex "{cbor_path}"')
     if NO_PREP:
         b.append(f"def validator : Program := {script_id}.script")
@@ -250,66 +217,44 @@ def generate(name, cbor_path, declared, datum_term, out_datum_term, redeemer_var
     else:
         b.append("/-- Ledger rules (CardanoLedgerApi): a counterexample must be a transaction the chain would accept. -/")
         b.append("def valid (ctx : ScriptContext) : Prop := CardanoLedgerApi.V3.Contexts.validScriptContext ctx = true")
-    b.append("/-- Realism the ledger model does not enforce: no value below a plausible min-UTxO. -/")
-    b.append("def realistic (inLov inLov2 outLov outLov2 : Int) : Prop :=")
-    b.append(f"  {MIN_LOVELACE} ≤ inLov ∧ {MIN_LOVELACE} ≤ inLov2 ∧ {MIN_LOVELACE} ≤ outLov ∧ {MIN_LOVELACE} ≤ outLov2")
-    b.append("")
-    b.append('def scriptHash : ByteString := "fake_script_hash_28bytes!!!!"')
-    b.append("def scriptAddress : Address := ⟨.ScriptCredential scriptHash, none⟩")
-    b.append("def keyAddress (h : ByteString) : Address := ⟨.PubKeyCredential h, none⟩")
-    b.append("def foreignScriptAddress (h : ByteString) : Address := ⟨.ScriptCredential h, none⟩")
-    b.append('def ownRef : CardanoLedgerApi.V3.TxOutRef := ⟨"txid_placeholder_32bytes!!!!!!!!", 0⟩')
-    b.append('def ref2 : CardanoLedgerApi.V3.TxOutRef := ⟨"txid_placeholder_32bytes!!!!!!!!", 1⟩')
-    b.append('def adaOnly (lovelace : Int) : Value := [(Data.B "", Data.Map [(Data.B "", Data.I lovelace)])]')
-    b.append("def opt {α : Type} (b : Bool) (x : α) : List α := if b then [x] else []")
-    b.append("")
-    b.append("/-- Datum of the script's own input, with the blueprint's shape; leaves symbolic, sums chosen by Bool flags. -/")
-    b.append(f"def datum {leaf_binders} : Data := {datum_term}")
-    b.append("/-- Datum of the continuing output: same shape, independent leaves, so it may differ from the input's. -/")
-    b.append(f"def datumOut {leaf_binders} : Data := {out_datum_term}")
-    b.append("/-- Redeemers with the blueprint's shape, one per constructor; leaves symbolic. -/")
+    b += ["", "/-- Every open value of a spend of this validator, one field each. Blaster fills them. -/",
+          "structure Holes where"] + [f"  {n} : {t}" for n, t in fields]
+    b += ["", "/-- Realism the ledger model does not enforce: no value below a plausible min-UTxO. -/",
+          "def realistic (h : Holes) : Prop :=",
+          f"  {MIN_LOVELACE} ≤ h.inLov ∧ {MIN_LOVELACE} ≤ h.inLov2 ∧ {MIN_LOVELACE} ≤ h.outLov ∧ {MIN_LOVELACE} ≤ h.outLov2",
+          "",
+          'def own : ByteString := "fake_script_hash_28bytes!!!!"',
+          'def ownRef : CardanoLedgerApi.V3.TxOutRef := ⟨"txid_placeholder_32bytes!!!!!!!!", 0⟩',
+          'def ref2 : CardanoLedgerApi.V3.TxOutRef := ⟨"txid_placeholder_32bytes!!!!!!!!", 1⟩',
+          "",
+          "/-- Datum of the script's own input, with the blueprint's shape; sums chosen by flags in `h`. -/",
+          f"def datum (h : Holes) : Data := {datum_term}",
+          "/-- Datum of the continuing output: same shape, its own fields, so it may differ from the input's. -/",
+          f"def datumOut (h : Holes) : Data := {out_datum_term}",
+          "/-- Redeemers with the blueprint's shape, one per constructor. -/"]
     for rname, rterm, _ in redeemer_variants:
-        b.append(f"def redeemer{rname} {leaf_binders} : Data := {rterm}")
-    b.append("")
-    b.append("/-- Generic transaction: every covered list holds up to two items; the flags say which are present. -/")
-    b.append(f"def genTx ({flag_args} : Bool) (d od r : Data) ({' '.join(BYTES)} : ByteString) ({' '.join(INTS)} : Int) : TxInfo :=")
-    b.append("  let in1 : TxInInfo := ⟨ownRef, ⟨scriptAddress, adaOnly inLov, .OutputDatum d, none⟩⟩")
-    b.append("  let inB : TxInInfo := ⟨ref2, ⟨scriptAddress, adaOnly inLov2, .OutputDatum d, none⟩⟩")
-    b.append("  let minted := opt mint1 (Data.B policy, Data.Map [(Data.B name, Data.I qty)])")
-    b.append("  let dest1 : Address := if out1Script then scriptAddress else if out1Foreign then foreignScriptAddress payee else keyAddress payee")
-    b.append("  let o1 : TxOut := ⟨dest1, adaOnly outLov ++ minted, .OutputDatum od, none⟩")
-    b.append("  let o2 : TxOut := ⟨keyAddress payee2, adaOnly outLov2, .NoOutputDatum, none⟩")
-    b.append("  let range : POSIXTimeRange := if lowFin then after lo else everything")
-    b.append("  { txInfoInputs := [in1] ++ opt in2 inB")
-    b.append("    txInfoReferenceInputs := []")
-    b.append("    txInfoOutputs := [o1] ++ opt out2 o2")
-    b.append("    txInfoFee := fee")
-    b.append("    txInfoMint := minted")
-    b.append("    txInfoTxCerts := []")
-    b.append("    txInfoWdrl := []")
-    b.append("    txInfoValidRange := IsData.toData range")
-    b.append("    txInfoSignatories := opt sig1 s1 ++ opt sig2 s2")
-    b.append("    txInfoRedeemers := [(.Spending ownRef, r)] ++ opt in2 (.Spending ref2, r)")
-    b.append("    txInfoData := []")
-    b.append('    txInfoId := "txid_placeholder_32bytes!!!!!!!!"')
-    b.append("    txInfoVotes := []")
-    b.append("    txInfoProposalProcedures := []")
-    b.append("    txInfoCurrentTreasuryAmount := IsData.toData (none : Option Int)")
-    b.append("    txInfoTreasuryDonation := IsData.toData (none : Option Int) }")
-    b.append("")
-    b.append("/-- The script spending its own input `ownRef`, inside the generic transaction. -/")
-    b.append(f"def spendCtx ({flag_args} : Bool) (d od r : Data) ({' '.join(BYTES)} : ByteString) ({' '.join(INTS)} : Int) : ScriptContext :=")
-    b.append(f"  {{ scriptContextTxInfo := genTx {flag_args} d od r {val_args}")
-    b.append("    scriptContextRedeemer := r")
-    b.append("    scriptContextScriptInfo := .SpendingScript ownRef (some d) }")
-    b.append("")
-    b.append("/-- The script invoked for another purpose: the purpose's witness and redeemer entry are added to the transaction. -/")
-    b.append("def otherCtx (info : ScriptInfo) (key : ScriptPurpose) (rp : Data) (tx : TxInfo) : ScriptContext :=")
-    b.append("  { scriptContextTxInfo := { tx with txInfoRedeemers := (key, rp) :: tx.txInfoRedeemers }")
-    b.append("    scriptContextRedeemer := rp")
-    b.append("    scriptContextScriptInfo := info }")
-    b.append("")
-    b.append(f"end {ns}")
+        b.append(f"def redeemer{rname} (h : Holes) : Data := {rterm}")
+    b += ["",
+          "/-- The transaction body, composed from the harness builders. `od` is the continuing output's datum. -/",
+          "def txOf (h : Holes) (od r : Data) : TxInfo :=",
+          "  let d := datum h",
+          "  let minted := token h.mint1 h.policy h.name h.qty",
+          "  tx (scriptInput ownRef own (ada h.inLov) d :: optList h.in2 (scriptInput ref2 own (ada h.inLov2) d))",
+          "     (outputWithDatum (destination h.out1Script h.out1Foreign own h.payee) (ada h.outLov ++ minted) od",
+          "       :: optList h.out2 (payment (keyAddress h.payee2) (ada h.outLov2)))",
+          "     h.fee minted (validity h.lowFin h.lo) (upTo2 h.sig1 h.sig2 h.s1 h.s2)",
+          "     ((.Spending ownRef, r) :: optList h.in2 (.Spending ref2, r))",
+          "",
+          "/-- A spend whose continuing output repeats the input datum: what most checks use. -/",
+          "def ctx (h : Holes) (r : Data) : ScriptContext := spending (txOf h (datum h) r) ownRef (datum h) r",
+          "/-- A spend whose continuing output carries its own datum: what UP-011 uses. -/",
+          "def ctxFull (h : Holes) (r : Data) : ScriptContext := spending (txOf h (datumOut h) r) ownRef (datum h) r",
+          "/-- The script invoked for another purpose: the purpose's witness and redeemer entry are added. -/",
+          "def otherCtx (info : ScriptInfo) (key : ScriptPurpose) (rp : Data) (t : TxInfo) : ScriptContext :=",
+          "  { scriptContextTxInfo := { t with txInfoRedeemers := (key, rp) :: t.txInfoRedeemers }",
+          "    scriptContextRedeemer := rp",
+          "    scriptContextScriptInfo := info }",
+          "", f"end {ns}"]
     base_src = "\n".join(b) + "\n"
 
     # ---- One module per check ----
@@ -318,76 +263,70 @@ def generate(name, cbor_path, declared, datum_term, out_datum_term, redeemer_var
 
     def check(mod_name, oid, title, expect, consequence, severity, action, body, default_on=True):
         lines = [f"-- Generated by scripts/universal.py: {oid} for `{name}`. Do not edit; regenerate.",
-                 f"import {ns}.Base", "", f"namespace {ns}", ""] + OPENS + [""] + body + ["", f"end {ns}"]
+                 f"import {ns}.Base", "", f"namespace {ns}", ""] + OPENS + ["open Universal.Harness", ""] + body + ["", f"end {ns}"]
         modules.append((f"{ns}.{mod_name}", "\n".join(lines) + "\n"))
         obligations.append({"id": oid, "module": f"{ns}.{mod_name}", "title": title, "expect": expect,
                             "severity": severity, "action": action, "default_on": default_on,
-                            "consequence": consequence})
+                            "consequence": consequence, "fields": [n for n, _ in fields]})
 
-    all_b = binders_str(FLAGS, leaves)
-    lean_b = binders_str(lean_flags, leaves)
     typed_redeemer = redeemer_variants[0][0] != ""
     n_ctors = redeemer_variants[0][2]
+    pin = "h.out1Foreign = false →"  # only UP-011 lets the output go to another script
 
     for rname, _, _ in redeemer_variants:
         tag = f"/{rname}" if rname else ""
         act = rname or "spend"
-        rterm = f"(redeemer{rname} {leaf_args})"
-        ctx = spend(flag_args, rterm)
+        c = f"ctx h (redeemer{rname} h)"
         check(f"UP000_{act}", f"UP-000{tag}", f"sanity: action `{act}` is reachable", "Falsified",
               "no spend of the generated shapes is accepted: funds locked, or the action needs something the "
               "shape lacks (reference inputs, withdrawals, tokens on inputs, a third output)", "review", act, [
                   f"/-- UP-000{tag}: is any realistic valid spend with this action accepted? Blaster must FALSIFY this. -/",
-                  f"def alwaysRejects{rname} : Prop := ∀ {lean_b},",
-                  f"  valid ({ctx}) → {real} → rejects ({ctx})",
+                  f"def alwaysRejects{rname} : Prop := ∀ h : Holes, {pin}",
+                  f"  valid ({c}) → realistic h → rejects ({c})",
                   f"#blaster (solve-result: 1) [alwaysRejects{rname}]"])
         check(f"UP004_{act}", f"UP-004{tag}", f"action `{act}` is not always accepted", "Falsified",
               "this action accepts every realistic valid transaction of the generated shapes: an always-true branch",
               "hole", act, [
                   f"/-- UP-004{tag}: is any realistic valid spend with this action rejected? Blaster must FALSIFY this. -/",
-                  f"def alwaysAccepts{rname} : Prop := ∀ {lean_b},",
-                  f"  valid ({ctx}) → {real} → accepts ({ctx})",
+                  f"def alwaysAccepts{rname} : Prop := ∀ h : Holes, {pin}",
+                  f"  valid ({c}) → realistic h → accepts ({c})",
                   f"#blaster (solve-result: 1) [alwaysAccepts{rname}]"])
-        no_sig_flags = " ".join("false" if f in ("sig1", "sig2") else f for f in FLAGS)
-        no_sig_b = binders_str([f for f in lean_flags if f not in ("sig1", "sig2")], leaves)
-        ctx_ns = spend(no_sig_flags, rterm)
         check(f"UP002_{act}", f"UP-002{tag}", f"action `{act}` rejects a spend with no signatories", "Valid",
               "this action can be spent without any signature; by design only for scripts authenticated another way",
               "review", act, [
                   f"/-- UP-002{tag}: a realistic valid spend with no signatories is rejected (waive it for permissionless scripts). -/",
-                  f"theorem up002_{act} {no_sig_b} :",
-                  f"    valid ({ctx_ns}) → {real} → rejects ({ctx_ns}) := by",
+                  f"theorem up002_{act} : ∀ h : Holes, h.sig1 = false → h.sig2 = false → {pin}",
+                  f"    valid ({c}) → realistic h → rejects ({c}) := by",
                   "  blaster"])
-        at_script = " ".join("true" if f == "out1Script" else f for f in FLAGS)
-        moved = " ".join("false" if f == "out1Script" else f for f in FLAGS)
-        hij_b = binders_str([f for f in FLAGS if f != "out1Script"], leaves)
+        at = f"ctxFull {{ h with out1Script := true }} (redeemer{rname} h)"
+        moved = f"ctxFull {{ h with out1Script := false }} (redeemer{rname} h)"
         check(f"UP011_{act}", f"UP-011{tag}", f"action `{act}`: moving the continuing output is rejected", "Valid",
               "the same spend was accepted with the output moved elsewhere; confirm that paying out is intended "
               "for this action and this case, otherwise the datum can be hijacked", "review", act, [
                   f"/-- UP-011{tag}: a spend accepted with its output (any datum) back at the script is rejected once that output moves to a key or foreign script address. -/",
-                  f"theorem up011_{act} {hij_b} :",
-                  f"    valid ({spend(at_script, rterm, True)}) → valid ({spend(moved, rterm, True)}) → {real} →",
-                  f"    accepts ({spend(at_script, rterm, True)}) → rejects ({spend(moved, rterm, True)}) := by",
+                  f"theorem up011_{act} : ∀ h : Holes,",
+                  f"    valid ({at}) → valid ({moved}) → realistic h →",
+                  f"    accepts ({at}) → rejects ({moved}) := by",
                   "  blaster"])
 
     if typed_redeemer:
         check("UP005", "UP-005", "rejects a malformed redeemer", "Valid",
               "a redeemer that matches no declared action is accepted", "hole", "", [
                   "/-- UP-005: a realistic valid spend with a redeemer of the wrong shape is rejected: any integer, or any constructor the type lacks. -/",
-                  f"theorem up005_integer_redeemer {binders_str(lean_flags, leaves, extra='(m : Int)')} :",
-                  f"    valid ({spend(flag_args, '(Data.I m)')}) → {real} → rejects ({spend(flag_args, '(Data.I m)')}) := by",
+                  f"theorem up005_integer_redeemer : ∀ h : Holes, ∀ m : Int, {pin}",
+                  "    valid (ctx h (Data.I m)) → realistic h → rejects (ctx h (Data.I m)) := by",
                   "  blaster",
-                  f"theorem up005_unknown_constructor {binders_str(lean_flags, leaves, extra=f'(k : Nat) (hk : {n_ctors} ≤ k)')} :",
-                  f"    valid ({spend(flag_args, '(Data.Constr k [])')}) → {real} → rejects ({spend(flag_args, '(Data.Constr k [])')}) := by",
+                  f"theorem up005_unknown_constructor : ∀ h : Holes, ∀ k : Nat, {n_ctors} ≤ k → {pin}",
+                  "    valid (ctx h (Data.Constr k [])) → realistic h → rejects (ctx h (Data.Constr k [])) := by",
                   "  blaster"])
 
     for p in undeclared:
         spec = PURPOSES[p]
         check(f"UP001_{p}", f"UP-001/{p}", f"rejects undeclared purpose `{p}`", "Valid", spec["consequence"], "hole", "", [
             f"/-- UP-001/{p}: the script declares no `{p}` handler, so it must reject that purpose, even with the purpose's witness present. -/",
-            f"theorem up001_{p} {spec['binders']} {binders_str(FLAGS, leaves, extra='(rp : Int)')} :",
+            f"theorem up001_{p} : ∀ h : Holes, ∀ (rp : Int) {spec['binders']},",
             f"    rejects (otherCtx {spec['info']} {spec['key']} (Data.I rp)",
-            f"      {{ genTx {flag_args} (datum {leaf_args}) (datumOut {leaf_args}) (Data.I rp) {val_args} with {spec['overrides']} }}) := by",
+            f"      {{ txOf h (datumOut h) (Data.I rp) with {spec['overrides']} }}) := by",
             "  blaster"])
     return mod, base_src, modules, obligations
 
@@ -410,13 +349,18 @@ def run_and_parse(formal, obligations, nix_shell, jobs):
         rc = max(rc, proc.returncode)
     by_file = {o["module"].replace(".", "/") + ".lean": o["id"] for o in obligations}
     results = {o["id"]: [] for o in obligations}
+    current = None
     for raw in out.splitlines():
         m = LOC.search(raw)
         if m:
             path = m.group(1).lstrip("./")
-            for f, oid in by_file.items():
-                if path.endswith(f):
-                    results[oid].append(raw)
+            current = next((oid for f, oid in by_file.items() if path.endswith(f)), None)
+            if current:
+                results[current].append(raw)
+        elif current and raw.startswith("  "):
+            results[current].append(raw)  # a counterexample value printed on its own line
+        else:
+            current = None
     report = []
     for o in obligations:
         msgs = results[o["id"]]
@@ -438,11 +382,26 @@ def run_and_parse(formal, obligations, nix_shell, jobs):
         else:
             status = "UNKNOWN"
         witness = []
-        for raw in msgs:
-            m = re.search(r":\s*- (\w+): (.*)$", raw)
+        clean = lambda v: v.strip().replace("PlutusCore.ByteString.PlutusCore.ByteStringInternal.ByteString.mk ", "")
+        i = 0
+        while i < len(msgs):
+            m = re.search(r":\s*- (\w+): (.*)$", msgs[i])
+            if m and m.group(2).strip().endswith(".Holes.mk"):
+                # a structure: one value per following line, in field order; the last closes the paren
+                values = []
+                i += 1
+                while i < len(msgs) and not LOC.search(msgs[i]):
+                    values.append(msgs[i].strip())
+                    i += 1
+                if values and values[-1].endswith(")"):
+                    values[-1] = values[-1][:-1]
+                for field, val in zip(o.get("fields", []), values):
+                    witness.append(f"{field} = {clean(val)}")
+                continue
             if m:
-                val = m.group(2).replace("PlutusCore.ByteString.PlutusCore.ByteStringInternal.ByteString.mk ", "")
-                witness.append(f"{m.group(1)} = {val}")
+                val = clean(m.group(2))
+                witness.append(f"{m.group(1)} = {'any value' if val.startswith('$') else val}")
+            i += 1
         report.append({**o, "verdict": verdict, "status": status, "witness": ", ".join(witness)})
     return report, out, rc
 
@@ -481,12 +440,12 @@ def main():
             sys.exit(f"{name}: the prototype covers unparameterised validators with a spend handler")
         cbor = formal / "Universal" / "Demo" / "Scripts" / f"{name}.cbor"
         cbor.write_text(spend["compiledCode"])
-        gen = DataGen(defs)
+        gen = DataGen(defs, ref="h.")
         datum_term = gen.gen(spend["datum"]["schema"], "d") if spend.get("datum") else "Data.I 0"
         # The continuing output's datum keeps its leaves open but pins its sum types to the first
         # constructor even in full mode: UP-011 is the only user, and the extra choices made it the
         # one check that did not finish on vesting.
-        out_gen = DataGen(defs, prefix="o_")
+        out_gen = DataGen(defs, prefix="o_", ref="h.")
         out_gen.n = gen.n
         quick_before, QUICK = QUICK, True
         out_datum_term = out_gen.gen(spend["datum"]["schema"], "d") if spend.get("datum") else "Data.I 0"

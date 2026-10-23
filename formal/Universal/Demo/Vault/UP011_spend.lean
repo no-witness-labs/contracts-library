@@ -10,11 +10,12 @@ open CardanoLedgerApi.IsData.Class (IsData)
 open CardanoLedgerApi.V3 (Address ScriptContext ScriptInfo ScriptPurpose TxInfo TxInInfo TxOut Value)
 open CardanoLedgerApi.V1.Time (POSIXTimeRange after everything)
 open PlutusCore.UPLC.Utils (isSuccessful isUnsuccessful)
+open Universal.Harness
 
 /-- UP-011: a spend accepted with its output (any datum) back at the script is rejected once that output moves to a key or foreign script address. -/
-theorem up011_spend (in2 out2 out1Foreign sig1 sig2 mint1 lowFin : Bool) (owner1 : ByteString) (o_owner2 : ByteString) (any3 : Int) (s1 s2 payee payee2 policy name : ByteString) (inLov inLov2 outLov outLov2 qty lo fee : Int) :
-    valid (spendCtx in2 out2 true out1Foreign sig1 sig2 mint1 lowFin (datum owner1 o_owner2 any3) (datumOut owner1 o_owner2 any3) (redeemer owner1 o_owner2 any3) s1 s2 payee payee2 policy name inLov inLov2 outLov outLov2 qty lo fee) → valid (spendCtx in2 out2 false out1Foreign sig1 sig2 mint1 lowFin (datum owner1 o_owner2 any3) (datumOut owner1 o_owner2 any3) (redeemer owner1 o_owner2 any3) s1 s2 payee payee2 policy name inLov inLov2 outLov outLov2 qty lo fee) → realistic inLov inLov2 outLov outLov2 →
-    accepts (spendCtx in2 out2 true out1Foreign sig1 sig2 mint1 lowFin (datum owner1 o_owner2 any3) (datumOut owner1 o_owner2 any3) (redeemer owner1 o_owner2 any3) s1 s2 payee payee2 policy name inLov inLov2 outLov outLov2 qty lo fee) → rejects (spendCtx in2 out2 false out1Foreign sig1 sig2 mint1 lowFin (datum owner1 o_owner2 any3) (datumOut owner1 o_owner2 any3) (redeemer owner1 o_owner2 any3) s1 s2 payee payee2 policy name inLov inLov2 outLov outLov2 qty lo fee) := by
+theorem up011_spend : ∀ h : Holes,
+    valid (ctxFull { h with out1Script := true } (redeemer h)) → valid (ctxFull { h with out1Script := false } (redeemer h)) → realistic h →
+    accepts (ctxFull { h with out1Script := true } (redeemer h)) → rejects (ctxFull { h with out1Script := false } (redeemer h)) := by
   blaster
 
 end Universal.Demo.Vault

@@ -10,10 +10,11 @@ open CardanoLedgerApi.IsData.Class (IsData)
 open CardanoLedgerApi.V3 (Address ScriptContext ScriptInfo ScriptPurpose TxInfo TxInInfo TxOut Value)
 open CardanoLedgerApi.V1.Time (POSIXTimeRange after everything)
 open PlutusCore.UPLC.Utils (isSuccessful isUnsuccessful)
+open Universal.Harness
 
 /-- UP-002: a realistic valid spend with no signatories is rejected (waive it for permissionless scripts). -/
-theorem up002_spend (in2 out2 out1Script mint1 lowFin : Bool) (owner1 : ByteString) (o_owner2 : ByteString) (any3 : Int) (s1 s2 payee payee2 policy name : ByteString) (inLov inLov2 outLov outLov2 qty lo fee : Int) :
-    valid (spendCtx in2 out2 out1Script false false false mint1 lowFin (datum owner1 o_owner2 any3) (datum owner1 o_owner2 any3) (redeemer owner1 o_owner2 any3) s1 s2 payee payee2 policy name inLov inLov2 outLov outLov2 qty lo fee) → realistic inLov inLov2 outLov outLov2 → rejects (spendCtx in2 out2 out1Script false false false mint1 lowFin (datum owner1 o_owner2 any3) (datum owner1 o_owner2 any3) (redeemer owner1 o_owner2 any3) s1 s2 payee payee2 policy name inLov inLov2 outLov outLov2 qty lo fee) := by
+theorem up002_spend : ∀ h : Holes, h.sig1 = false → h.sig2 = false → h.out1Foreign = false →
+    valid (ctx h (redeemer h)) → realistic h → rejects (ctx h (redeemer h)) := by
   blaster
 
 end Universal.Demo.Vault_buggy

@@ -10,11 +10,12 @@ open CardanoLedgerApi.IsData.Class (IsData)
 open CardanoLedgerApi.V3 (Address ScriptContext ScriptInfo ScriptPurpose TxInfo TxInInfo TxOut Value)
 open CardanoLedgerApi.V1.Time (POSIXTimeRange after everything)
 open PlutusCore.UPLC.Utils (isSuccessful isUnsuccessful)
+open Universal.Harness
 
 /-- UP-001/propose: the script declares no `propose` handler, so it must reject that purpose, even with the purpose's witness present. -/
-theorem up001_propose (h : ByteString) (in2 out2 out1Script out1Foreign sig1 sig2 mint1 lowFin : Bool) (benefici1 : ByteString) (locker2 : ByteString) (policy3 : ByteString) (name4 : ByteString) (total5 : Int) (start_ti6 : Int) (end_time7 : Int) (recovery8 : Int) (o_benefici9 : ByteString) (o_locker10 : ByteString) (o_policy11 : ByteString) (o_name12 : ByteString) (o_total13 : Int) (o_start_ti14 : Int) (o_end_time15 : Int) (o_recovery16 : Int) (s1 s2 payee payee2 policy name : ByteString) (inLov inLov2 outLov outLov2 qty lo fee : Int) (rp : Int) :
-    rejects (otherCtx (.ProposingScript 0 ⟨0, .ScriptCredential h, Data.I 0⟩) (.Proposing 0 ⟨0, .ScriptCredential h, Data.I 0⟩) (Data.I rp)
-      { genTx in2 out2 out1Script out1Foreign sig1 sig2 mint1 lowFin (datum benefici1 locker2 policy3 name4 total5 start_ti6 end_time7 recovery8 o_benefici9 o_locker10 o_policy11 o_name12 o_total13 o_start_ti14 o_end_time15 o_recovery16) (datumOut benefici1 locker2 policy3 name4 total5 start_ti6 end_time7 recovery8 o_benefici9 o_locker10 o_policy11 o_name12 o_total13 o_start_ti14 o_end_time15 o_recovery16) (Data.I rp) s1 s2 payee payee2 policy name inLov inLov2 outLov outLov2 qty lo fee with txInfoProposalProcedures := [⟨0, .ScriptCredential h, Data.I 0⟩] }) := by
+theorem up001_propose : ∀ h : Holes, ∀ (rp : Int) (cred : ByteString),
+    rejects (otherCtx (.ProposingScript 0 ⟨0, .ScriptCredential cred, Data.I 0⟩) (.Proposing 0 ⟨0, .ScriptCredential cred, Data.I 0⟩) (Data.I rp)
+      { txOf h (datumOut h) (Data.I rp) with txInfoProposalProcedures := [⟨0, .ScriptCredential cred, Data.I 0⟩] }) := by
   blaster
 
 end Universal.Demo.Linear_vesting
