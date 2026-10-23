@@ -35,6 +35,12 @@ All are candidates, none accepted; each has its ticket (#22 to #37).
 
 ## The shape
 
+The open values are the fields of one `Holes` structure per validator; the transaction is
+composed from the builders in `Universal/Harness.lean`; each check quantifies over one
+`h : Holes` and pins the fields it needs with hypotheses. Blaster splits the structure into its
+fields, so nothing has to list them, and a counterexample comes back as one `Holes` value that
+the report prints field by field.
+
 Every covered list holds up to two items, a Bool flag per item. Every value is open. Every sum
 type in the datum or redeemer is a Bool choice between constructors. The continuing output's
 datum has its own leaves. A mint, when present, lands in the continuing output so the balance rule
@@ -58,8 +64,9 @@ one-minute run take far longer. Two controls:
   other constructors is not exercised, which is exactly what the review found. Use it to iterate,
   and the full mode for the result that counts.
 
-Measured on 2026-10-22 and 2026-10-23, batches of four: quick mode takes 1 minute per vault and
-6.5 minutes for vesting (the committed Aiken v1.1.22 build); full mode takes about a minute per vault (no sum types) and did not finish on vesting
+Measured on 2026-10-22 and 2026-10-23, batches of four: quick mode takes about a minute per vault
+and 4 minutes for vesting in the harness form (6.5 minutes in the earlier one-definition form, on
+the committed Aiken v1.1.22 build); full mode takes about a minute per vault (no sum types) and did not finish on vesting
 within 25 minutes, with the Claim sanity pair still running. An `if c then A else B` inside one
 theorem doubles the paths of one Z3 problem. The next step is to generate one module per
 combination of datum constructors instead (as the redeemer actions already are), so each module
@@ -124,7 +131,8 @@ one structure of holes (`Holes`, 23 fields), with the transaction composed from 
 pinning its fields with hypotheses (`h.sig1 = false → ...`). Same verdict (Valid), same time
 (6 s against 8 s for the generated module, both including Nix startup), and `rfl` shows the
 composed context is the generated one. So Blaster splits a structure into its fields, and the
-generator can emit a structure plus builders instead of listing every open value.
+generator now emits a structure plus builders instead of listing every open value: same verdicts
+on all three validators, and vesting runs in 4 minutes instead of 6.5.
 
 Names: `#import_uplc` and `#prep_uplc` declare their name outside any namespace, so the generator
 names them after the validator (`universalVaultScript`); `Demo/NoClash.lean` imports every

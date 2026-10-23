@@ -51,21 +51,23 @@ UP-000 and UP-004 are stated backwards, as a universal claim that Blaster must f
 
 ## How a check is stated
 
+The open values are the fields of one `Holes` structure per validator, and the transaction is composed from the small builders in [`Harness.lean`](Harness.lean): `optList`, `upTo2`, `scriptInput`, `outputWithDatum`, `payment`, `validity`, `tx`. Each check quantifies over one `h : Holes` and pins the fields it needs with hypotheses (`h.sig1 = false → ...`). This is the proof-harness pattern of Kani and of IOG's own `∀ input : SpendingInput` tests, with a bound on every list.
+
 The transaction is generic. Every list the shape covers holds up to two items, a Bool flag per item says whether it is present, and every value is open. Every sum type in the datum or the redeemer becomes a Bool-selected choice between its constructors, so a vesting beneficiary can be a key or a script. The continuing output carries a datum of the same shape with independent leaves, so it may differ from the input's. A mint, when present, lands in the continuing output, so the balance can absorb it. Blaster picks all the flags and values.
 
 On the spend checks, the ledger rules from CardanoLedgerApi (`validScriptContext`) are a hypothesis, plus one rule the model does not enforce: no value below 1,000,000 lovelace. So every witness and counterexample is a transaction the chain would accept: it pays a fee, it balances, and its outputs are not dust. The purpose checks are unconditional, and each purpose context carries the purpose's witness: the mint entry, the withdrawal, the certificate, the vote or the proposal, plus the matching redeemer entry.
 
 The script itself is loaded from the blueprint's `compiledCode` with `#import_uplc` and run through the CEK model with the shared predicates in [`Formal/Common.lean`](../Formal/Common.lean), one theorem per check.
 
-## Results on 2026-10-22
+## Results on 2026-10-23
 
 Quick mode (`--quick`: sum types pinned to their first constructor), batches of four modules in parallel:
 
 | Validator | Checks | Result | Time |
 | --- | --- | --- | --- |
-| `vault` | 9 | 8 pass; UP-011 review: a vault pays out anywhere by design | 1 min |
-| `vault_buggy` | 9 | 6 holes: always-true `spend`, and all five undeclared purposes accepted; UP-002 waived; UP-011 review | 1 min |
-| `linear_vesting` | 14 | 12 pass; UP-011 review on Claim and on Cancel, both pay out by design | 6.5 min |
+| `vault` | 9 | 8 pass; UP-011 review: a vault pays out anywhere by design | 75 s |
+| `vault_buggy` | 9 | 6 holes: always-true `spend`, and all five undeclared purposes accepted; UP-002 waived; UP-011 review | 61 s |
+| `linear_vesting` | 14 | 12 pass; UP-011 review on Claim and on Cancel, both pay out by design | 4 min |
 
 `linear_vesting` is the compiled code from this repository's committed `onchain/plutus.json` (Aiken v1.1.22). The two demo vaults were compiled from `Demo/aiken/` with Aiken v1.1.19.
 

@@ -5,6 +5,7 @@ import CardanoLedgerApi.V3
 import CardanoLedgerApi.V1.Time
 import PlutusCore.UPLC.PreProcess
 import Formal.Common
+import Universal.Harness
 
 /-!
 # Universal checks for `vault_buggy`
@@ -14,6 +15,10 @@ blueprint. Nothing here was written by the validator's author. Design notes, lim
 review history are in `Universal/Notes.lean`; this header is the short form.
 
 ## What is open
+
+Every open value is a field of the `Holes` structure below; each check quantifies over one
+`h : Holes` and pins the fields it needs with hypotheses. The transaction is composed from the
+builders in `Universal.Harness`.
 
 - Shape flags: a second script input, a second output, where the first output goes (own script,
   a key, another script), two signers, one minted asset, a finite or absent lower validity bound.
@@ -48,6 +53,7 @@ open CardanoLedgerApi.IsData.Class (IsData)
 open CardanoLedgerApi.V3 (Address ScriptContext ScriptInfo ScriptPurpose TxInfo TxInInfo TxOut Value)
 open CardanoLedgerApi.V1.Time (POSIXTimeRange after everything)
 open PlutusCore.UPLC.Utils (isSuccessful isUnsuccessful)
+open Universal.Harness
 
 #import_uplc universalVaultBuggyScript PlutusV3 single_cbor_hex "Universal/Demo/Scripts/vault_buggy.cbor"
 def validator : Program := universalVaultBuggyScript.script
@@ -55,61 +61,66 @@ def accepts (ctx : ScriptContext) : Prop := Formal.Common.validatorAccepts ctx v
 def rejects (ctx : ScriptContext) : Prop := Formal.Common.validatorRejects ctx validator
 /-- Ledger rules (CardanoLedgerApi): a counterexample must be a transaction the chain would accept. -/
 def valid (ctx : ScriptContext) : Prop := CardanoLedgerApi.V3.Contexts.validScriptContext ctx = true
-/-- Realism the ledger model does not enforce: no value below a plausible min-UTxO. -/
-def realistic (inLov inLov2 outLov outLov2 : Int) : Prop :=
-  1000000 ≤ inLov ∧ 1000000 ≤ inLov2 ∧ 1000000 ≤ outLov ∧ 1000000 ≤ outLov2
 
-def scriptHash : ByteString := "fake_script_hash_28bytes!!!!"
-def scriptAddress : Address := ⟨.ScriptCredential scriptHash, none⟩
-def keyAddress (h : ByteString) : Address := ⟨.PubKeyCredential h, none⟩
-def foreignScriptAddress (h : ByteString) : Address := ⟨.ScriptCredential h, none⟩
+/-- Every open value of a spend of this validator, one field each. Blaster fills them. -/
+structure Holes where
+  in2 : Bool
+  out2 : Bool
+  out1Script : Bool
+  out1Foreign : Bool
+  sig1 : Bool
+  sig2 : Bool
+  mint1 : Bool
+  lowFin : Bool
+  owner1 : ByteString
+  o_owner2 : ByteString
+  any3 : Int
+  s1 : ByteString
+  s2 : ByteString
+  payee : ByteString
+  payee2 : ByteString
+  policy : ByteString
+  name : ByteString
+  inLov : Int
+  inLov2 : Int
+  outLov : Int
+  outLov2 : Int
+  qty : Int
+  lo : Int
+  fee : Int
+
+/-- Realism the ledger model does not enforce: no value below a plausible min-UTxO. -/
+def realistic (h : Holes) : Prop :=
+  1000000 ≤ h.inLov ∧ 1000000 ≤ h.inLov2 ∧ 1000000 ≤ h.outLov ∧ 1000000 ≤ h.outLov2
+
+def own : ByteString := "fake_script_hash_28bytes!!!!"
 def ownRef : CardanoLedgerApi.V3.TxOutRef := ⟨"txid_placeholder_32bytes!!!!!!!!", 0⟩
 def ref2 : CardanoLedgerApi.V3.TxOutRef := ⟨"txid_placeholder_32bytes!!!!!!!!", 1⟩
-def adaOnly (lovelace : Int) : Value := [(Data.B "", Data.Map [(Data.B "", Data.I lovelace)])]
-def opt {α : Type} (b : Bool) (x : α) : List α := if b then [x] else []
 
-/-- Datum of the script's own input, with the blueprint's shape; leaves symbolic, sums chosen by Bool flags. -/
-def datum (owner1 : ByteString) (o_owner2 : ByteString) (any3 : Int) : Data := Data.Constr 0 [Data.B owner1]
-/-- Datum of the continuing output: same shape, independent leaves, so it may differ from the input's. -/
-def datumOut (owner1 : ByteString) (o_owner2 : ByteString) (any3 : Int) : Data := Data.Constr 0 [Data.B o_owner2]
-/-- Redeemers with the blueprint's shape, one per constructor; leaves symbolic. -/
-def redeemer (owner1 : ByteString) (o_owner2 : ByteString) (any3 : Int) : Data := Data.I any3
+/-- Datum of the script's own input, with the blueprint's shape; sums chosen by flags in `h`. -/
+def datum (h : Holes) : Data := Data.Constr 0 [Data.B h.owner1]
+/-- Datum of the continuing output: same shape, its own fields, so it may differ from the input's. -/
+def datumOut (h : Holes) : Data := Data.Constr 0 [Data.B h.o_owner2]
+/-- Redeemers with the blueprint's shape, one per constructor. -/
+def redeemer (h : Holes) : Data := Data.I h.any3
 
-/-- Generic transaction: every covered list holds up to two items; the flags say which are present. -/
-def genTx (in2 out2 out1Script out1Foreign sig1 sig2 mint1 lowFin : Bool) (d od r : Data) (s1 s2 payee payee2 policy name : ByteString) (inLov inLov2 outLov outLov2 qty lo fee : Int) : TxInfo :=
-  let in1 : TxInInfo := ⟨ownRef, ⟨scriptAddress, adaOnly inLov, .OutputDatum d, none⟩⟩
-  let inB : TxInInfo := ⟨ref2, ⟨scriptAddress, adaOnly inLov2, .OutputDatum d, none⟩⟩
-  let minted := opt mint1 (Data.B policy, Data.Map [(Data.B name, Data.I qty)])
-  let dest1 : Address := if out1Script then scriptAddress else if out1Foreign then foreignScriptAddress payee else keyAddress payee
-  let o1 : TxOut := ⟨dest1, adaOnly outLov ++ minted, .OutputDatum od, none⟩
-  let o2 : TxOut := ⟨keyAddress payee2, adaOnly outLov2, .NoOutputDatum, none⟩
-  let range : POSIXTimeRange := if lowFin then after lo else everything
-  { txInfoInputs := [in1] ++ opt in2 inB
-    txInfoReferenceInputs := []
-    txInfoOutputs := [o1] ++ opt out2 o2
-    txInfoFee := fee
-    txInfoMint := minted
-    txInfoTxCerts := []
-    txInfoWdrl := []
-    txInfoValidRange := IsData.toData range
-    txInfoSignatories := opt sig1 s1 ++ opt sig2 s2
-    txInfoRedeemers := [(.Spending ownRef, r)] ++ opt in2 (.Spending ref2, r)
-    txInfoData := []
-    txInfoId := "txid_placeholder_32bytes!!!!!!!!"
-    txInfoVotes := []
-    txInfoProposalProcedures := []
-    txInfoCurrentTreasuryAmount := IsData.toData (none : Option Int)
-    txInfoTreasuryDonation := IsData.toData (none : Option Int) }
+/-- The transaction body, composed from the harness builders. `od` is the continuing output's datum. -/
+def txOf (h : Holes) (od r : Data) : TxInfo :=
+  let d := datum h
+  let minted := token h.mint1 h.policy h.name h.qty
+  tx (scriptInput ownRef own (ada h.inLov) d :: optList h.in2 (scriptInput ref2 own (ada h.inLov2) d))
+     (outputWithDatum (destination h.out1Script h.out1Foreign own h.payee) (ada h.outLov ++ minted) od
+       :: optList h.out2 (payment (keyAddress h.payee2) (ada h.outLov2)))
+     h.fee minted (validity h.lowFin h.lo) (upTo2 h.sig1 h.sig2 h.s1 h.s2)
+     ((.Spending ownRef, r) :: optList h.in2 (.Spending ref2, r))
 
-/-- The script spending its own input `ownRef`, inside the generic transaction. -/
-def spendCtx (in2 out2 out1Script out1Foreign sig1 sig2 mint1 lowFin : Bool) (d od r : Data) (s1 s2 payee payee2 policy name : ByteString) (inLov inLov2 outLov outLov2 qty lo fee : Int) : ScriptContext :=
-  { scriptContextTxInfo := genTx in2 out2 out1Script out1Foreign sig1 sig2 mint1 lowFin d od r s1 s2 payee payee2 policy name inLov inLov2 outLov outLov2 qty lo fee
-    scriptContextRedeemer := r
-    scriptContextScriptInfo := .SpendingScript ownRef (some d) }
-
-/-- The script invoked for another purpose: the purpose's witness and redeemer entry are added to the transaction. -/
-def otherCtx (info : ScriptInfo) (key : ScriptPurpose) (rp : Data) (tx : TxInfo) : ScriptContext :=
-  { scriptContextTxInfo := { tx with txInfoRedeemers := (key, rp) :: tx.txInfoRedeemers }
+/-- A spend whose continuing output repeats the input datum: what most checks use. -/
+def ctx (h : Holes) (r : Data) : ScriptContext := spending (txOf h (datum h) r) ownRef (datum h) r
+/-- A spend whose continuing output carries its own datum: what UP-011 uses. -/
+def ctxFull (h : Holes) (r : Data) : ScriptContext := spending (txOf h (datumOut h) r) ownRef (datum h) r
+/-- The script invoked for another purpose: the purpose's witness and redeemer entry are added. -/
+def otherCtx (info : ScriptInfo) (key : ScriptPurpose) (rp : Data) (t : TxInfo) : ScriptContext :=
+  { scriptContextTxInfo := { t with txInfoRedeemers := (key, rp) :: t.txInfoRedeemers }
     scriptContextRedeemer := rp
     scriptContextScriptInfo := info }
 

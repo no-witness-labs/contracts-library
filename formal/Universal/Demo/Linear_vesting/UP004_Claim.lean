@@ -10,10 +10,11 @@ open CardanoLedgerApi.IsData.Class (IsData)
 open CardanoLedgerApi.V3 (Address ScriptContext ScriptInfo ScriptPurpose TxInfo TxInInfo TxOut Value)
 open CardanoLedgerApi.V1.Time (POSIXTimeRange after everything)
 open PlutusCore.UPLC.Utils (isSuccessful isUnsuccessful)
+open Universal.Harness
 
 /-- UP-004/Claim: is any realistic valid spend with this action rejected? Blaster must FALSIFY this. -/
-def alwaysAcceptsClaim : Prop := ∀ (in2 out2 out1Script sig1 sig2 mint1 lowFin : Bool) (benefici1 : ByteString) (locker2 : ByteString) (policy3 : ByteString) (name4 : ByteString) (total5 : Int) (start_ti6 : Int) (end_time7 : Int) (recovery8 : Int) (o_benefici9 : ByteString) (o_locker10 : ByteString) (o_policy11 : ByteString) (o_name12 : ByteString) (o_total13 : Int) (o_start_ti14 : Int) (o_end_time15 : Int) (o_recovery16 : Int) (s1 s2 payee payee2 policy name : ByteString) (inLov inLov2 outLov outLov2 qty lo fee : Int),
-  valid (spendCtx in2 out2 out1Script false sig1 sig2 mint1 lowFin (datum benefici1 locker2 policy3 name4 total5 start_ti6 end_time7 recovery8 o_benefici9 o_locker10 o_policy11 o_name12 o_total13 o_start_ti14 o_end_time15 o_recovery16) (datum benefici1 locker2 policy3 name4 total5 start_ti6 end_time7 recovery8 o_benefici9 o_locker10 o_policy11 o_name12 o_total13 o_start_ti14 o_end_time15 o_recovery16) (redeemerClaim benefici1 locker2 policy3 name4 total5 start_ti6 end_time7 recovery8 o_benefici9 o_locker10 o_policy11 o_name12 o_total13 o_start_ti14 o_end_time15 o_recovery16) s1 s2 payee payee2 policy name inLov inLov2 outLov outLov2 qty lo fee) → realistic inLov inLov2 outLov outLov2 → accepts (spendCtx in2 out2 out1Script false sig1 sig2 mint1 lowFin (datum benefici1 locker2 policy3 name4 total5 start_ti6 end_time7 recovery8 o_benefici9 o_locker10 o_policy11 o_name12 o_total13 o_start_ti14 o_end_time15 o_recovery16) (datum benefici1 locker2 policy3 name4 total5 start_ti6 end_time7 recovery8 o_benefici9 o_locker10 o_policy11 o_name12 o_total13 o_start_ti14 o_end_time15 o_recovery16) (redeemerClaim benefici1 locker2 policy3 name4 total5 start_ti6 end_time7 recovery8 o_benefici9 o_locker10 o_policy11 o_name12 o_total13 o_start_ti14 o_end_time15 o_recovery16) s1 s2 payee payee2 policy name inLov inLov2 outLov outLov2 qty lo fee)
+def alwaysAcceptsClaim : Prop := ∀ h : Holes, h.out1Foreign = false →
+  valid (ctx h (redeemerClaim h)) → realistic h → accepts (ctx h (redeemerClaim h))
 #blaster (solve-result: 1) [alwaysAcceptsClaim]
 
 end Universal.Demo.Linear_vesting
