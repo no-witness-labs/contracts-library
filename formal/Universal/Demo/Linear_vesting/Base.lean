@@ -19,7 +19,7 @@ review history are in `Universal/Notes.lean`; this header is the short form.
   a key, another script), two signers, one minted asset, a finite or absent lower validity bound.
 - Every value: lovelace amounts, fee, signers, policy, asset name, quantity, times.
 - The datum of the own input, with the blueprint's shape, independent leaves and a Bool choice per
-  sum type; the continuing output's datum has its own open leaves, sums pinned to the first constructor.
+  sum type (pinned to the first constructor: quick mode); the continuing output's datum has its own open leaves, sums pinned to the first constructor.
 - One redeemer per declared action, same treatment; any `Data` leaf is an open integer.
 
 ## What is not in the shape
@@ -49,8 +49,8 @@ open CardanoLedgerApi.V3 (Address ScriptContext ScriptInfo ScriptPurpose TxInfo 
 open CardanoLedgerApi.V1.Time (POSIXTimeRange after everything)
 open PlutusCore.UPLC.Utils (isSuccessful isUnsuccessful)
 
-#import_uplc importedScript PlutusV3 single_cbor_hex "Universal/Demo/Scripts/linear_vesting.cbor"
-def validator : Program := importedScript.script
+#import_uplc universalLinearVestingScript PlutusV3 single_cbor_hex "Universal/Demo/Scripts/linear_vesting.cbor"
+def validator : Program := universalLinearVestingScript.script
 def accepts (ctx : ScriptContext) : Prop := Formal.Common.validatorAccepts ctx validator
 def rejects (ctx : ScriptContext) : Prop := Formal.Common.validatorRejects ctx validator
 /-- Ledger rules (CardanoLedgerApi): a counterexample must be a transaction the chain would accept. -/
@@ -69,12 +69,12 @@ def adaOnly (lovelace : Int) : Value := [(Data.B "", Data.Map [(Data.B "", Data.
 def opt {α : Type} (b : Bool) (x : α) : List α := if b then [x] else []
 
 /-- Datum of the script's own input, with the blueprint's shape; leaves symbolic, sums chosen by Bool flags. -/
-def datum (benefici1 : ByteString) (benefici2 : ByteString) (c3 : Bool) (locker4 : ByteString) (locker5 : ByteString) (c6 : Bool) (policy7 : ByteString) (name8 : ByteString) (total9 : Int) (start_ti10 : Int) (end_time11 : Int) (recovery12 : Int) (o_benefici13 : ByteString) (o_locker14 : ByteString) (o_policy15 : ByteString) (o_name16 : ByteString) (o_total17 : Int) (o_start_ti18 : Int) (o_end_time19 : Int) (o_recovery20 : Int) : Data := Data.Constr 0 [(if c3 then Data.Constr 0 [Data.B benefici1] else Data.Constr 1 [Data.B benefici2]), (if c6 then Data.Constr 0 [Data.B locker4] else Data.Constr 1 [Data.B locker5]), Data.List [Data.Constr 0 [Data.B policy7, Data.B name8, Data.I total9]], Data.I start_ti10, Data.I end_time11, Data.I recovery12]
+def datum (benefici1 : ByteString) (locker2 : ByteString) (policy3 : ByteString) (name4 : ByteString) (total5 : Int) (start_ti6 : Int) (end_time7 : Int) (recovery8 : Int) (o_benefici9 : ByteString) (o_locker10 : ByteString) (o_policy11 : ByteString) (o_name12 : ByteString) (o_total13 : Int) (o_start_ti14 : Int) (o_end_time15 : Int) (o_recovery16 : Int) : Data := Data.Constr 0 [Data.Constr 0 [Data.B benefici1], Data.Constr 0 [Data.B locker2], Data.List [Data.Constr 0 [Data.B policy3, Data.B name4, Data.I total5]], Data.I start_ti6, Data.I end_time7, Data.I recovery8]
 /-- Datum of the continuing output: same shape, independent leaves, so it may differ from the input's. -/
-def datumOut (benefici1 : ByteString) (benefici2 : ByteString) (c3 : Bool) (locker4 : ByteString) (locker5 : ByteString) (c6 : Bool) (policy7 : ByteString) (name8 : ByteString) (total9 : Int) (start_ti10 : Int) (end_time11 : Int) (recovery12 : Int) (o_benefici13 : ByteString) (o_locker14 : ByteString) (o_policy15 : ByteString) (o_name16 : ByteString) (o_total17 : Int) (o_start_ti18 : Int) (o_end_time19 : Int) (o_recovery20 : Int) : Data := Data.Constr 0 [Data.Constr 0 [Data.B o_benefici13], Data.Constr 0 [Data.B o_locker14], Data.List [Data.Constr 0 [Data.B o_policy15, Data.B o_name16, Data.I o_total17]], Data.I o_start_ti18, Data.I o_end_time19, Data.I o_recovery20]
+def datumOut (benefici1 : ByteString) (locker2 : ByteString) (policy3 : ByteString) (name4 : ByteString) (total5 : Int) (start_ti6 : Int) (end_time7 : Int) (recovery8 : Int) (o_benefici9 : ByteString) (o_locker10 : ByteString) (o_policy11 : ByteString) (o_name12 : ByteString) (o_total13 : Int) (o_start_ti14 : Int) (o_end_time15 : Int) (o_recovery16 : Int) : Data := Data.Constr 0 [Data.Constr 0 [Data.B o_benefici9], Data.Constr 0 [Data.B o_locker10], Data.List [Data.Constr 0 [Data.B o_policy11, Data.B o_name12, Data.I o_total13]], Data.I o_start_ti14, Data.I o_end_time15, Data.I o_recovery16]
 /-- Redeemers with the blueprint's shape, one per constructor; leaves symbolic. -/
-def redeemerClaim (benefici1 : ByteString) (benefici2 : ByteString) (c3 : Bool) (locker4 : ByteString) (locker5 : ByteString) (c6 : Bool) (policy7 : ByteString) (name8 : ByteString) (total9 : Int) (start_ti10 : Int) (end_time11 : Int) (recovery12 : Int) (o_benefici13 : ByteString) (o_locker14 : ByteString) (o_policy15 : ByteString) (o_name16 : ByteString) (o_total17 : Int) (o_start_ti18 : Int) (o_end_time19 : Int) (o_recovery20 : Int) : Data := Data.Constr 0 []
-def redeemerCancel (benefici1 : ByteString) (benefici2 : ByteString) (c3 : Bool) (locker4 : ByteString) (locker5 : ByteString) (c6 : Bool) (policy7 : ByteString) (name8 : ByteString) (total9 : Int) (start_ti10 : Int) (end_time11 : Int) (recovery12 : Int) (o_benefici13 : ByteString) (o_locker14 : ByteString) (o_policy15 : ByteString) (o_name16 : ByteString) (o_total17 : Int) (o_start_ti18 : Int) (o_end_time19 : Int) (o_recovery20 : Int) : Data := Data.Constr 1 []
+def redeemerClaim (benefici1 : ByteString) (locker2 : ByteString) (policy3 : ByteString) (name4 : ByteString) (total5 : Int) (start_ti6 : Int) (end_time7 : Int) (recovery8 : Int) (o_benefici9 : ByteString) (o_locker10 : ByteString) (o_policy11 : ByteString) (o_name12 : ByteString) (o_total13 : Int) (o_start_ti14 : Int) (o_end_time15 : Int) (o_recovery16 : Int) : Data := Data.Constr 0 []
+def redeemerCancel (benefici1 : ByteString) (locker2 : ByteString) (policy3 : ByteString) (name4 : ByteString) (total5 : Int) (start_ti6 : Int) (end_time7 : Int) (recovery8 : Int) (o_benefici9 : ByteString) (o_locker10 : ByteString) (o_policy11 : ByteString) (o_name12 : ByteString) (o_total13 : Int) (o_start_ti14 : Int) (o_end_time15 : Int) (o_recovery16 : Int) : Data := Data.Constr 1 []
 
 /-- Generic transaction: every covered list holds up to two items; the flags say which are present. -/
 def genTx (in2 out2 out1Script out1Foreign sig1 sig2 mint1 lowFin : Bool) (d od r : Data) (s1 s2 payee payee2 policy name : ByteString) (inLov inLov2 outLov outLov2 qty lo fee : Int) : TxInfo :=

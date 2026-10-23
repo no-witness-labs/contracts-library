@@ -2,7 +2,7 @@
 
 A universal check is a security property that applies to any compiled validator, with nothing written by the validator's author. This folder holds a prototype. A generator reads a validator's blueprint (`plutus.json`) and writes the checks as Blaster theorems for that validator. It then runs them and prints a report, with a witness or counterexample for each verdict.
 
-The author only compiles. The same checks ran on the two demo vaults in [`Demo/aiken/`](Demo/aiken/) and on the catalogue's own [`linear_vesting`](../../onchain/validators/linear_vesting.ak). The generated modules and the compiled code are committed, so `lake build Universal.Demo.Linear_vesting` reproduces the vesting result without Python or Aiken.
+The author only compiles. The same checks ran on the two demo vaults in [`Demo/aiken/`](Demo/aiken/) and on the catalogue's own [`linear_vesting`](../../onchain/validators/linear_vesting.ak). The generated modules and the compiled code are committed, so `lake build Universal.Demo.Linear_vesting` reproduces the vesting result (quick mode) without Python or Aiken. Lean reports every failed check as an error, so that build ends in errors for any contract with a HOLE or a REVIEW item; vesting has two REVIEW items (UP-011). The script turns those errors into the labels below.
 
 This file is the short guide. The design notes, the prior art, why the shape is bounded, the review history, the limits and the candidate checks are in [`Notes.lean`](Notes.lean), so they build and ship with the modules; each generated module repeats the essentials in its header.
 

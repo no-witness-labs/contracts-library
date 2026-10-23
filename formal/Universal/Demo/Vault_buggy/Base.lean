@@ -19,7 +19,7 @@ review history are in `Universal/Notes.lean`; this header is the short form.
   a key, another script), two signers, one minted asset, a finite or absent lower validity bound.
 - Every value: lovelace amounts, fee, signers, policy, asset name, quantity, times.
 - The datum of the own input, with the blueprint's shape, independent leaves and a Bool choice per
-  sum type (pinned to the first constructor: quick mode); the continuing output's datum has its own open leaves, sums pinned to the first constructor.
+  sum type; the continuing output's datum has its own open leaves, sums pinned to the first constructor.
 - One redeemer per declared action, same treatment; any `Data` leaf is an open integer.
 
 ## What is not in the shape
@@ -49,8 +49,8 @@ open CardanoLedgerApi.V3 (Address ScriptContext ScriptInfo ScriptPurpose TxInfo 
 open CardanoLedgerApi.V1.Time (POSIXTimeRange after everything)
 open PlutusCore.UPLC.Utils (isSuccessful isUnsuccessful)
 
-#import_uplc importedScript PlutusV3 single_cbor_hex "Universal/Demo/Scripts/vault_buggy.cbor"
-def validator : Program := importedScript.script
+#import_uplc universalVaultBuggyScript PlutusV3 single_cbor_hex "Universal/Demo/Scripts/vault_buggy.cbor"
+def validator : Program := universalVaultBuggyScript.script
 def accepts (ctx : ScriptContext) : Prop := Formal.Common.validatorAccepts ctx validator
 def rejects (ctx : ScriptContext) : Prop := Formal.Common.validatorRejects ctx validator
 /-- Ledger rules (CardanoLedgerApi): a counterexample must be a transaction the chain would accept. -/

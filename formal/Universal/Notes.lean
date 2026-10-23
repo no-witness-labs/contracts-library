@@ -115,4 +115,16 @@ definition of payout and of required signer first.
 The Python generator is a stopgap. The intended form is a Lean command that reads the blueprint
 in the style of `#import_uplc`, with a Node wrapper for the report if one is needed, matching the
 repository's tooling. Tracked with the PRs on the fork.
+
+Proof harness experiment, 2026-10-23 (issue #38). UP-002 on the vault was restated by hand over
+one structure of holes (`Holes`, 23 fields), with the transaction composed from small builders
+(`optList`, `upTo2`, `output`, `tx`, ...) instead of one generated definition, and the property
+pinning its fields with hypotheses (`h.sig1 = false → ...`). Same verdict (Valid), same time
+(6 s against 8 s for the generated module, both including Nix startup), and `rfl` shows the
+composed context is the generated one. So Blaster splits a structure into its fields, and the
+generator can emit a structure plus builders instead of listing every open value.
+
+Names: `#import_uplc` and `#prep_uplc` declare their name outside any namespace, so the generator
+names them after the validator (`universalVaultScript`); `Demo/NoClash.lean` imports every
+`Base` and fails to build if two validators ever share a name.
 -/
