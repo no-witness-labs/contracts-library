@@ -63,7 +63,9 @@ Quick mode (`--quick`: sum types pinned to their first constructor), batches of 
 | --- | --- | --- | --- |
 | `vault` | 9 | 8 pass; UP-011 review: a vault pays out anywhere by design | 1 min |
 | `vault_buggy` | 9 | 6 holes: always-true `spend`, and all five undeclared purposes accepted; UP-002 waived; UP-011 review | 1 min |
-| `linear_vesting` | 14 | 12 pass; UP-011 review on Claim and on Cancel, both pay out by design | 5.5 min |
+| `linear_vesting` | 14 | 12 pass; UP-011 review on Claim and on Cancel, both pay out by design | 6.5 min |
+
+`linear_vesting` is the compiled code from this repository's committed `onchain/plutus.json` (Aiken v1.1.22). The two demo vaults were compiled from `Demo/aiken/` with Aiken v1.1.19.
 
 Full mode (every sum type a choice) on `linear_vesting`: not finished within 25 minutes; the Claim sanity pair alone was still running when the cap hit. Full mode finishes on the vaults (no sum types) in about a minute. Until the sum choices are generated as separate modules (see `Notes.lean`), quick mode is the practical run for vesting-sized contracts.
 
