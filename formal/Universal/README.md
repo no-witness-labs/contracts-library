@@ -1,6 +1,6 @@
 # Universal checks
 
-A universal check is a security property that applies to any compiled validator, with nothing written by the validator's author. This folder holds a prototype. A generator reads a validator's blueprint (`plutus.json`) and writes the checks as Blaster theorems for that validator. It then runs them and prints a report, with a witness or counterexample for each verdict.
+A universal property is a security property that applies to any compiled validator, with nothing written by the validator's author. This folder holds a prototype. A generator reads a validator's blueprint (`plutus.json`) and writes the checks as Blaster theorems for that validator. It then runs them and prints a report, with a witness or counterexample for each verdict.
 
 The author only compiles. The same checks ran on the two demo vaults in [`Demo/aiken/`](Demo/aiken/) and on the catalogue's own [`linear_vesting`](../../onchain/validators/linear_vesting.ak). The generated modules and the compiled code are committed, so `lake build Universal.Demo.Linear_vesting` reproduces the vesting result (quick mode) without Python or Aiken. Lean reports every failed check as an error, so that build ends in errors for any contract with a HOLE or a REVIEW item; vesting has two REVIEW items (UP-011). The script turns those errors into the labels below.
 
@@ -34,9 +34,11 @@ WAIVED    UP-002           action `spend` rejects a spend with no signatories
 | UNREACHED | No accepted spend exists for this action within the shape, so a "rejects" check for that action proved nothing. |
 | UNKNOWN | Blaster gave no verdict for this check. Silence is never counted as a pass. |
 
-## The checks
+## The candidates prototyped here
 
-| Check | Statement | Severity |
+Every property below is a candidate, not an accepted entry: each one has its ticket (#22 to #37) and nothing is decided yet. This prototype covers six of them.
+
+| Candidate | Statement | Severity |
 | --- | --- | --- |
 | UP-000, per action | Some realistic, ledger-valid spend with this redeemer is accepted. Otherwise funds are stuck, or the action needs a shape the generator lacks. | review |
 | UP-001, per undeclared purpose | The script rejects every purpose its blueprint declares no handler for (mint, withdraw, publish, vote, propose), with that purpose's witness and redeemer entry present in the transaction. | hole |

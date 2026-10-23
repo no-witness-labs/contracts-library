@@ -6,7 +6,7 @@ generator is `scripts/universal.py`; the user-facing summary is `Universal/READM
 
 ## The idea
 
-A universal check is a security property stated over what every validator shares: the compiled
+A universal property is a security property stated over what every validator shares: the compiled
 script as a black box, the script context around it, and what the compiler already reports in the
 blueprint (handlers, datum and redeemer shapes). The validator's author writes nothing. The
 catalogue writes each check once; the generator instantiates it on a validator; Blaster proves it
@@ -18,7 +18,9 @@ transaction: datum hijacking, redeemer tampering, validity tampering), and IOG's
 CardanoLedgerApiBlaster (`cannot_unlock_nft`, stated backwards with `solve-result: 1`), plus
 Lean-blaster's toy vesting example, whose `reject_other_purposes` is UP-001 on a model.
 
-## The checks
+## The candidates prototyped here
+
+All are candidates, none accepted; each has its ticket (#22 to #37).
 
 - UP-000, per action: some realistic, ledger-valid spend with this redeemer is accepted.
   Stated backwards and falsified; the witness is printed. Severity review.
@@ -101,7 +103,7 @@ Still open from the review: the ledger model does not check hash lengths, so a w
 one-byte key; UP-000's witness may be a datum no deployment would write (printed, so a reader can
 judge); the shape gaps listed above.
 
-## Candidates
+## Candidates not yet prototyped
 
 UP-006 to UP-008 (output back to the script: declared datum shape, same staking credential, at
 most N tokens); UP-009 (hashed-datum input still spendable; blocked: the pinned ledger model treats
