@@ -56,6 +56,14 @@ one-minute run take far longer. Two controls:
   other constructors is not exercised, which is exactly what the review found. Use it to iterate,
   and the full mode for the result that counts.
 
+Measured on 2026-10-22, batches of four: quick mode takes 1 minute per vault and 5.5 minutes for
+vesting; full mode takes about a minute per vault (no sum types) and did not finish on vesting
+within 25 minutes, with the Claim sanity pair still running. An `if c then A else B` inside one
+theorem doubles the paths of one Z3 problem. The next step is to generate one module per
+combination of datum constructors instead (as the redeemer actions already are), so each module
+costs what quick mode costs and the parallel build absorbs the count: two sums give four
+modules per check, not one module twice as hard.
+
 ## Why the shape, and not the open context
 
 IOG's documented pattern leaves the whole `ScriptContext` open under `validSpendingContext`

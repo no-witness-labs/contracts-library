@@ -65,7 +65,7 @@ Quick mode (`--quick`: sum types pinned to their first constructor), batches of 
 | `vault_buggy` | 9 | 6 holes: always-true `spend`, and all five undeclared purposes accepted; UP-002 waived; UP-011 review | 1 min |
 | `linear_vesting` | 14 | 12 pass; UP-011 review on Claim and on Cancel, both pay out by design | 5.5 min |
 
-Full mode (every sum type a choice) on `linear_vesting`: FULL_MODE_RESULT
+Full mode (every sum type a choice) on `linear_vesting`: not finished within 25 minutes; the Claim sanity pair alone was still running when the cap hit. Full mode finishes on the vaults (no sum types) in about a minute. Until the sum choices are generated as separate modules (see `Notes.lean`), quick mode is the practical run for vesting-sized contracts.
 
 Two of IOG's own patterns were tried and are not the default here. `#prep_uplc` (apply the script once to a symbolic context) finished in 15 seconds on the vault but not within 5 minutes on vesting; it stays behind `--prep`. A fully open context with no shape, as in IOG's `SellNFT` tests, did not finish the vesting sanity check within 5 minutes either. The bounded shape is what finishes.
 
