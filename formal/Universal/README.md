@@ -46,6 +46,7 @@ Every property below is a candidate, not an accepted entry: each one has its tic
 | UP-004, per action | Some realistic, ledger-valid spend with this redeemer is rejected. Otherwise the action is always true. | hole |
 | UP-005 | A realistic, ledger-valid spend with a malformed redeemer is rejected: any integer, and any constructor index the type lacks. Only when the blueprint types the redeemer. | hole |
 | UP-011, per action | A spend accepted with its output back at the script, carrying any datum, is rejected once that output moves to a key address or to another script's address. | review |
+| UP-013 | A realistic, ledger-valid spend whose validity range has no lower bound is rejected. Off by default; enable it for time-based scripts. | review |
 
 UP-000 and UP-004 are stated backwards, as a universal claim that Blaster must falsify (`#blaster (solve-result: 1)`), the way the `cannot_unlock_nft` test in Input Output's (IOG) CardanoLedgerApiBlaster does. The falsifying witness is a working transaction, found by Blaster, not supplied by anyone.
 
@@ -68,6 +69,8 @@ Quick mode (`--quick`: sum types pinned to their first constructor), batches of 
 | `linear_vesting` | 14 | 12 pass; UP-011 review on Claim and on Cancel, both pay out by design | 6.5 min |
 
 `linear_vesting` is the compiled code from this repository's committed `onchain/plutus.json` (Aiken v1.1.22). The two demo vaults were compiled from `Demo/aiken/` with Aiken v1.1.19.
+
+UP-013 is generated but off by default. Enabled, it would pass on `linear_vesting`, which rejects an unbounded range, and fail on both vaults, which never read the time (quick mode; vesting rechecked on the committed Aiken v1.1.22 build on 2026-10-23).
 
 Full mode (every sum type a choice) on `linear_vesting`: not finished within 25 minutes; the Claim sanity pair alone was still running when the cap hit. Full mode finishes on the vaults (no sum types) in about a minute. Until the sum choices are generated as separate modules (see `Notes.lean`), quick mode is the practical run for vesting-sized contracts.
 

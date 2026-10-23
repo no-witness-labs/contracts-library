@@ -32,6 +32,8 @@ All are candidates, none accepted; each has its ticket (#22 to #37).
 - UP-005: a malformed redeemer (any integer, any unknown constructor index) is rejected. Hole.
 - UP-011, per action: accepted with the continuing output at the script, carrying any datum, then
   rejected once that output moves to a key or another script. Review: paying out can be intended.
+- UP-013: a spend whose validity range has no lower bound is rejected. Off by default; a script
+  that never reads the time accepts such a range and that is fine. Review.
 
 ## The shape
 
@@ -108,7 +110,7 @@ judge); the shape gaps listed above.
 UP-006 to UP-008 (output back to the script: declared datum shape, same staking credential, at
 most N tokens); UP-009 (hashed-datum input still spendable; blocked: the pinned ledger model treats
 a resolved datum on a hashed-datum input as invalid); UP-010 (two script inputs, one output);
-UP-012 (one signer removed); UP-013 (unbounded validity range, off by default); UP-014 to UP-016
+UP-012 (one signer removed); UP-014 to UP-016
 (datum tampering, output reordering, own-policy token duplication). UP-010 and UP-012 need a
 definition of payout and of required signer first.
 

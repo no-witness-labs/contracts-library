@@ -389,6 +389,18 @@ def generate(name, cbor_path, declared, datum_term, out_datum_term, redeemer_var
             f"    rejects (otherCtx {spec['info']} {spec['key']} (Data.I rp)",
             f"      {{ genTx {flag_args} (datum {leaf_args}) (datumOut {leaf_args}) (Data.I rp) {val_args} with {spec['overrides']} }}) := by",
             "  blaster"])
+    # UP-013 unbounded validity range: off by default, only time-based scripts need it.
+    r0 = redeemer_variants[0][0]
+    rterm0 = f"(redeemer{r0} {leaf_args})"
+    unbounded = " ".join("false" if f == "lowFin" else f for f in FLAGS)
+    unb_b = binders_str([f for f in lean_flags if f != "lowFin"], leaves)
+    check("UP013", "UP-013", "rejects a spend with an unbounded validity range", "Valid",
+          "a time check passes on a range with no start; enable this check for time-based scripts",
+          "review", r0 or "spend", [
+              "/-- UP-013: a realistic valid spend whose validity range has no lower bound is rejected. Off by default. -/",
+              f"theorem up013_unbounded_validity_range {unb_b} :",
+              f"    valid ({spend(unbounded, rterm0)}) → {real} → rejects ({spend(unbounded, rterm0)}) := by",
+              "  blaster"], default_on=False)
     return mod, base_src, modules, obligations
 
 
