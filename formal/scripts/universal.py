@@ -400,7 +400,7 @@ def main():
                     print("           " + r["counterexample"])
             if status == "WAIVED":
                 print(f"           waived: {w.get('reason', '')}")
-            if status not in ("PASS", "FAIL", "WAIVED"):
+            if status not in ("PASS", "FAIL", "REVIEW", "WAIVED"):
                 print(f"           blaster said: {r['verdict']}")
 
 
