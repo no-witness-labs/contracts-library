@@ -16,10 +16,10 @@ python3 scripts/universal.py --blueprint ../onchain/plutus.json linear_vesting
 Each validator takes between 30 and 70 seconds. The report for the buggy vault ends like this:
 
 ```text
-❌ HOLE    UP-001/mint      rejects undeclared purpose `mint`
-           consequence: anyone could mint or burn tokens under this script's hash
-⚠️  WAIVED  UP-002           rejects a spend with no signatories
-           waived: demo waiver: pretend this vault is permissionless by design
+HOLE    UP-001/mint      rejects undeclared purpose `mint`
+        consequence: anyone could mint or burn tokens under this script's hash
+WAIVED  UP-002           rejects a spend with no signatories
+        waived: demo waiver: pretend this vault is permissionless by design
 ```
 
 HOLE means the check fails and almost no contract should fail it. REVIEW means the check fails but the behavior can be by design; the counterexample names the case to confirm or to waive. A waiver is one line in [`universal.json`](../universal.json), with a reason, and shows up in the report as WAIVED.

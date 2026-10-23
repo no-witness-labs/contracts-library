@@ -392,9 +392,8 @@ def main():
                 status = "WAIVED"
             elif status == "FAIL" and r["severity"] == "review":
                 status = "REVIEW"
-            mark = {"PASS": "✅", "FAIL": "❌", "REVIEW": "🔍", "WAIVED": "⚠️ "}.get(status, "❓")
             label = "HOLE" if status == "FAIL" else status
-            print(f"{mark} {label:<7} {r['id']:<16} {r['title']}")
+            print(f"{label:<7} {r['id']:<16} {r['title']}")
             if status in ("FAIL", "REVIEW"):
                 print(f"           consequence: {r['consequence']}")
                 if r["counterexample"]:
