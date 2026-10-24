@@ -88,3 +88,7 @@ verify: flats
 clean:
     rm -rf {{artifacts}} {{scripts}}
     nix develop --command lake clean
+
+# Universal checks (prototype): generate, prove and report for one validator of ../onchain.
+universal validator="linear_vesting":
+    nix develop --command python3 scripts/universal.py --blueprint {{onchain}}/plutus.json {{validator}}
