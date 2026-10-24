@@ -22,6 +22,36 @@ just universal-local    # with Lean, Z3 and gawk already on PATH
 The generated file sets `set_option Elab.async false`, so Lean checks one proof at a time, in file order, and prints each result as soon as it is known.
 In the brackets, `UP-0xx` is the number of the corresponding property in Jonathan's catalogue.
 
+## Why the checks are split this way
+
+A universal check is useful only if a pass means what the property says, for every transaction the check claims to cover.
+A check that passes because it considered too few transactions is worse than no check, because it reads as assurance.
+
+The earlier checks, in Jonathan's commits, covered the whole catalogue, but they finished only by narrowing the transactions:
+
+- Every list held at most two items.
+- In the fast mode, every sum type was fixed to its first constructor.
+
+A pass then held only for those transactions.
+Some checks could not fail at all: when no address has a staking part, "the continuing output keeps its staking credential" always holds.
+Without the narrowing, the checks did not finish: Jonathan's notes record the full mode not finishing on vesting within 25 minutes.
+
+The cause is how Blaster works, explained at the top of `DEAD_ENDS.md`.
+Any property about what the script does after decoding its arguments, such as checking signatories or payments, requires the script's accepting run with every part of the transaction a variable, and that run does not finish.
+
+So the checks are split by what can be proved:
+
+- G1 and G2 are proved over every transaction, with nothing fixed, because the script rejects while it decodes its arguments, before it reads the transaction.
+- Every other property is an H check, on an honest transaction.
+  With a concrete transaction, the script follows a single path.
+  Because the transaction is one the script accepts (H1), a pass cannot hold for the wrong reason.
+
+This is a good place to stop for the general checks.
+G1 and G2 appear to be what Blaster can prove automatically for any validator, and extending the general checks further brings back the narrowing described above.
+What remains is writing honest transactions for each contract, which adds coverage without changing the design.
+
+Several ideas come from Jonathan's commits: the UP catalogue and its numbering, generating the checks from the blueprint, and testing by changing one thing in an accepted transaction.
+
 ## How to read a result
 
 For a G check, a pass is Blaster's message `✅ Valid`, followed by the warning `declaration uses 'blasterProven'` at the theorem's line.
