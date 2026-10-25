@@ -10,6 +10,7 @@ namespace Formal.Universal.Properties
 open PlutusCore.UPLC.Term (Program Term Const)
 open PlutusCore.UPLC.CekMachine (State step initialState applyParams)
 open PlutusCore.Data (Data)
+open PlutusCore.ByteString (ByteString)
 open CardanoLedgerApi.V3
 
 /-- CEK step bound used by generated checks; not a ledger CPU or memory budget. -/
@@ -87,6 +88,51 @@ def signatoriesOf (h : ScriptContext) : List PubKeyHash := h.scriptContextTxInfo
 
 def withSignatories (h : ScriptContext) (sigs : List PubKeyHash) : ScriptContext :=
   { h with scriptContextTxInfo := { h.scriptContextTxInfo with txInfoSignatories := sigs } }
+
+def keyAddr (h : PubKeyHash) : Address := ⟨.PubKeyCredential h, none⟩
+
+def withOutputs (h : ScriptContext) (outs : List TxOut) : ScriptContext :=
+  { h with scriptContextTxInfo := { h.scriptContextTxInfo with txInfoOutputs := outs } }
+
+/-- The input being spent, if the context is a spend and the input is in the transaction. -/
+def ownInput? (ctx : ScriptContext) : Option TxInInfo :=
+  match ctx.scriptContextScriptInfo with
+  | .SpendingScript ref _ => ctx.scriptContextTxInfo.txInfoInputs.find? (fun i => i.txInInfoOutRef == ref)
+  | _ => none
+
+/-- The key that receives redirected or pocketed value. -/
+def attackerKey : ByteString := "61747461636b6572"
+
+/-- `h` with every output back to the script sent to `attackerKey` instead, without a datum.
+    "The member needs its continuations" is that this is rejected. -/
+def redirectContinuations (h : ScriptContext) : ScriptContext :=
+  match ownInput? h with
+  | some i =>
+      withOutputs h (List.map (fun (o : TxOut) =>
+        if o.txOutAddress.addressCredential == i.txInInfoResolved.txOutAddress.addressCredential then
+          { o with txOutAddress := keyAddr attackerKey, txOutDatum := .NoOutputDatum }
+        else o) h.scriptContextTxInfo.txInfoOutputs)
+  | none => h
+
+/-- Whether `o` goes back to the script: it has the payment credential of the input being spent. -/
+def isContinuation (h : ScriptContext) (o : TxOut) : Bool :=
+  match ownInput? h with
+  | some i => o.txOutAddress.addressCredential == i.txInInfoResolved.txOutAddress.addressCredential
+  | none => false
+
+/-- `outs` with `f` applied to the first output satisfying `p`. -/
+def changeFirst (p : TxOut → Bool) (f : TxOut → TxOut) : List TxOut → List TxOut
+  | [] => []
+  | o :: os => if p o then f o :: os else o :: changeFirst p f os
+
+/-- `h` with `f` applied to its first output back to the script. With `reverseOutputs` and `rotateOutputs` checking that the
+    order of outputs does not matter, this stands for any output back to the script. -/
+def changeContinuation (h : ScriptContext) (f : TxOut → TxOut) : ScriptContext :=
+  withOutputs h (changeFirst (isContinuation h) f h.scriptContextTxInfo.txInfoOutputs)
+
+/-- The first output back to the script, if any. -/
+def firstContinuation? (h : ScriptContext) : Option TxOut :=
+  h.scriptContextTxInfo.txInfoOutputs.find? (isContinuation h)
 
 end Formal.Universal.Properties
 
