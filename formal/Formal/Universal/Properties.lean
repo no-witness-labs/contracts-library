@@ -88,6 +88,13 @@ def signatoriesOf (h : ScriptContext) : List PubKeyHash := h.scriptContextTxInfo
 def withSignatories (h : ScriptContext) (sigs : List PubKeyHash) : ScriptContext :=
   { h with scriptContextTxInfo := { h.scriptContextTxInfo with txInfoSignatories := sigs } }
 
+def withRange (h : ScriptContext) (r : Data) : ScriptContext :=
+  { h with scriptContextTxInfo := { h.scriptContextTxInfo with txInfoValidRange := r } }
+
+/-- The validity range (−∞, +∞), as ledger `Data`. -/
+def rangeAlways : Data :=
+  .Constr 0 [.Constr 0 [.Constr 0 [], .Constr 1 []], .Constr 0 [.Constr 2 [], .Constr 1 []]]
+
 end Formal.Universal.Properties
 
 /-!
