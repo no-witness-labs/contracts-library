@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Turn one validator of an Aiken blueprint (plutus.json) into Lean, in two passes.
 
-Usage, from formal/ (or with `just blueprint <validator> <folder>` and `just cbor <validator>`):
+Usage, from formal/ (scripts/universal.py calls it for the justfile's validator recipes):
   scripts/process_blueprint.py ../onchain/plutus.json linear_vesting --out Formal/Vesting/Linear/Blueprint
   scripts/process_blueprint.py ../onchain/plutus.json dao/stake.stake --out Formal/Dao/Stake/Blueprint
   scripts/process_blueprint.py ../onchain/plutus.json linear_vesting --cbor-only --scripts Scripts
@@ -842,7 +842,7 @@ def general(info):
 # The H checks that `--checks` can select (H1 is always generated). H6 and H21 are written as
 # comments whatever is selected: their form is still to be decided.
 SELECTABLE = ["H2", "H3", "H4", "H5", "H7", "H8", "H9", "H10", "H11", "H12", "H13", "H14", "H15",
-              "H16", "H17", "H18", "H19", "H23", "H24", "H25", "H26"]
+              "H16", "H17", "H18", "H19", "H23", "H24", "H25", "H26", "H27"]
 DEFERRED = ["H6", "H21"]
 
 
@@ -893,7 +893,6 @@ def honest(info, selected):
             n = f"{h.purpose}_{a}"
             sigs = f"(signatoriesOf {x})"
             outs = f"(outputsOf {x})"
-            cont = f"i ∈ continuingPositions {x}"
             needs = R(f"(redirectContinuations {x})")
 
             emit("H1", "H1 (UP-000)", "some member of the shape is valid in the ledger model and accepted.",
@@ -908,45 +907,47 @@ def honest(info, selected):
             change_check("H4", "H4", "with its first signatory replaced by a key not in the list, it is rejected.",
                          n, x, ["(k : PubKeyHash)"], [f"{sigs} ≠ []", f"{sigs}.contains k = false"], ch, R(ch))
             if spend:
-                ch = f"(changeOutput {x} i (fun o => {{ o with txOutAddress := addr }}))"
-                change_check("H5", "H5 (UP-011)", "with the address of an output back to the script changed, "
-                             "it is rejected (for members that need their continuations).", n, x,
-                             ["(i : Nat)", "(addr : Address)"],
-                             [needs, cont, f"(∀ o, {outs}[i]? = some o → o.txOutAddress ≠ addr)"], ch, R(ch))
+                first = f"(firstContinuation? {x})"
+                ch = (f"(changeContinuation {x} (fun o => {{ o with txOutAddress := "
+                      f"{{ o.txOutAddress with addressCredential := c }} }}))")
+                change_check("H5", "H5 (UP-011)", "with the payment credential of its first output back to the "
+                             "script changed, it is rejected (for members that need their continuations; the "
+                             "staking part is H9's).", n, x, ["(c : Credential)"],
+                             [needs, f"{first}.any (fun o => o.txOutAddress.addressCredential == c) = false"], ch, R(ch))
                 if info.datum_type is not None and info.datum_kind == "constructors" and info.datum_ctors:
                     w = Terms(tr)
                     w.n = 200
                     good = w.term(info.datum_type)
-                    ch = f"(changeOutput {x} i (fun o => {{ o with txOutDatum := .OutputDatum {good} }}))"
-                    change_check("H7", "H7 (UP-014)", "with an output back to the script given another "
+                    ch = f"(changeContinuation {x} (fun o => {{ o with txOutDatum := .OutputDatum {good} }}))"
+                    change_check("H7", "H7 (UP-014)", "with its first output back to the script given another "
                                  "well-formed datum, it is rejected (for members that need their continuations).",
-                                 n, x, ["(i : Nat)"] + w.binders,
-                                 [needs, cont, f"(∀ o, {outs}[i]? = some o → o.txOutDatum ≠ .OutputDatum {good})"],
+                                 n, x, w.binders,
+                                 [needs, f"{first}.any (fun o => o.txOutDatum == .OutputDatum {good}) = false"],
                                  ch, R(ch))
-                    for sfx, text, bs, term in malformed(tr, info.datum_kind, info.datum_ctors, 100, fixed=True):
-                        ch = f"(changeOutput {x} i (fun o => {{ o with txOutDatum := .OutputDatum {term} }}))"
-                        change_check("H8", "H8 (UP-006)", f"with an output back to the script given a datum that "
-                                     f"is {text}, it is rejected (for members that need their continuations).",
-                                     f"{n}_{sfx}", x, ["(i : Nat)"] + bs, [needs, cont], ch, R(ch))
-                ch = (f"(changeOutput {x} i (fun o => {{ o with txOutAddress := "
+                    k = len(info.datum_ctors)
+                    ch = f"(changeContinuation {x} (fun o => {{ o with txOutDatum := reindexOutputDatum {k} o.txOutDatum }}))"
+                    change_check("H8", "H8 (UP-006)", f"with the datum of its first output back to the script given "
+                                 f"the unknown constructor index {k}, keeping its fields, it is rejected (for members "
+                                 "that need their continuations).", n, x, [], [needs], ch, R(ch))
+                ch = (f"(changeContinuation {x} (fun o => {{ o with txOutAddress := "
                       f"{{ o.txOutAddress with addressStakingCredential := sc }} }}))")
-                change_check("H9", "H9 (UP-007)", "with an output back to the script given another staking "
+                change_check("H9", "H9 (UP-007)", "with its first output back to the script given another staking "
                              "credential, it is rejected (for members that need their continuations).", n, x,
-                             ["(i : Nat)", "(sc : Option StakingCredential)"],
-                             [needs, cont, f"(∀ o, {outs}[i]? = some o → o.txOutAddress.addressStakingCredential ≠ sc)"],
+                             ["(sc : Option StakingCredential)"],
+                             [needs, f"{first}.any (fun o => o.txOutAddress.addressStakingCredential == sc) = false"],
                              ch, R(ch))
-                ch = f"(addJunkFrom {x} i r a)"
-                change_check("H10", "H10 (UP-008)", "with a junk token from a new input added to an output back "
-                             "to the script, it is rejected (for members that need their continuations).", n, x,
-                             ["(i : Nat)", "(r : TxOutRef)", "(a : Int)"], [needs, cont], ch, R(ch))
+                ch = f"(addJunkFrom {x} r a)"
+                change_check("H10", "H10 (UP-008)", "with a junk token from a new input appended to its first "
+                             "output back to the script, it is rejected (for members that need their continuations).", n, x,
+                             ["(r : TxOutRef)", "(a : Int)"], [needs], ch, R(ch))
                 d = f"(addSpendOf {x} {y} r)"
                 dq = f"(asSpendOf {d} {y} r)"
-                verdict = (f"({R(d)} ∨ {R(dq)} ∨ {A(f'(redirectContinuations {d})')} ∨ "
-                           f"{A(f'(redirectContinuations {dq})')})")
+                verdict = (f"({R(d)} ∨ {R(dq)} ∨ {A(f'(redirectOutputs {d})')} ∨ "
+                           f"{A(f'(redirectOutputs {dq})')})")
                 change_check("H11", "H11 (UP-010, double satisfaction)", "with the input of any second valid "
                              "accepted member added, its value pocketed and the outputs unchanged, the two script "
-                             "runs do not both accept while both relying on the outputs back to the script: one "
-                             "run rejects, or one run still accepts with those outputs redirected.", n, x,
+                             "runs do not both accept while both relying on the outputs: one run rejects, or one "
+                             "run still accepts with every output redirected.", n, x,
                              ["q", "r"], [V(y), A(y)], d, verdict)
             ch = f"(withRange {x} rangeAlways)"
             change_check("H12", "H12 (UP-013)", "with an unbounded validity range, it is rejected.", n, x,
@@ -969,14 +970,17 @@ def honest(info, selected):
             ch = f"(withOutputs {x} {outs}.reverse)"
             change_check("H16", "H16 (UP-015)", "with its outputs in reverse order, it is still accepted.", n, x,
                          [], [], ch, A(ch), accept=True)
+            ch = f"(rotateOutputs {x})"
+            change_check("H27", "H27 (UP-015)", "with its first output moved to the end, it is still accepted.", n, x,
+                         [], [], ch, A(ch), accept=True)
             ch = f"(addUnrelatedOutput {x} r a)"
             change_check("H17", "H17", "with an unrelated input and output added, it is still accepted.", n, x,
                          ["(r : TxOutRef)", "(a : Int)"], [], ch, A(ch), accept=True)
-            if spend and info.datum_type is not None and info.datum_kind not in ("any", "none"):
-                for sfx, text, bs, term in malformed(tr, info.datum_kind, info.datum_ctors, 100, fixed=True):
-                    ch = f"(withSpendDatum {x} {term})"
-                    change_check("H18", "H18", f"with its datum replaced by {text}, it is rejected.",
-                                 f"{n}_{sfx}", x, bs, [], ch, R(ch))
+            if spend and info.datum_kind == "constructors" and info.datum_ctors:
+                k = len(info.datum_ctors)
+                ch = f"(reindexSpendDatum {x} {k})"
+                change_check("H18", "H18", f"with its datum given the unknown constructor index {k}, keeping its "
+                             "fields, it is rejected.", n, x, [], [], ch, R(ch))
             if spend:
                 ch = f"(withoutSpendDatum {x})"
                 change_check("H19", "H19", "without a datum, it is rejected (review: some validators allow this "
@@ -984,17 +988,17 @@ def honest(info, selected):
             ch = f"(addUnrelatedInputFirst {x} r a)"
             change_check("H23", "H23", "with an unrelated input added before its own and an unrelated output, "
                          "it is still accepted.", n, x, ["(r : TxOutRef)", "(a : Int)"], [], ch, A(ch), accept=True)
-            ch = f"(withSignatories {x} (List.append {sigs} [k]))"
-            change_check("H24", "H24", "with an extra signatory, it is still accepted.", n, x,
-                         ["(k : PubKeyHash)"], [f"k ∉ {sigs}"], ch, A(ch), accept=True)
+            ch = f"(withSignatories {x} (k :: {sigs}))"
+            change_check("H24", "H24", "with an extra signatory, not already in the list, added first, it is still "
+                         "accepted.", n, x, ["(k : PubKeyHash)"], [f"{sigs}.contains k = false"], ch, A(ch), accept=True)
             ch = f"(addUnrelatedMint {x} r a)"
             change_check("H25", "H25", "with an unrelated token minted and sent to an unrelated output, it is "
                          "still accepted.", n, x, ["(r : TxOutRef)", "(a : Int)"], [], ch, A(ch), accept=True)
             if spend:
-                ch = f"(changeOutput {x} i (fun o => {{ o with txOutReferenceScript := some s }}))"
-                change_check("H26", "H26", "with a reference script on an output back to the script, it is "
+                ch = f"(changeContinuation {x} (fun o => {{ o with txOutReferenceScript := some s }}))"
+                change_check("H26", "H26", "with a reference script on its first output back to the script, it is "
                              "rejected (review; for members that need their continuations).", n, x,
-                             ["(i : Nat)", "(s : ByteString)"], [needs, cont], ch, R(ch))
+                             ["(s : ByteString)"], [needs], ch, R(ch))
                 for check, what in (("H6", "lovelace"), ("H21", "tokens of an asset")):
                     emit(check, check, f"some amount of {what} taken out of an output back to the script is "
                          "rejected (the script checks that amount at all).", f"{check.lower()}_{n}", "∃ p,",

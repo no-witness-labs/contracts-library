@@ -8,3 +8,5 @@
 
 .direnv
 
+# Logs of the universal checks.
+/logs/

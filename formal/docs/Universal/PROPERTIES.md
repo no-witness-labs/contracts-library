@@ -19,20 +19,26 @@ Each validator has its own folder under `Formal/`, chosen when the checks are ge
 | `Tx.lean` | The validator's author | The shapes, one per action. The generator writes it as a stub with `sorry` only when it does not exist, and never replaces it. |
 
 The four files share the namespace given by the folder, for example `Formal.Vesting.Linear.Blueprint`.
-Nothing imports them, so `lake build` does not check them; `just universal` does.
+Nothing imports them, so `lake build` does not check them; the validator's recipe in the `justfile` does.
 The helpers the checks use are in `Formal/Universal/Properties.lean`, in the namespace `Formal.Universal.Properties`.
-Run from `formal/`:
+Run from `formal/`, with the validator's recipe in the `justfile` (`vesting` for `linear_vesting`):
 
 ```sh
-just blueprint linear_vesting Formal/Vesting/Linear/Blueprint                      # from ../onchain/plutus.json
-just blueprint linear_vesting Formal/Vesting/Linear/Blueprint path/to/plutus.json  # from another blueprint
-just universal Formal/Vesting/Linear/Blueprint          # with Lean, Z3 and gawk on PATH
-just universal-nix Formal/Vesting/Linear/Blueprint      # the same, inside `nix develop`
+just vesting G                      # the G checks
+just vesting H11                    # one H check (with H1)
+just vesting H11 --counterexamples  # the same, printing each counterexample
+just vesting H11 --from-log         # summarise the last run's log without running Lean
 ```
 
-`just blueprint` first runs `just cbor <validator>`, which copies that validator's `compiledCode` from `plutus.json` to `Scripts/<module>.<validator>.cbor`, where `Types.lean` reads it.
-Only the named validator's file is written, so the checks of one validator do not depend on any other validator's files.
-`just universal` builds `Formal.Universal` and the folder's `Types.lean` and `Tx.lean`, then runs Lean on `General.lean` and on `Honest.lean`, each with a limit of 120 seconds.
+The recipe calls `scripts/universal.py`, which:
+
+1. runs `aiken build` in the blueprint's folder, and fails if the validator is not in the blueprint, listing the validators that are;
+2. copies the validator's `compiledCode` to `Scripts/<module>.<validator>.cbor`, where `Types.lean` reads it;
+3. regenerates the files with `scripts/process_blueprint.py`: for `G`, `General.lean`; for one H check, `Honest.lean` with only that check and H1; when `Tx.lean` did not exist, it writes the stub and stops;
+4. builds `Formal.Universal` and the folder's `Types.lean` and `Tx.lean`;
+5. runs Lean on the file with a limit of 5 minutes, showing its output and saving it to `logs/<folder>/<check>.log`, for example `logs/Vesting/Linear/H11.log`; because the output goes into a pipe, Lean prints it all when the file finishes;
+6. prints one line per theorem: proved, counterexample, error, or no result.
+
 Both generated check files set `set_option Elab.async false`, so Lean checks one proof at a time, in file order, and prints each result as soon as it is known.
 In the brackets, `UP-0xx` is the number of the corresponding property in Jonathan's catalogue.
 
@@ -106,7 +112,7 @@ The lists are empty because a list of variable length makes Blaster follow one p
 **Measured result.**
 On `linear_vesting`, G1 and G2 give 13 checks: 5 for G1, and 8 for G2 (4 forms, 2 unknown indices, and an extra field for each of `Claim` and `Cancel`).
 All 13 were proved in one run of 34 seconds, including the time Lean takes to load.
-They were proved again with `just universal Formal/Vesting/Linear/Blueprint`, in a run of `General.lean` that took 71 seconds on a different machine.
+They were proved again with `just vesting G`, in a run of `General.lean` that took 71 seconds on a different machine.
 On `sale`, the same checks were proved.
 On `stake`, G1 and the four `wrongForm` checks of G2 were proved earlier, in their earlier names (UP-001 and UP-005).
 
@@ -123,7 +129,7 @@ Each check quantifies over every value of the leaves, and uses "valid in the led
 With the structure fixed, the script makes only binary decisions on leaves, such as a comparison of amounts or of keys, so the checks finish.
 
 Each check below is generated for every shape it applies to.
-H1 is always generated; the others only when named with `--checks`, for example `just blueprint linear_vesting Formal/Vesting/Linear/Blueprint H2,H11`, and are otherwise written into `Honest.lean` as comments.
+H1 is always generated; the others only when named with `--checks`, for example `--checks H2,H11` to `scripts/process_blueprint.py`, and are otherwise written into `Honest.lean` as comments.
 
 A check on a change has the form `∀ p …, valid (shape p) → accepts (shape p) → [extra hypotheses] → valid (change) → verdict (change)`: the verdict is required only when the ledger would accept the changed transaction.
 Beside it, a `_reach` check states `∃ p …, valid (shape p) ∧ accepts (shape p) ∧ [extra hypotheses] ∧ valid (change)`.
@@ -135,32 +141,46 @@ It keeps the continuation checks to members whose outputs back to the script mat
 | Check | Change, for every valid accepted member | Required verdict | Extra hypotheses |
 |---|---|---|---|
 | H1 (UP-000) | None: some member of the shape exists | Valid and accepted | |
-| H2 (UP-002, UP-012) | One signatory removed, at each position | Rejected | |
+| H2 (UP-002, UP-012) | The first signatory removed | Rejected | |
 | H3 (UP-004) | None: some member of the shape exists | Valid and rejected | |
-| H4 | One signatory replaced by a key not in the list | Rejected | |
-| H5 (UP-011) | The address of an output back to the script changed | Rejected | Needs its continuations |
-| H7 (UP-014) | An output back to the script given another well-formed datum | Rejected | Needs its continuations |
-| H8 (UP-006) | An output back to the script given a malformed datum, one variant per way of failing to decode | Rejected | Needs its continuations |
-| H9 (UP-007) | The staking credential of an output back to the script changed | Rejected | Needs its continuations |
-| H10 (UP-008) | A junk token, from a new input, added to an output back to the script | Rejected | Needs its continuations |
-| **H11 (UP-010)** | **The spent input of any second valid accepted member added, its value pocketed, the outputs unchanged** | **One of the two script runs rejects, or one still accepts with the outputs back to the script redirected** | |
+| H4 | The first signatory replaced by a key not in the list | Rejected | |
+| H5 (UP-011) | The payment credential of the first output back to the script changed (the staking part is H9) | Rejected | Needs its continuations |
+| H7 (UP-014) | The first output back to the script given another well-formed datum | Rejected | Needs its continuations |
+| H8 (UP-006) | The datum of the first output back to the script given an unknown constructor index, keeping its fields | Rejected | Needs its continuations |
+| H9 (UP-007) | The staking credential of the first output back to the script changed | Rejected | Needs its continuations |
+| H10 (UP-008) | A junk token, from a new input, appended to the first output back to the script | Rejected | Needs its continuations |
+| **H11 (UP-010)** | **The spent input of any second valid accepted member added, its value pocketed, the outputs unchanged** | **One of the two script runs rejects, or one still accepts with every output redirected** | |
 | H12 (UP-013) | The validity range made unbounded | Rejected | |
 | H13 (UP-016) | One more token minted under the script's own policy (mint handlers) | Rejected | |
 | H14 | The mint turned into a burn, or the other way round (mint handlers) | Rejected | |
 | H15 | The redeemer changed to another action, in the redeemer map too | Rejected | |
 | H16 (UP-015) | The outputs in reverse order | Accepted | |
 | H17 | An unrelated input and an output of the same value added | Accepted | |
-| H18 | The spent datum malformed, one variant per way of failing to decode | Rejected | |
+| H18 | The spent datum given an unknown constructor index, keeping its fields | Rejected, to review | |
 | H19 | The spent input without a datum | Rejected, to review | |
 | H23 | An unrelated input added before the script's own, and an output of the same value | Accepted | |
-| H24 | An extra signatory, not already in the list | Accepted | |
+| H24 | An extra signatory, not already in the list, added first | Accepted | |
 | H25 | An unrelated token minted and sent to an unrelated output | Accepted | |
-| H26 | A reference script on an output back to the script | Rejected, to review | Needs its continuations |
+| H26 | A reference script on the first output back to the script | Rejected, to review | Needs its continuations |
+| H27 (UP-015) | The first output moved to the end | Accepted | |
+
+**The first signatory, the first output back to the script.**
+No check uses a symbolic position in a list: Blaster would follow every value the position could take (`DEAD_ENDS.md` §19).
+Checks act on the first signatory or the first output back to the script instead, which stands for any one of them because:
+
+- the order of outputs should not matter to a validator, and H16 (outputs reversed) and H27 (first output moved to the end) check that it does not;
+- the ledger sorts signatories by key, and when the shape's signatory keys are independent leaves, the members include every assignment of roles to positions.
+
+So **authors should write the signatories of a shape as independent leaves**, such as `[p.s1, p.s2]`, with the keys in the datum as separate leaves, rather than as `[p.owner, p.cosigner]`.
+With roles tied to positions, sorting forces the order of the keys, and the first signatory is always the same role.
+Likewise, checks state conditions as Boolean tests, such as `contains k = false`, rather than as membership (`∉`) or other inductive propositions, which Blaster handles poorly.
 
 **H11, double satisfaction.**
 The changed transaction is `p`'s, with the spent input of a second member `q` added under a new reference, `q`'s redeemer recorded for it, and an output sending `q`'s spent value to another key: one set of outputs for two script inputs.
 Each script input runs the script separately, so the check considers the run for `p`'s input and the run for the new input.
-Double satisfaction is both runs accepting while both rely on the outputs back to the script; the check requires that this never happens.
+Double satisfaction is both runs accepting while both rely on the outputs; the check requires that this never happens.
+A run relies on the outputs when it rejects with every output sent to another key (`redirectOutputs`).
+A second form redirected only the outputs back to the script, and so passed on a sale that pays the seller's key: two listings of one seller, bought with one payment.
 Because `q` is any member, it covers the same position spent twice (`q = p`) and two different positions.
 A first form, which required `q` to need its continuations in `q`'s own transaction, was falsified by a legitimate case (`DEAD_ENDS.md` §18).
 
@@ -189,7 +209,7 @@ On `linear_vesting`, the `Claim` shape has 2 inputs (the vesting position and th
 The `Cancel` shape has 2 inputs, 1 output to the signer and 1 signatory, with 15 symbolic leaves.
 H1 and H2 for both, 4 checks, were proved in a run of `Honest.lean` that took 29 seconds, including the time Lean takes to load.
 H1 and H11 with its `_reach` check for both, 6 checks, were proved in a run that took 3 minutes 17 seconds.
-The statements of all 180 checks generated with every check selected type-check; the other checks have not been run yet.
+The statements of all 184 checks generated with every check selected type-check; H2 and H4 in their current form were proved on the author's machine; the other checks have not been run yet.
 
 ## Tier 3: not kept as general checks
 

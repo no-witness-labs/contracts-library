@@ -203,6 +203,7 @@ The run gives no way to tell these apart.
 It inferred "proved" for any check without an error at its line once the run had ended.
 When Lean stopped at line 4 of a file because of a misplaced `set_option`, it reported all 43 checks as proved, although none had been run.
 Lean's own output, with Blaster's `✅ Valid` and its `blasterProven` warning at each theorem's line, is shown directly instead.
+The summary, added later (now in `scripts/universal.py`), prints its summary after Lean's full output, and reports a theorem as proved only when its own `blasterProven` warning appears; a theorem with no message is reported as "no result".
 
 ## 14. Lean checking proofs in parallel
 
@@ -273,3 +274,19 @@ H11 first required each of the two members to need its continuations in its own 
 On linear vesting it was falsified: `p` claimed at time 5, and `q`, by the same beneficiary, needed its continuation at its own time 3 but had an end time of 4.
 In the combined transaction the time is `p`'s, so `q`'s position was fully vested, its run required no continuation, and taking it all was legitimate.
 The kept form tests the reliance on the outputs back to the script inside the combined transaction: one run must reject, or still accept with those outputs redirected.
+
+## 19. A symbolic position in a list, and membership tests
+
+**What was tried.**
+H2 removed the signatory at every position `i` with `i < length` (`eraseIdx i`), and H4 replaced it (`set i k`, with `k ∉ signatories`).
+The continuation checks changed the output at every position `i ∈ continuingPositions`, with hypotheses such as `∀ o, outputs[i]? = some o → …`.
+
+**What happened.**
+H2 and H4, which had only been type-checked, ran for over 10 minutes on the author's machine without a result, whereas an earlier H2 that removed every signatory took 19 seconds.
+
+**Why it happened.**
+The shape fixes the list, but the position was a variable: Blaster follows every value it can take relative to the list, and the hypothesis `i < length` does not prune them (consequence 3).
+Membership (`∉`) is an inductive proposition, and a quantifier inside a hypothesis is hard for Z3.
+
+**What was kept.**
+Checks act on the first signatory (`tail`) or the first output back to the script (`changeContinuation`), relying on H16, H27 and independent signatory leaves for generality, and state conditions as Boolean tests.

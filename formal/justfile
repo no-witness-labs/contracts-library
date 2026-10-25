@@ -1,125 +1,47 @@
-# Formal-verification pipeline. Run from this directory (`formal/`).
+# Formal verification. Run from this directory (`formal/`); the conventions are in README.md.
 #
-# Compile the Aiken validators (in ../onchain) into the blueprint `plutus.json`,
-# copy one validator's compiled code from it to Scripts/, and re-check the Lean
-# (Lean-Blaster) proofs against that code. The point of the copy step is that the
-# proofs target the *actual compiled validator*, not a hand-written model.
-#
-# The recipes expect Lean v4.24.0, Z3 4.15.2, gawk, python3 and `aiken` on PATH.
-# Run `just deps` once before the first `just verify`. The recipes ending in
-# `-nix`, at the end of this file, run the same steps inside ./flake.nix's shell.
+# Needs Lean v4.24.0, Z3 4.15.2, gawk, python3 and `aiken` on PATH; run `just deps` once.
+# With Nix, run any recipe as `nix develop --command just <recipe>`.
 
-onchain   := "../onchain"
-scripts   := "Scripts"
+plutus := "../onchain/plutus.json"
+# The validators with hand-written proofs, whose compiled code `verify` copies first.
+proved := "linear_vesting"
+run := "python3 -I -u scripts/universal.py"
 
-# Full pipeline: build -> cbor -> verify.
 default: verify
 
 # List recipes.
 list:
     @just --list
 
-# Fetch the Lean dependencies (Blaster). Run once, or after bumping its rev.
+# Fetch the Lean dependencies. Run once, or after bumping a rev.
 deps:
     lake update
 
-# Compile the validators into ../onchain/plutus.json.
-build:
-    cd {{onchain}} && aiken build
-
-# Write the compiledCode of one validator from the blueprint into
-# Scripts/<module>.<validator>.cbor, where `#import_uplc` reads it. Only rewrites
-# the file when its bytes change, and invalidates the Lake cache of any Lean
-# module that reads it, so that `verify` re-checks it.
-
-# Copy one validator's compiled code from the blueprint to Scripts/.
-cbor validator plutus=(onchain / "plutus.json"): build
-    #!/usr/bin/env bash
-    set -euo pipefail
-    mkdir -p {{scripts}}
-    tmp="$(mktemp -d)"
-    trap 'rm -rf "$tmp"' EXIT
-    written="$(python3 -I scripts/process_blueprint.py "{{plutus}}" "{{validator}}" --cbor-only --scripts "$tmp")"
-    file="$(basename "$written")"
-    out="{{scripts}}/$file"
-    if [ -e "$out" ] && cmp -s "$out" "$written"; then
-      echo "  $out (unchanged)"
-      exit 0
-    fi
-    echo "  $out (changed)"
-    mv "$written" "$out"
-    for lean in $(find Formal -name '*.lean' -exec grep -lF "Scripts/$file" {} +); do
-      mod="${lean%.lean}"
-      echo "    invalidate Lake cache for $mod (depends on $file)"
-      rm -f .lake/build/lib/lean/"$mod".olean \
-            .lake/build/lib/lean/"$mod".olean.hash \
-            .lake/build/lib/lean/"$mod".ilean \
-            .lake/build/lib/lean/"$mod".ilean.hash \
-            .lake/build/lib/lean/"$mod".trace \
-            .lake/build/ir/"$mod".c \
-            .lake/build/ir/"$mod".c.hash \
-            .lake/build/ir/"$mod".setup.json
-    done
-
-# Re-check every theorem. Each contract with hand-written proofs adds its
-# validator's `cbor` here.
-
-# Re-check every Lean proof against the current compiled code (annotated lake output).
-verify: (cbor "linear_vesting")
-    bash -c 'set -o pipefail; lake build 2>&1 | awk -f scripts/annotate-blaster-logs.awk'
-
+# Delete the compiled code and the Lake build files.
 clean:
-    rm -rf {{scripts}}
+    rm -rf Scripts
     lake clean
 
-# Generate the universal checks of one validator into `folder` (see
-# Formal/Universal/PROPERTIES.md): Types.lean, General.lean and Honest.lean are
-# replaced on every run; Tx.lean, the honest transactions, is written only when it
-# does not exist. `folder` is under Formal/, for example
-# Formal/Vesting/Linear/Blueprint. `checks` names the H checks to generate,
-# comma-separated, for example H2,H11; the others are written as comments, and
-# H1 and the G checks are always generated. Needs python3 (standard library only).
+# Compile the validators into ../onchain/plutus.json.
+build:
+    cd ../onchain && aiken build
 
-# Generate a validator's universal checks into a folder from a blueprint.
-blueprint validator folder checks="" plutus=(onchain / "plutus.json"): (cbor validator plutus)
-    python3 -I scripts/process_blueprint.py "{{plutus}}" "{{validator}}" --out "{{folder}}" --scripts {{scripts}} --checks "{{checks}}"
+# Check all the hand-written Lean: Formal/Universal and every validator's proofs.
+verify:
+    {{run}} verify {{plutus}} {{proved}}
 
-# Build Formal.Universal and the folder's Types.lean and Tx.lean, then run Lean on
-# its General.lean and Honest.lean, one proof at a time, with a limit of 900
-# seconds for each file.
+# Check the Lean in Formal/Universal.
+universal:
+    {{run}} build Formal.Universal
 
-# Re-check Formal.Universal and a folder's generated universal checks (annotated output).
-universal folder:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    prefix="$(echo "{{folder}}" | sed -e 's#/*$##' -e 's#/#.#g')"
-    lake build Formal.Universal "$prefix.Types" "$prefix.Tx" 2>&1 | awk -f scripts/annotate-blaster-logs.awk
-    for f in "{{folder}}/General.lean" "{{folder}}/Honest.lean"; do
-      echo "universal checks: $f"
-      set +e
-      time timeout 900 lake env lean "$f"
-      status=$?
-      set -e
-      if [ "$status" -ne 0 ]; then
-        echo "  $f: lean exited with status $status (124: the 900-second limit was reached)"
-      fi
-    done
+# One recipe per validator. No argument: its hand-written proofs. G or H<n>: one group of its
+# universal checks (add --counterexamples, or --from-log to summarise the last run's log).
+# Any other name: that file of its hand-written proofs, for example `just vesting Soundness`.
 
-# ---- Nix: the same recipes, run inside ./flake.nix's shell (Lean v4.24.0 + Z3 4.15.2 + gawk) ----
+vesting *args:
+    {{run}} run Formal/Vesting/Linear linear_vesting {{plutus}} {{args}}
 
-# `deps`, inside the flake's shell.
-deps-nix:
-    nix develop --command just deps
-
-# `verify`, inside the flake's shell.
-verify-nix: (cbor "linear_vesting")
-    nix develop --command bash -c 'set -o pipefail; lake build 2>&1 | awk -f scripts/annotate-blaster-logs.awk'
-
-# `clean`, inside the flake's shell.
-clean-nix:
-    rm -rf {{scripts}}
-    nix develop --command lake clean
-
-# `universal`, inside the flake's shell.
-universal-nix folder:
-    nix develop --command just universal "{{folder}}"
+# The sale example, whose blueprint is outside ../onchain: set the path to it here.
+sale *args:
+    {{run}} run Formal/Sale sale ../../sale/plutus.json {{args}}

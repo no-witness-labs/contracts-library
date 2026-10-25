@@ -1,7 +1,7 @@
 /-
 Linear vesting — the compiled validator, loaded once and shared.
 
-`#import_uplc` reads the blueprint's `compiledCode`, written by `just cbor linear_vesting`
+`#import_uplc` reads the blueprint's `compiledCode`, copied there by `just verify` and `just vesting`
 (gitignored). Keeping it in its own module lets both Soundness and Completeness state theorems
 against the *same concrete* `spendValidator`. Proving `blaster` goals requires a concrete program —
 an abstract `validator : Program` gives the SMT backend nothing to execute and makes proofs hang.

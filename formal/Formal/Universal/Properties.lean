@@ -5,7 +5,7 @@ import CardanoLedgerApi
 # Helpers for universal checks
 
 Hand-written once; used by the generated files of each validator (`Types.lean`, `General.lean`
-and `Honest.lean` in the folder given to `just blueprint`), which state the G checks and the H checks.
+and `Honest.lean` in a validator's `Blueprint/` folder), which state the G checks and the H checks.
 
 * G checks hold for every transaction: the builders `Every<Purpose>` leave the whole `TxInfo`, and
   the purpose's own data, as variables.
@@ -224,7 +224,7 @@ def rangeAlways : Data :=
 /-! ## Changes to a shape (H checks over shapes)
 
 Keys and policies are literals: a symbolic currency symbol stops Blaster inside
-`validScriptContext` (`DEAD_ENDS.md` §17). -/
+`validScriptContext` (`docs/Universal/DEAD_ENDS.md` §17). -/
 
 /-- The key that receives redirected or pocketed value. -/
 def attackerKey : ByteString := "61747461636b6572"
@@ -244,14 +244,72 @@ def redirectContinuations (h : ScriptContext) : ScriptContext :=
         else o) h.scriptContextTxInfo.txInfoOutputs)
   | none => h
 
-/-- `h` with a new input `r` at `unrelatedKey` holding `a` lovelace and one junk token, both added
-    to the output at `i`. -/
-def addJunkFrom (h : ScriptContext) (i : Nat) (r : TxOutRef) (a : Int) : ScriptContext :=
-  let junkIn : TxInInfo := ⟨r, ⟨keyAddr unrelatedKey,
-    [(.B "", .Map [(.B "", .I a)]), (.B junkPolicy, .Map [(.B junkPolicy, .I 1)])], .NoOutputDatum, none⟩⟩
-  changeOutput (withInputs h (List.append h.scriptContextTxInfo.txInfoInputs [junkIn])) i (fun o =>
-    { o with txOutValue :=
-        CardanoLedgerApi.V1.Value.add junkPolicy junkPolicy 1 (CardanoLedgerApi.V1.Value.add "" "" a o.txOutValue) })
+/-- `h` with every output sent to `attackerKey` instead, without a datum. In H11, a run that still
+    accepts this does not rely on any output, so sharing the outputs gives it nothing. -/
+def redirectOutputs (h : ScriptContext) : ScriptContext :=
+  withOutputs h (List.map (fun (o : TxOut) =>
+    { o with txOutAddress := keyAddr attackerKey, txOutDatum := .NoOutputDatum })
+    h.scriptContextTxInfo.txInfoOutputs)
+
+/-- Whether `o` goes back to the script: it has the payment credential of the input being spent. -/
+def isContinuation (h : ScriptContext) (o : TxOut) : Bool :=
+  match ownInput? h with
+  | some i => o.txOutAddress.addressCredential == i.txInInfoResolved.txOutAddress.addressCredential
+  | none => false
+
+/-- `outs` with `f` applied to the first output satisfying `p`. -/
+def changeFirst (p : TxOut → Bool) (f : TxOut → TxOut) : List TxOut → List TxOut
+  | [] => []
+  | o :: os => if p o then f o :: os else o :: changeFirst p f os
+
+/-- `h` with `f` applied to its first output back to the script. With H16 and H27 checking that the
+    order of outputs does not matter, this stands for any output back to the script. -/
+def changeContinuation (h : ScriptContext) (f : TxOut → TxOut) : ScriptContext :=
+  withOutputs h (changeFirst (isContinuation h) f h.scriptContextTxInfo.txInfoOutputs)
+
+/-- The first output back to the script, if any. -/
+def firstContinuation? (h : ScriptContext) : Option TxOut :=
+  h.scriptContextTxInfo.txInfoOutputs.find? (isContinuation h)
+
+/-- `h` with its first output moved to the end. -/
+def rotateOutputs (h : ScriptContext) : ScriptContext :=
+  match h.scriptContextTxInfo.txInfoOutputs with
+  | [] => h
+  | o :: os => withOutputs h (List.append os [o])
+
+/-- A policy that sorts after the policies of real values, so that a junk token appended at the end
+    of a value keeps it sorted. -/
+def lastPolicy : ByteString := "zzzzjunk"
+
+/-- `h` with a new input `r` at `unrelatedKey` holding `a` lovelace and one junk token; the junk token
+    is appended to its first output back to the script, and the lovelace goes to a new output at
+    `unrelatedKey`. -/
+def addJunkFrom (h : ScriptContext) (r : TxOutRef) (a : Int) : ScriptContext :=
+  let junk : Data × Data := (.B lastPolicy, .Map [(.B lastPolicy, .I 1)])
+  let info := h.scriptContextTxInfo
+  let h' := { h with scriptContextTxInfo := { info with
+    txInfoInputs := List.append info.txInfoInputs
+      [⟨r, ⟨keyAddr unrelatedKey, [(.B "", .Map [(.B "", .I a)]), junk], .NoOutputDatum, none⟩⟩]
+    txInfoOutputs := List.append info.txInfoOutputs
+      [⟨keyAddr unrelatedKey, [(.B "", .Map [(.B "", .I a)])], .NoOutputDatum, none⟩] } }
+  changeContinuation h' (fun o => { o with txOutValue := List.append o.txOutValue [junk] })
+
+/-- `d` with its constructor index changed to `k`, keeping its fields; a value that is not a
+    constructor becomes the single field of constructor `k`. -/
+def reindex (k : Int) : Data → Data
+  | .Constr _ fs => .Constr k fs
+  | d => .Constr k [d]
+
+/-- An inline datum with its constructor index changed to `k`; other kinds of datum unchanged. -/
+def reindexOutputDatum (k : Int) : OutputDatum → OutputDatum
+  | .OutputDatum d => .OutputDatum (reindex k d)
+  | od => od
+
+/-- `h`, a spend, with the datum of the input being spent given the constructor index `k`. -/
+def reindexSpendDatum (h : ScriptContext) (k : Int) : ScriptContext :=
+  match h.scriptContextScriptInfo with
+  | .SpendingScript _ (some d) => withSpendDatum h (reindex k d)
+  | _ => h
 
 /-- `h` with the input that `g` spends added under `r`, with `g`'s redeemer recorded for it, and its
     value sent to `attackerKey`: one set of outputs for two script inputs. -/

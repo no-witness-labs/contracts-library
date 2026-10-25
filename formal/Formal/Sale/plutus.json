@@ -1,0 +1,86 @@
+{
+  "preamble": {
+    "title": "input-output-hk/contracts-library",
+    "description": "Standardized, reusable smart contracts for Cardano — on-chain validation layer.",
+    "version": "0.0.0",
+    "plutusVersion": "v3",
+    "compiler": {
+      "name": "Aiken",
+      "version": "v1.1.22+39d6b04"
+    },
+    "license": "Apache-2.0"
+  },
+  "validators": [
+    {
+      "title": "example.sale.spend",
+      "datum": {
+        "title": "datum",
+        "schema": {
+          "$ref": "#/definitions/example~1SaleDatum"
+        }
+      },
+      "redeemer": {
+        "title": "redeemer",
+        "schema": {
+          "$ref": "#/definitions/example~1SaleRedeemer"
+        }
+      },
+      "compiledCode": "59020101010029800aba2aba1aba0aab9faab9eaab9dab9a488888896600264653001300800198041804800cc0200092225980099b8748008c01cdd500144c8cc8a60022b30013001300a3754005132332259800980218069baa009899198008009bac301230133013300f375401044b30010018a508acc004c96600266ebcc050c044dd5180a18089baa0013374a9000198099ba90054bd7044cdc480219199119801001000912cc004006007132325980099b91489000018acc004cdc7a4410000189bad3016002802a028899802002180d001a028375c6028002602e00280a8c8c8cc004004dd5980b980c180a1baa0042259800800c00e26464b300133722911000018acc004cdc7a4410000189bab3017002802a02a899802002180d801a02a375c602a002603000280b052f5bded8c0290004528201e30130018a51899801001180a000a01c4045132330010013758602460266026602660266026602660266026601e6ea8020896600200314a115980099b8f375c602600200914a313300200230140014038808900c1bae300f001375a601e602000260166ea8c038c02cdd50014590094c028dd50034c03800d2225980098020014566002601c6ea802600716403d15980099b874800800a2b3001300e37540130038b201e8b20184030300c300d001370e900018041baa0028b200c180400098019baa0088a4d13656400401",
+      "hash": "613e0516d954239580565fabec88a2e304ee2ec3082c0e60fa6e9cd1"
+    },
+    {
+      "title": "example.sale.else",
+      "redeemer": {
+        "schema": {}
+      },
+      "compiledCode": "59020101010029800aba2aba1aba0aab9faab9eaab9dab9a488888896600264653001300800198041804800cc0200092225980099b8748008c01cdd500144c8cc8a60022b30013001300a3754005132332259800980218069baa009899198008009bac301230133013300f375401044b30010018a508acc004c96600266ebcc050c044dd5180a18089baa0013374a9000198099ba90054bd7044cdc480219199119801001000912cc004006007132325980099b91489000018acc004cdc7a4410000189bad3016002802a028899802002180d001a028375c6028002602e00280a8c8c8cc004004dd5980b980c180a1baa0042259800800c00e26464b300133722911000018acc004cdc7a4410000189bab3017002802a02a899802002180d801a02a375c602a002603000280b052f5bded8c0290004528201e30130018a51899801001180a000a01c4045132330010013758602460266026602660266026602660266026601e6ea8020896600200314a115980099b8f375c602600200914a313300200230140014038808900c1bae300f001375a601e602000260166ea8c038c02cdd50014590094c028dd50034c03800d2225980098020014566002601c6ea802600716403d15980099b874800800a2b3001300e37540130038b201e8b20184030300c300d001370e900018041baa0028b200c180400098019baa0088a4d13656400401",
+      "hash": "613e0516d954239580565fabec88a2e304ee2ec3082c0e60fa6e9cd1"
+    }
+  ],
+  "definitions": {
+    "Int": {
+      "dataType": "integer"
+    },
+    "aiken/crypto/VerificationKeyHash": {
+      "title": "VerificationKeyHash",
+      "dataType": "bytes"
+    },
+    "example/SaleDatum": {
+      "title": "SaleDatum",
+      "anyOf": [
+        {
+          "title": "SaleDatum",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "title": "seller",
+              "$ref": "#/definitions/aiken~1crypto~1VerificationKeyHash"
+            },
+            {
+              "title": "price",
+              "$ref": "#/definitions/Int"
+            }
+          ]
+        }
+      ]
+    },
+    "example/SaleRedeemer": {
+      "title": "SaleRedeemer",
+      "anyOf": [
+        {
+          "title": "Buy",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": []
+        },
+        {
+          "title": "Cancel",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": []
+        }
+      ]
+    }
+  }
+}

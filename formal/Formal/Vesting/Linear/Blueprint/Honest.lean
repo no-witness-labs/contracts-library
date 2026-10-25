@@ -19,7 +19,7 @@ open CardanoLedgerApi.V3 (Address Credential PubKeyHash StakingCredential TxOutR
 
 /-! ## H checks
 
-6 checks generated over the shapes in `Tx.lean`, one shape per action; the checks not
+2 checks generated over the shapes in `Tx.lean`, one shape per action; the checks not
 selected with `--checks` are written as comments. A shape is a function from a structure
 of leaves to a transaction with a fixed structure; `p` ranges over every value of the
 leaves, and Blaster finds which members the script accepts. A check on a change requires
@@ -84,460 +84,152 @@ theorem h1_spend_Claim :
 --         = true := by blaster
 
 -- (H5 not selected; pass --checks H5 to generate it)
--- H5 (UP-011): with the address of an output back to the script changed, it is rejected
--- (for members that need their continuations).
+-- H5 (UP-011): with the payment credential of its first output back to the script changed, it is
+-- rejected (for members that need their continuations; the staking part is H9's).
 -- theorem h5_spend_Claim :
---     ∀ p (i : Nat) (addr : Address),
+--     ∀ p (c : Credential),
 --       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → i ∈ continuingPositions
---         (honest_spend_Claim p) →
---         (∀ o, (outputsOf (honest_spend_Claim p))[i]? = some o → o.txOutAddress ≠ addr) →
---         validScriptContext
---         (changeOutput (honest_spend_Claim p) i (fun o => { o with txOutAddress := addr })) = true →
---         rejects ledgerFuel
---         (changeOutput (honest_spend_Claim p) i (fun o => { o with txOutAddress := addr }))
---         := by blaster
+--         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) →
+--         (firstContinuation? (honest_spend_Claim p)).any
+--         (fun o => o.txOutAddress.addressCredential == c) = false → validScriptContext
+--         (changeContinuation (honest_spend_Claim p) (fun o =>
+--         { o with txOutAddress := { o.txOutAddress with addressCredential := c } })) = true → rejects
+--         ledgerFuel (changeContinuation (honest_spend_Claim p) (fun o =>
+--         { o with txOutAddress := { o.txOutAddress with addressCredential := c } })) := by blaster
 
 -- (H5 not selected; pass --checks H5 to generate it)
 -- H5 (UP-011): reachability: some valid accepted member gives a valid changed transaction.
 -- theorem h5_spend_Claim_reach :
---     ∃ p, ∃ (i : Nat), ∃ (addr : Address),
+--     ∃ p, ∃ (c : Credential),
 --       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ i ∈ continuingPositions
---         (honest_spend_Claim p) ∧
---         (∀ o, (outputsOf (honest_spend_Claim p))[i]? = some o → o.txOutAddress ≠ addr) ∧
---         validScriptContext
---         (changeOutput (honest_spend_Claim p) i (fun o => { o with txOutAddress := addr })) = true
+--         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧
+--         (firstContinuation? (honest_spend_Claim p)).any
+--         (fun o => o.txOutAddress.addressCredential == c) = false ∧ validScriptContext
+--         (changeContinuation (honest_spend_Claim p) (fun o =>
+--         { o with txOutAddress := { o.txOutAddress with addressCredential := c } })) = true
 --         := by blaster
 
 -- (H7 not selected; pass --checks H7 to generate it)
--- H7 (UP-014): with an output back to the script given another well-formed datum, it is rejected
--- (for members that need their continuations).
+-- H7 (UP-014): with its first output back to the script given another well-formed datum, it is
+-- rejected (for members that need their continuations).
 -- theorem h7_spend_Claim :
---     ∀ p (i : Nat) (x201 : Credential) (x202 : Credential) (x203 : Int) (x204 : Int) (x205 : Int),
+--     ∀ p (x201 : Credential) (x202 : Credential) (x203 : Int) (x204 : Int) (x205 : Int),
 --       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → i ∈ continuingPositions
---         (honest_spend_Claim p) → (∀ o, (outputsOf (honest_spend_Claim p))[i]? = some o →
---         o.txOutDatum ≠ .OutputDatum (Data.Constr 0 [(IsData.toData x201), (IsData.toData x202),
---         (Data.List []), (Data.I x203), (Data.I x204), (Data.I x205)])) → validScriptContext
---         (changeOutput (honest_spend_Claim p) i (fun o =>
+--         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) →
+--         (firstContinuation? (honest_spend_Claim p)).any (fun o => o.txOutDatum == .OutputDatum
+--         (Data.Constr 0 [(IsData.toData x201), (IsData.toData x202), (Data.List []), (Data.I x203),
+--         (Data.I x204), (Data.I x205)])) = false → validScriptContext (changeContinuation
+--         (honest_spend_Claim p) (fun o =>
 --         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x201), (IsData.toData x202), (Data.List []), (Data.I x203), (Data.I x204), (Data.I x205)]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Claim p) i (fun o =>
+--         = true → rejects ledgerFuel (changeContinuation (honest_spend_Claim p) (fun o =>
 --         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x201), (IsData.toData x202), (Data.List []), (Data.I x203), (Data.I x204), (Data.I x205)]) }))
 --         := by blaster
 
 -- (H7 not selected; pass --checks H7 to generate it)
 -- H7 (UP-014): reachability: some valid accepted member gives a valid changed transaction.
 -- theorem h7_spend_Claim_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x201 : Credential), ∃ (x202 : Credential), ∃ (x203 : Int), ∃ (x204 : Int),
---       ∃ (x205 : Int),
+--     ∃ p, ∃ (x201 : Credential), ∃ (x202 : Credential), ∃ (x203 : Int), ∃ (x204 : Int), ∃
+--       (x205 : Int),
 --       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ i ∈ continuingPositions
---         (honest_spend_Claim p) ∧ (∀ o, (outputsOf (honest_spend_Claim p))[i]? = some o →
---         o.txOutDatum ≠ .OutputDatum (Data.Constr 0 [(IsData.toData x201), (IsData.toData x202),
---         (Data.List []), (Data.I x203), (Data.I x204), (Data.I x205)])) ∧ validScriptContext
---         (changeOutput (honest_spend_Claim p) i (fun o =>
+--         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧
+--         (firstContinuation? (honest_spend_Claim p)).any (fun o => o.txOutDatum == .OutputDatum
+--         (Data.Constr 0 [(IsData.toData x201), (IsData.toData x202), (Data.List []), (Data.I x203),
+--         (Data.I x204), (Data.I x205)])) = false ∧ validScriptContext (changeContinuation
+--         (honest_spend_Claim p) (fun o =>
 --         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x201), (IsData.toData x202), (Data.List []), (Data.I x203), (Data.I x204), (Data.I x205)]) }))
 --         = true := by blaster
 
 -- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is an integer instead of the
--- declared type, it is rejected (for members that need their continuations).
--- theorem h8_spend_Claim_wrongForm_int :
---     ∀ p (i : Nat) (n : Int),
+-- H8 (UP-006): with the datum of its first output back to the script given the unknown constructor
+-- index 1, keeping its fields, it is rejected (for members that need their continuations).
+-- theorem h8_spend_Claim :
+--     ∀ p,
 --       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → i ∈ continuingPositions
---         (honest_spend_Claim p) → validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.I n) })) = true → rejects ledgerFuel (changeOutput
---         (honest_spend_Claim p) i (fun o => { o with txOutDatum := .OutputDatum (Data.I n) }))
---         := by blaster
+--         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → validScriptContext
+--         (changeContinuation (honest_spend_Claim p) (fun o =>
+--         { o with txOutDatum := reindexOutputDatum 1 o.txOutDatum })) = true → rejects ledgerFuel
+--         (changeContinuation (honest_spend_Claim p) (fun o =>
+--         { o with txOutDatum := reindexOutputDatum 1 o.txOutDatum })) := by blaster
 
 -- (H8 not selected; pass --checks H8 to generate it)
 -- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Claim_wrongForm_int_reach :
---     ∃ p, ∃ (i : Nat), ∃ (n : Int),
+-- theorem h8_spend_Claim_reach :
+--     ∃ p,
 --       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ i ∈ continuingPositions
---         (honest_spend_Claim p) ∧ validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.I n) })) = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is a byte string instead of the
--- declared type, it is rejected (for members that need their continuations).
--- theorem h8_spend_Claim_wrongForm_bytes :
---     ∀ p (i : Nat) (b : ByteString),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → i ∈ continuingPositions
---         (honest_spend_Claim p) → validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.B b) })) = true → rejects ledgerFuel (changeOutput
---         (honest_spend_Claim p) i (fun o => { o with txOutDatum := .OutputDatum (Data.B b) }))
---         := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Claim_wrongForm_bytes_reach :
---     ∃ p, ∃ (i : Nat), ∃ (b : ByteString),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ i ∈ continuingPositions
---         (honest_spend_Claim p) ∧ validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.B b) })) = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is a list instead of the
--- declared type, it is rejected (for members that need their continuations).
--- theorem h8_spend_Claim_wrongForm_list :
---     ∀ p (i : Nat) (l : List Data),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → i ∈ continuingPositions
---         (honest_spend_Claim p) → validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.List l) })) = true → rejects ledgerFuel
---         (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.List l) })) := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Claim_wrongForm_list_reach :
---     ∃ p, ∃ (i : Nat), ∃ (l : List Data),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ i ∈ continuingPositions
---         (honest_spend_Claim p) ∧ validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.List l) })) = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is a map instead of the
--- declared type, it is rejected (for members that need their continuations).
--- theorem h8_spend_Claim_wrongForm_map :
---     ∀ p (i : Nat) (m : List (Data × Data)),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → i ∈ continuingPositions
---         (honest_spend_Claim p) → validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Map m) })) = true → rejects ledgerFuel
---         (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Map m) })) := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Claim_wrongForm_map_reach :
---     ∃ p, ∃ (i : Nat), ∃ (m : List (Data × Data)),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ i ∈ continuingPositions
---         (honest_spend_Claim p) ∧ validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Map m) })) = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is a constructor with the
--- unknown index 1, it is rejected (for members that need their continuations).
--- theorem h8_spend_Claim_unknownIndex1 :
---     ∀ p (i : Nat) (x101 : Credential) (x102 : Credential) (x103 : Int) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → i ∈ continuingPositions
---         (honest_spend_Claim p) → validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 1 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 1 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Claim_unknownIndex1_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x101 : Credential), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int),
---       ∃ (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ i ∈ continuingPositions
---         (honest_spend_Claim p) ∧ validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 1 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is a constructor with the
--- unknown index 2, it is rejected (for members that need their continuations).
--- theorem h8_spend_Claim_unknownIndex2 :
---     ∀ p (i : Nat) (x101 : Credential) (x102 : Credential) (x103 : Int) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → i ∈ continuingPositions
---         (honest_spend_Claim p) → validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 2 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 2 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Claim_unknownIndex2_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x101 : Credential), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int),
---       ∃ (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ i ∈ continuingPositions
---         (honest_spend_Claim p) ∧ validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 2 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is VestingDatum with an extra
--- field, it is rejected (for members that need their continuations).
--- theorem h8_spend_Claim_VestingDatum_extraField :
---     ∀ p (i : Nat) (x101 : Credential) (x102 : Credential) (x103 : Int) (x104 : Int) (x105 : Int)
---       (x106 : Data),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → i ∈ continuingPositions
---         (honest_spend_Claim p) → validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105), x106]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105), x106]) }))
---         := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Claim_VestingDatum_extraField_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x101 : Credential), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int),
---       ∃ (x105 : Int), ∃ (x106 : Data),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ i ∈ continuingPositions
---         (honest_spend_Claim p) ∧ validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105), x106]) }))
---         = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is VestingDatum without its
--- last field, it is rejected (for members that need their continuations).
--- theorem h8_spend_Claim_VestingDatum_missingField :
---     ∀ p (i : Nat) (x101 : Credential) (x102 : Credential) (x103 : Int) (x104 : Int),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → i ∈ continuingPositions
---         (honest_spend_Claim p) → validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104)]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104)]) }))
---         := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Claim_VestingDatum_missingField_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x101 : Credential), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ i ∈ continuingPositions
---         (honest_spend_Claim p) ∧ validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104)]) }))
---         = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is VestingDatum with field
--- `beneficiary` of the wrong kind, it is rejected (for members that need their continuations).
--- theorem h8_spend_Claim_VestingDatum_wrongKind_beneficiary :
---     ∀ p (i : Nat) (x101 : Int) (x102 : Credential) (x103 : Int) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → i ∈ continuingPositions
---         (honest_spend_Claim p) → validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(Data.I x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(Data.I x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Claim_VestingDatum_wrongKind_beneficiary_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x101 : Int), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int), ∃
---       (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ i ∈ continuingPositions
---         (honest_spend_Claim p) ∧ validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(Data.I x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is VestingDatum with field
--- `locker` of the wrong kind, it is rejected (for members that need their continuations).
--- theorem h8_spend_Claim_VestingDatum_wrongKind_locker :
---     ∀ p (i : Nat) (x101 : Int) (x102 : Credential) (x103 : Int) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → i ∈ continuingPositions
---         (honest_spend_Claim p) → validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (Data.I x101), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (Data.I x101), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Claim_VestingDatum_wrongKind_locker_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x101 : Int), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int), ∃
---       (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ i ∈ continuingPositions
---         (honest_spend_Claim p) ∧ validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (Data.I x101), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is VestingDatum with field
--- `vesting` of the wrong kind, it is rejected (for members that need their continuations).
--- theorem h8_spend_Claim_VestingDatum_wrongKind_vesting :
---     ∀ p (i : Nat) (x101 : Int) (x102 : Credential) (x103 : Credential) (x104 : Int) (x105 : Int)
---       (x106 : Int),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → i ∈ continuingPositions
---         (honest_spend_Claim p) → validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.I x101), (Data.I x104), (Data.I x105), (Data.I x106)]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.I x101), (Data.I x104), (Data.I x105), (Data.I x106)]) }))
---         := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Claim_VestingDatum_wrongKind_vesting_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x101 : Int), ∃ (x102 : Credential), ∃ (x103 : Credential), ∃ (x104 : Int),
---       ∃ (x105 : Int), ∃ (x106 : Int),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ i ∈ continuingPositions
---         (honest_spend_Claim p) ∧ validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.I x101), (Data.I x104), (Data.I x105), (Data.I x106)]) }))
---         = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is VestingDatum with field
--- `start_time` of the wrong kind, it is rejected (for members that need their continuations).
--- theorem h8_spend_Claim_VestingDatum_wrongKind_start_time :
---     ∀ p (i : Nat) (x101 : ByteString) (x102 : Credential) (x103 : Credential) (x104 : Int)
---       (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → i ∈ continuingPositions
---         (honest_spend_Claim p) → validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.B x101), (Data.I x104), (Data.I x105)]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.B x101), (Data.I x104), (Data.I x105)]) }))
---         := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Claim_VestingDatum_wrongKind_start_time_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x101 : ByteString), ∃ (x102 : Credential), ∃ (x103 : Credential), ∃
---       (x104 : Int), ∃ (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ i ∈ continuingPositions
---         (honest_spend_Claim p) ∧ validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.B x101), (Data.I x104), (Data.I x105)]) }))
---         = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is VestingDatum with field
--- `end_time` of the wrong kind, it is rejected (for members that need their continuations).
--- theorem h8_spend_Claim_VestingDatum_wrongKind_end_time :
---     ∀ p (i : Nat) (x101 : ByteString) (x102 : Credential) (x103 : Credential) (x104 : Int)
---       (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → i ∈ continuingPositions
---         (honest_spend_Claim p) → validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.B x101), (Data.I x105)]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.B x101), (Data.I x105)]) }))
---         := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Claim_VestingDatum_wrongKind_end_time_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x101 : ByteString), ∃ (x102 : Credential), ∃ (x103 : Credential), ∃
---       (x104 : Int), ∃ (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ i ∈ continuingPositions
---         (honest_spend_Claim p) ∧ validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.B x101), (Data.I x105)]) }))
---         = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is VestingDatum with field
--- `recovery_time` of the wrong kind, it is rejected (for members that need their continuations).
--- theorem h8_spend_Claim_VestingDatum_wrongKind_recovery_time :
---     ∀ p (i : Nat) (x101 : ByteString) (x102 : Credential) (x103 : Credential) (x104 : Int)
---       (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → i ∈ continuingPositions
---         (honest_spend_Claim p) → validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.I x105), (Data.B x101)]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.I x105), (Data.B x101)]) }))
---         := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Claim_VestingDatum_wrongKind_recovery_time_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x101 : ByteString), ∃ (x102 : Credential), ∃ (x103 : Credential), ∃
---       (x104 : Int), ∃ (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ i ∈ continuingPositions
---         (honest_spend_Claim p) ∧ validScriptContext (changeOutput (honest_spend_Claim p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.I x105), (Data.B x101)]) }))
---         = true := by blaster
+--         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ validScriptContext
+--         (changeContinuation (honest_spend_Claim p) (fun o =>
+--         { o with txOutDatum := reindexOutputDatum 1 o.txOutDatum })) = true := by blaster
 
 -- (H9 not selected; pass --checks H9 to generate it)
--- H9 (UP-007): with an output back to the script given another staking credential, it is rejected
--- (for members that need their continuations).
+-- H9 (UP-007): with its first output back to the script given another staking credential, it is
+-- rejected (for members that need their continuations).
 -- theorem h9_spend_Claim :
---     ∀ p (i : Nat) (sc : Option StakingCredential),
+--     ∀ p (sc : Option StakingCredential),
 --       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → i ∈ continuingPositions
---         (honest_spend_Claim p) → (∀ o, (outputsOf (honest_spend_Claim p))[i]? = some o →
---         o.txOutAddress.addressStakingCredential ≠ sc) → validScriptContext (changeOutput
---         (honest_spend_Claim p) i (fun o =>
+--         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) →
+--         (firstContinuation? (honest_spend_Claim p)).any
+--         (fun o => o.txOutAddress.addressStakingCredential == sc) = false → validScriptContext
+--         (changeContinuation (honest_spend_Claim p) (fun o =>
 --         { o with txOutAddress := { o.txOutAddress with addressStakingCredential := sc } })) = true →
---         rejects ledgerFuel (changeOutput (honest_spend_Claim p) i (fun o =>
+--         rejects ledgerFuel (changeContinuation (honest_spend_Claim p) (fun o =>
 --         { o with txOutAddress := { o.txOutAddress with addressStakingCredential := sc } }))
 --         := by blaster
 
 -- (H9 not selected; pass --checks H9 to generate it)
 -- H9 (UP-007): reachability: some valid accepted member gives a valid changed transaction.
 -- theorem h9_spend_Claim_reach :
---     ∃ p, ∃ (i : Nat), ∃ (sc : Option StakingCredential),
+--     ∃ p, ∃ (sc : Option StakingCredential),
 --       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ i ∈ continuingPositions
---         (honest_spend_Claim p) ∧ (∀ o, (outputsOf (honest_spend_Claim p))[i]? = some o →
---         o.txOutAddress.addressStakingCredential ≠ sc) ∧ validScriptContext (changeOutput
---         (honest_spend_Claim p) i (fun o =>
+--         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧
+--         (firstContinuation? (honest_spend_Claim p)).any
+--         (fun o => o.txOutAddress.addressStakingCredential == sc) = false ∧ validScriptContext
+--         (changeContinuation (honest_spend_Claim p) (fun o =>
 --         { o with txOutAddress := { o.txOutAddress with addressStakingCredential := sc } })) = true
 --         := by blaster
 
 -- (H10 not selected; pass --checks H10 to generate it)
--- H10 (UP-008): with a junk token from a new input added to an output back to the script, it is
--- rejected (for members that need their continuations).
+-- H10 (UP-008): with a junk token from a new input appended to its first output back to the script,
+-- it is rejected (for members that need their continuations).
 -- theorem h10_spend_Claim :
---     ∀ p (i : Nat) (r : TxOutRef) (a : Int),
+--     ∀ p (r : TxOutRef) (a : Int),
 --       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → i ∈ continuingPositions
---         (honest_spend_Claim p) → validScriptContext (addJunkFrom (honest_spend_Claim p) i r a) =
---         true → rejects ledgerFuel (addJunkFrom (honest_spend_Claim p) i r a) := by blaster
+--         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → validScriptContext
+--         (addJunkFrom (honest_spend_Claim p) r a) = true → rejects ledgerFuel
+--         (addJunkFrom (honest_spend_Claim p) r a) := by blaster
 
 -- (H10 not selected; pass --checks H10 to generate it)
 -- H10 (UP-008): reachability: some valid accepted member gives a valid changed transaction.
 -- theorem h10_spend_Claim_reach :
---     ∃ p, ∃ (i : Nat), ∃ (r : TxOutRef), ∃ (a : Int),
+--     ∃ p, ∃ (r : TxOutRef), ∃ (a : Int),
 --       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ i ∈ continuingPositions
---         (honest_spend_Claim p) ∧ validScriptContext (addJunkFrom (honest_spend_Claim p) i r a) =
---         true := by blaster
+--         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ validScriptContext
+--         (addJunkFrom (honest_spend_Claim p) r a) = true := by blaster
 
+-- (H11 not selected; pass --checks H11 to generate it)
 -- H11 (UP-010, double satisfaction): with the input of any second valid accepted member added, its
 -- value pocketed and the outputs unchanged, the two script runs do not both accept while both
--- relying on the outputs back to the script: one run rejects, or one run still accepts with those
--- outputs redirected.
-theorem h11_spend_Claim :
-    ∀ p q r,
-      validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
-        validScriptContext (honest_spend_Claim q) = true → accepts ledgerFuel (honest_spend_Claim q)
-        → validScriptContext (addSpendOf (honest_spend_Claim p) (honest_spend_Claim q) r) = true →
-        (rejects ledgerFuel (addSpendOf (honest_spend_Claim p) (honest_spend_Claim q) r) ∨ rejects
-        ledgerFuel (asSpendOf (addSpendOf (honest_spend_Claim p) (honest_spend_Claim q) r)
-        (honest_spend_Claim q) r) ∨ accepts ledgerFuel (redirectContinuations (addSpendOf
-        (honest_spend_Claim p) (honest_spend_Claim q) r)) ∨ accepts ledgerFuel
-        (redirectContinuations (asSpendOf (addSpendOf (honest_spend_Claim p) (honest_spend_Claim q)
-        r) (honest_spend_Claim q) r))) := by blaster
+-- relying on the outputs: one run rejects, or one run still accepts with every output redirected.
+-- theorem h11_spend_Claim :
+--     ∀ p q r,
+--       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
+--         validScriptContext (honest_spend_Claim q) = true → accepts ledgerFuel (honest_spend_Claim q)
+--         → validScriptContext (addSpendOf (honest_spend_Claim p) (honest_spend_Claim q) r) = true →
+--         (rejects ledgerFuel (addSpendOf (honest_spend_Claim p) (honest_spend_Claim q) r) ∨ rejects
+--         ledgerFuel (asSpendOf (addSpendOf (honest_spend_Claim p) (honest_spend_Claim q) r)
+--         (honest_spend_Claim q) r) ∨ accepts ledgerFuel (redirectOutputs (addSpendOf
+--         (honest_spend_Claim p) (honest_spend_Claim q) r)) ∨ accepts ledgerFuel (redirectOutputs
+--         (asSpendOf (addSpendOf (honest_spend_Claim p) (honest_spend_Claim q) r) (honest_spend_Claim
+--         q) r))) := by blaster
 
+-- (H11 not selected; pass --checks H11 to generate it)
 -- H11 (UP-010, double satisfaction): reachability: some valid accepted member gives a valid changed
 -- transaction.
-theorem h11_spend_Claim_reach :
-    ∃ p, ∃ q, ∃ r,
-      validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
-        validScriptContext (honest_spend_Claim q) = true ∧ accepts ledgerFuel (honest_spend_Claim q)
-        ∧ validScriptContext (addSpendOf (honest_spend_Claim p) (honest_spend_Claim q) r) = true
-        := by blaster
+-- theorem h11_spend_Claim_reach :
+--     ∃ p, ∃ q, ∃ r,
+--       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
+--         validScriptContext (honest_spend_Claim q) = true ∧ accepts ledgerFuel (honest_spend_Claim q)
+--         ∧ validScriptContext (addSpendOf (honest_spend_Claim p) (honest_spend_Claim q) r) = true
+--         := by blaster
 
 -- (H12 not selected; pass --checks H12 to generate it)
 -- H12 (UP-013): with an unbounded validity range, it is rejected.
@@ -591,6 +283,22 @@ theorem h11_spend_Claim_reach :
 --         (withOutputs (honest_spend_Claim p) (outputsOf (honest_spend_Claim p)).reverse) = true
 --         := by blaster
 
+-- (H27 not selected; pass --checks H27 to generate it)
+-- H27 (UP-015): with its first output moved to the end, it is still accepted.
+-- theorem h27_spend_Claim :
+--     ∀ p,
+--       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
+--         validScriptContext (rotateOutputs (honest_spend_Claim p)) = true → accepts ledgerFuel
+--         (rotateOutputs (honest_spend_Claim p)) := by blaster
+
+-- (H27 not selected; pass --checks H27 to generate it)
+-- H27 (UP-015): reachability: some valid accepted member gives a valid changed transaction
+-- (required: an acceptance check that holds only vacuously says nothing).
+-- theorem h27_spend_Claim_reach :
+--     ∃ p,
+--       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
+--         validScriptContext (rotateOutputs (honest_spend_Claim p)) = true := by blaster
+
 -- (H17 not selected; pass --checks H17 to generate it)
 -- H17: with an unrelated input and output added, it is still accepted.
 -- theorem h17_spend_Claim :
@@ -608,278 +316,19 @@ theorem h11_spend_Claim_reach :
 --         validScriptContext (addUnrelatedOutput (honest_spend_Claim p) r a) = true := by blaster
 
 -- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by an integer instead of the declared type, it is rejected.
--- theorem h18_spend_Claim_wrongForm_int :
---     ∀ p (n : Int),
+-- H18: with its datum given the unknown constructor index 1, keeping its fields, it is rejected.
+-- theorem h18_spend_Claim :
+--     ∀ p,
 --       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.I n)) = true → rejects
---         ledgerFuel (withSpendDatum (honest_spend_Claim p) (Data.I n)) := by blaster
+--         validScriptContext (reindexSpendDatum (honest_spend_Claim p) 1) = true → rejects ledgerFuel
+--         (reindexSpendDatum (honest_spend_Claim p) 1) := by blaster
 
 -- (H18 not selected; pass --checks H18 to generate it)
 -- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Claim_wrongForm_int_reach :
---     ∃ p, ∃ (n : Int),
+-- theorem h18_spend_Claim_reach :
+--     ∃ p,
 --       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.I n)) = true := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by a byte string instead of the declared type, it is rejected.
--- theorem h18_spend_Claim_wrongForm_bytes :
---     ∀ p (b : ByteString),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.B b)) = true → rejects
---         ledgerFuel (withSpendDatum (honest_spend_Claim p) (Data.B b)) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Claim_wrongForm_bytes_reach :
---     ∃ p, ∃ (b : ByteString),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.B b)) = true := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by a list instead of the declared type, it is rejected.
--- theorem h18_spend_Claim_wrongForm_list :
---     ∀ p (l : List Data),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.List l)) = true → rejects
---         ledgerFuel (withSpendDatum (honest_spend_Claim p) (Data.List l)) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Claim_wrongForm_list_reach :
---     ∃ p, ∃ (l : List Data),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.List l)) = true
---         := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by a map instead of the declared type, it is rejected.
--- theorem h18_spend_Claim_wrongForm_map :
---     ∀ p (m : List (Data × Data)),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Map m)) = true → rejects
---         ledgerFuel (withSpendDatum (honest_spend_Claim p) (Data.Map m)) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Claim_wrongForm_map_reach :
---     ∃ p, ∃ (m : List (Data × Data)),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Map m)) = true := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by a constructor with the unknown index 1, it is rejected.
--- theorem h18_spend_Claim_unknownIndex1 :
---     ∀ p (x101 : Credential) (x102 : Credential) (x103 : Int) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Constr 1 [(IsData.toData
---         x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]))
---         = true → rejects ledgerFuel (withSpendDatum (honest_spend_Claim p) (Data.Constr 1
---         [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104),
---         (Data.I x105)])) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Claim_unknownIndex1_reach :
---     ∃ p, ∃ (x101 : Credential), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int), ∃
---       (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Constr 1 [(IsData.toData
---         x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]))
---         = true := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by a constructor with the unknown index 2, it is rejected.
--- theorem h18_spend_Claim_unknownIndex2 :
---     ∀ p (x101 : Credential) (x102 : Credential) (x103 : Int) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Constr 2 [(IsData.toData
---         x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]))
---         = true → rejects ledgerFuel (withSpendDatum (honest_spend_Claim p) (Data.Constr 2
---         [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104),
---         (Data.I x105)])) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Claim_unknownIndex2_reach :
---     ∃ p, ∃ (x101 : Credential), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int), ∃
---       (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Constr 2 [(IsData.toData
---         x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]))
---         = true := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by VestingDatum with an extra field, it is rejected.
--- theorem h18_spend_Claim_VestingDatum_extraField :
---     ∀ p (x101 : Credential) (x102 : Credential) (x103 : Int) (x104 : Int) (x105 : Int)
---       (x106 : Data),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Constr 0 [(IsData.toData
---         x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105),
---         x106])) = true → rejects ledgerFuel (withSpendDatum (honest_spend_Claim p) (Data.Constr 0
---         [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104),
---         (Data.I x105), x106])) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Claim_VestingDatum_extraField_reach :
---     ∃ p, ∃ (x101 : Credential), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int), ∃
---       (x105 : Int), ∃ (x106 : Data),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Constr 0 [(IsData.toData
---         x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105),
---         x106])) = true := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by VestingDatum without its last field, it is rejected.
--- theorem h18_spend_Claim_VestingDatum_missingField :
---     ∀ p (x101 : Credential) (x102 : Credential) (x103 : Int) (x104 : Int),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Constr 0 [(IsData.toData
---         x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104)])) = true →
---         rejects ledgerFuel (withSpendDatum (honest_spend_Claim p) (Data.Constr 0 [(IsData.toData
---         x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104)])) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Claim_VestingDatum_missingField_reach :
---     ∃ p, ∃ (x101 : Credential), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Constr 0 [(IsData.toData
---         x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104)])) = true
---         := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by VestingDatum with field `beneficiary` of the wrong kind, it is
--- rejected.
--- theorem h18_spend_Claim_VestingDatum_wrongKind_beneficiary :
---     ∀ p (x101 : Int) (x102 : Credential) (x103 : Int) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Constr 0 [(Data.I x101),
---         (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)])) = true
---         → rejects ledgerFuel (withSpendDatum (honest_spend_Claim p) (Data.Constr 0 [(Data.I x101),
---         (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]))
---         := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Claim_VestingDatum_wrongKind_beneficiary_reach :
---     ∃ p, ∃ (x101 : Int), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int), ∃ (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Constr 0 [(Data.I x101),
---         (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)])) = true
---         := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by VestingDatum with field `locker` of the wrong kind, it is
--- rejected.
--- theorem h18_spend_Claim_VestingDatum_wrongKind_locker :
---     ∀ p (x101 : Int) (x102 : Credential) (x103 : Int) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Constr 0 [(IsData.toData
---         x102), (Data.I x101), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)])) = true
---         → rejects ledgerFuel (withSpendDatum (honest_spend_Claim p) (Data.Constr 0 [(IsData.toData
---         x102), (Data.I x101), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]))
---         := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Claim_VestingDatum_wrongKind_locker_reach :
---     ∃ p, ∃ (x101 : Int), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int), ∃ (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Constr 0 [(IsData.toData
---         x102), (Data.I x101), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)])) = true
---         := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by VestingDatum with field `vesting` of the wrong kind, it is
--- rejected.
--- theorem h18_spend_Claim_VestingDatum_wrongKind_vesting :
---     ∀ p (x101 : Int) (x102 : Credential) (x103 : Credential) (x104 : Int) (x105 : Int) (x106 : Int),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Constr 0 [(IsData.toData
---         x102), (IsData.toData x103), (Data.I x101), (Data.I x104), (Data.I x105), (Data.I x106)])) =
---         true → rejects ledgerFuel (withSpendDatum (honest_spend_Claim p) (Data.Constr 0
---         [(IsData.toData x102), (IsData.toData x103), (Data.I x101), (Data.I x104), (Data.I x105),
---         (Data.I x106)])) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Claim_VestingDatum_wrongKind_vesting_reach :
---     ∃ p, ∃ (x101 : Int), ∃ (x102 : Credential), ∃ (x103 : Credential), ∃ (x104 : Int), ∃
---       (x105 : Int), ∃ (x106 : Int),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Constr 0 [(IsData.toData
---         x102), (IsData.toData x103), (Data.I x101), (Data.I x104), (Data.I x105), (Data.I x106)])) =
---         true := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by VestingDatum with field `start_time` of the wrong kind, it is
--- rejected.
--- theorem h18_spend_Claim_VestingDatum_wrongKind_start_time :
---     ∀ p (x101 : ByteString) (x102 : Credential) (x103 : Credential) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Constr 0 [(IsData.toData
---         x102), (IsData.toData x103), (Data.List []), (Data.B x101), (Data.I x104), (Data.I x105)]))
---         = true → rejects ledgerFuel (withSpendDatum (honest_spend_Claim p) (Data.Constr 0
---         [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.B x101), (Data.I x104),
---         (Data.I x105)])) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Claim_VestingDatum_wrongKind_start_time_reach :
---     ∃ p, ∃ (x101 : ByteString), ∃ (x102 : Credential), ∃ (x103 : Credential), ∃ (x104 : Int), ∃
---       (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Constr 0 [(IsData.toData
---         x102), (IsData.toData x103), (Data.List []), (Data.B x101), (Data.I x104), (Data.I x105)]))
---         = true := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by VestingDatum with field `end_time` of the wrong kind, it is
--- rejected.
--- theorem h18_spend_Claim_VestingDatum_wrongKind_end_time :
---     ∀ p (x101 : ByteString) (x102 : Credential) (x103 : Credential) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Constr 0 [(IsData.toData
---         x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.B x101), (Data.I x105)]))
---         = true → rejects ledgerFuel (withSpendDatum (honest_spend_Claim p) (Data.Constr 0
---         [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.B x101),
---         (Data.I x105)])) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Claim_VestingDatum_wrongKind_end_time_reach :
---     ∃ p, ∃ (x101 : ByteString), ∃ (x102 : Credential), ∃ (x103 : Credential), ∃ (x104 : Int), ∃
---       (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Constr 0 [(IsData.toData
---         x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.B x101), (Data.I x105)]))
---         = true := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by VestingDatum with field `recovery_time` of the wrong kind, it is
--- rejected.
--- theorem h18_spend_Claim_VestingDatum_wrongKind_recovery_time :
---     ∀ p (x101 : ByteString) (x102 : Credential) (x103 : Credential) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Constr 0 [(IsData.toData
---         x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.I x105), (Data.B x101)]))
---         = true → rejects ledgerFuel (withSpendDatum (honest_spend_Claim p) (Data.Constr 0
---         [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.I x105),
---         (Data.B x101)])) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Claim_VestingDatum_wrongKind_recovery_time_reach :
---     ∃ p, ∃ (x101 : ByteString), ∃ (x102 : Credential), ∃ (x103 : Credential), ∃ (x104 : Int), ∃
---       (x105 : Int),
---       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         validScriptContext (withSpendDatum (honest_spend_Claim p) (Data.Constr 0 [(IsData.toData
---         x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.I x105), (Data.B x101)]))
---         = true := by blaster
+--         validScriptContext (reindexSpendDatum (honest_spend_Claim p) 1) = true := by blaster
 
 -- (H19 not selected; pass --checks H19 to generate it)
 -- H19: without a datum, it is rejected (review: some validators allow this on purpose).
@@ -913,14 +362,15 @@ theorem h11_spend_Claim_reach :
 --         validScriptContext (addUnrelatedInputFirst (honest_spend_Claim p) r a) = true := by blaster
 
 -- (H24 not selected; pass --checks H24 to generate it)
--- H24: with an extra signatory, it is still accepted.
+-- H24: with an extra signatory, not already in the list, added first, it is still accepted.
 -- theorem h24_spend_Claim :
 --     ∀ p (k : PubKeyHash),
 --       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         k ∉ (signatoriesOf (honest_spend_Claim p)) → validScriptContext (withSignatories
---         (honest_spend_Claim p) (List.append (signatoriesOf (honest_spend_Claim p)) [k])) = true →
---         accepts ledgerFuel (withSignatories (honest_spend_Claim p) (List.append (signatoriesOf
---         (honest_spend_Claim p)) [k])) := by blaster
+--         (signatoriesOf (honest_spend_Claim p)).contains k = false → validScriptContext
+--         (withSignatories (honest_spend_Claim p) (k :: (signatoriesOf (honest_spend_Claim p)))) =
+--         true → accepts ledgerFuel
+--         (withSignatories (honest_spend_Claim p) (k :: (signatoriesOf (honest_spend_Claim p))))
+--         := by blaster
 
 -- (H24 not selected; pass --checks H24 to generate it)
 -- H24: reachability: some valid accepted member gives a valid changed transaction
@@ -928,9 +378,9 @@ theorem h11_spend_Claim_reach :
 -- theorem h24_spend_Claim_reach :
 --     ∃ p, ∃ (k : PubKeyHash),
 --       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         k ∉ (signatoriesOf (honest_spend_Claim p)) ∧ validScriptContext (withSignatories
---         (honest_spend_Claim p) (List.append (signatoriesOf (honest_spend_Claim p)) [k])) = true
---         := by blaster
+--         (signatoriesOf (honest_spend_Claim p)).contains k = false ∧ validScriptContext
+--         (withSignatories (honest_spend_Claim p) (k :: (signatoriesOf (honest_spend_Claim p)))) =
+--         true := by blaster
 
 -- (H25 not selected; pass --checks H25 to generate it)
 -- H25: with an unrelated token minted and sent to an unrelated output, it is still accepted.
@@ -949,27 +399,24 @@ theorem h11_spend_Claim_reach :
 --         validScriptContext (addUnrelatedMint (honest_spend_Claim p) r a) = true := by blaster
 
 -- (H26 not selected; pass --checks H26 to generate it)
--- H26: with a reference script on an output back to the script, it is rejected
+-- H26: with a reference script on its first output back to the script, it is rejected
 -- (review; for members that need their continuations).
 -- theorem h26_spend_Claim :
---     ∀ p (i : Nat) (s : ByteString),
+--     ∀ p (s : ByteString),
 --       validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel (honest_spend_Claim p) →
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → i ∈ continuingPositions
---         (honest_spend_Claim p) → validScriptContext
---         (changeOutput (honest_spend_Claim p) i (fun o => { o with txOutReferenceScript := some s }))
---         = true → rejects ledgerFuel
---         (changeOutput (honest_spend_Claim p) i (fun o => { o with txOutReferenceScript := some s }))
---         := by blaster
+--         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) → validScriptContext
+--         (changeContinuation (honest_spend_Claim p) (fun o =>
+--         { o with txOutReferenceScript := some s })) = true → rejects ledgerFuel (changeContinuation
+--         (honest_spend_Claim p) (fun o => { o with txOutReferenceScript := some s })) := by blaster
 
 -- (H26 not selected; pass --checks H26 to generate it)
 -- H26: reachability: some valid accepted member gives a valid changed transaction.
 -- theorem h26_spend_Claim_reach :
---     ∃ p, ∃ (i : Nat), ∃ (s : ByteString),
+--     ∃ p, ∃ (s : ByteString),
 --       validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p) ∧
---         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ i ∈ continuingPositions
---         (honest_spend_Claim p) ∧ validScriptContext
---         (changeOutput (honest_spend_Claim p) i (fun o => { o with txOutReferenceScript := some s }))
---         = true := by blaster
+--         rejects ledgerFuel (redirectContinuations (honest_spend_Claim p)) ∧ validScriptContext
+--         (changeContinuation (honest_spend_Claim p) (fun o =>
+--         { o with txOutReferenceScript := some s })) = true := by blaster
 
 -- (H6 its form is still to be decided)
 -- H6: some amount of lovelace taken out of an output back to the script is rejected
@@ -1043,486 +490,153 @@ theorem h1_spend_Cancel :
 --         p)).tail)) = true := by blaster
 
 -- (H5 not selected; pass --checks H5 to generate it)
--- H5 (UP-011): with the address of an output back to the script changed, it is rejected
--- (for members that need their continuations).
+-- H5 (UP-011): with the payment credential of its first output back to the script changed, it is
+-- rejected (for members that need their continuations; the staking part is H9's).
 -- theorem h5_spend_Cancel :
---     ∀ p (i : Nat) (addr : Address),
+--     ∀ p (c : Credential),
 --       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → i ∈
---         continuingPositions (honest_spend_Cancel p) →
---         (∀ o, (outputsOf (honest_spend_Cancel p))[i]? = some o → o.txOutAddress ≠ addr) →
---         validScriptContext
---         (changeOutput (honest_spend_Cancel p) i (fun o => { o with txOutAddress := addr })) = true →
---         rejects ledgerFuel
---         (changeOutput (honest_spend_Cancel p) i (fun o => { o with txOutAddress := addr }))
---         := by blaster
+--         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) →
+--         (firstContinuation? (honest_spend_Cancel p)).any
+--         (fun o => o.txOutAddress.addressCredential == c) = false → validScriptContext
+--         (changeContinuation (honest_spend_Cancel p) (fun o =>
+--         { o with txOutAddress := { o.txOutAddress with addressCredential := c } })) = true → rejects
+--         ledgerFuel (changeContinuation (honest_spend_Cancel p) (fun o =>
+--         { o with txOutAddress := { o.txOutAddress with addressCredential := c } })) := by blaster
 
 -- (H5 not selected; pass --checks H5 to generate it)
 -- H5 (UP-011): reachability: some valid accepted member gives a valid changed transaction.
 -- theorem h5_spend_Cancel_reach :
---     ∃ p, ∃ (i : Nat), ∃ (addr : Address),
+--     ∃ p, ∃ (c : Credential),
 --       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ i ∈
---         continuingPositions (honest_spend_Cancel p) ∧
---         (∀ o, (outputsOf (honest_spend_Cancel p))[i]? = some o → o.txOutAddress ≠ addr) ∧
---         validScriptContext
---         (changeOutput (honest_spend_Cancel p) i (fun o => { o with txOutAddress := addr })) = true
+--         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧
+--         (firstContinuation? (honest_spend_Cancel p)).any
+--         (fun o => o.txOutAddress.addressCredential == c) = false ∧ validScriptContext
+--         (changeContinuation (honest_spend_Cancel p) (fun o =>
+--         { o with txOutAddress := { o.txOutAddress with addressCredential := c } })) = true
 --         := by blaster
 
 -- (H7 not selected; pass --checks H7 to generate it)
--- H7 (UP-014): with an output back to the script given another well-formed datum, it is rejected
--- (for members that need their continuations).
+-- H7 (UP-014): with its first output back to the script given another well-formed datum, it is
+-- rejected (for members that need their continuations).
 -- theorem h7_spend_Cancel :
---     ∀ p (i : Nat) (x201 : Credential) (x202 : Credential) (x203 : Int) (x204 : Int) (x205 : Int),
+--     ∀ p (x201 : Credential) (x202 : Credential) (x203 : Int) (x204 : Int) (x205 : Int),
 --       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → i ∈
---         continuingPositions (honest_spend_Cancel p) → (∀ o, (outputsOf (honest_spend_Cancel p))[i]?
---         = some o → o.txOutDatum ≠ .OutputDatum (Data.Constr 0 [(IsData.toData x201), (IsData.toData
---         x202), (Data.List []), (Data.I x203), (Data.I x204), (Data.I x205)])) → validScriptContext
---         (changeOutput (honest_spend_Cancel p) i (fun o =>
+--         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) →
+--         (firstContinuation? (honest_spend_Cancel p)).any (fun o => o.txOutDatum == .OutputDatum
+--         (Data.Constr 0 [(IsData.toData x201), (IsData.toData x202), (Data.List []), (Data.I x203),
+--         (Data.I x204), (Data.I x205)])) = false → validScriptContext (changeContinuation
+--         (honest_spend_Cancel p) (fun o =>
 --         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x201), (IsData.toData x202), (Data.List []), (Data.I x203), (Data.I x204), (Data.I x205)]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Cancel p) i (fun o =>
+--         = true → rejects ledgerFuel (changeContinuation (honest_spend_Cancel p) (fun o =>
 --         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x201), (IsData.toData x202), (Data.List []), (Data.I x203), (Data.I x204), (Data.I x205)]) }))
 --         := by blaster
 
 -- (H7 not selected; pass --checks H7 to generate it)
 -- H7 (UP-014): reachability: some valid accepted member gives a valid changed transaction.
 -- theorem h7_spend_Cancel_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x201 : Credential), ∃ (x202 : Credential), ∃ (x203 : Int), ∃ (x204 : Int),
---       ∃ (x205 : Int),
+--     ∃ p, ∃ (x201 : Credential), ∃ (x202 : Credential), ∃ (x203 : Int), ∃ (x204 : Int), ∃
+--       (x205 : Int),
 --       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ i ∈
---         continuingPositions (honest_spend_Cancel p) ∧ (∀ o, (outputsOf (honest_spend_Cancel p))[i]?
---         = some o → o.txOutDatum ≠ .OutputDatum (Data.Constr 0 [(IsData.toData x201), (IsData.toData
---         x202), (Data.List []), (Data.I x203), (Data.I x204), (Data.I x205)])) ∧ validScriptContext
---         (changeOutput (honest_spend_Cancel p) i (fun o =>
+--         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧
+--         (firstContinuation? (honest_spend_Cancel p)).any (fun o => o.txOutDatum == .OutputDatum
+--         (Data.Constr 0 [(IsData.toData x201), (IsData.toData x202), (Data.List []), (Data.I x203),
+--         (Data.I x204), (Data.I x205)])) = false ∧ validScriptContext (changeContinuation
+--         (honest_spend_Cancel p) (fun o =>
 --         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x201), (IsData.toData x202), (Data.List []), (Data.I x203), (Data.I x204), (Data.I x205)]) }))
 --         = true := by blaster
 
 -- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is an integer instead of the
--- declared type, it is rejected (for members that need their continuations).
--- theorem h8_spend_Cancel_wrongForm_int :
---     ∀ p (i : Nat) (n : Int),
+-- H8 (UP-006): with the datum of its first output back to the script given the unknown constructor
+-- index 1, keeping its fields, it is rejected (for members that need their continuations).
+-- theorem h8_spend_Cancel :
+--     ∀ p,
 --       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → i ∈
---         continuingPositions (honest_spend_Cancel p) → validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o => { o with txOutDatum := .OutputDatum (Data.I n) })) =
---         true → rejects ledgerFuel (changeOutput (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.I n) })) := by blaster
+--         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → validScriptContext
+--         (changeContinuation (honest_spend_Cancel p) (fun o =>
+--         { o with txOutDatum := reindexOutputDatum 1 o.txOutDatum })) = true → rejects ledgerFuel
+--         (changeContinuation (honest_spend_Cancel p) (fun o =>
+--         { o with txOutDatum := reindexOutputDatum 1 o.txOutDatum })) := by blaster
 
 -- (H8 not selected; pass --checks H8 to generate it)
 -- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Cancel_wrongForm_int_reach :
---     ∃ p, ∃ (i : Nat), ∃ (n : Int),
+-- theorem h8_spend_Cancel_reach :
+--     ∃ p,
 --       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ i ∈
---         continuingPositions (honest_spend_Cancel p) ∧ validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o => { o with txOutDatum := .OutputDatum (Data.I n) })) =
---         true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is a byte string instead of the
--- declared type, it is rejected (for members that need their continuations).
--- theorem h8_spend_Cancel_wrongForm_bytes :
---     ∀ p (i : Nat) (b : ByteString),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → i ∈
---         continuingPositions (honest_spend_Cancel p) → validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o => { o with txOutDatum := .OutputDatum (Data.B b) })) =
---         true → rejects ledgerFuel (changeOutput (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.B b) })) := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Cancel_wrongForm_bytes_reach :
---     ∃ p, ∃ (i : Nat), ∃ (b : ByteString),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ i ∈
---         continuingPositions (honest_spend_Cancel p) ∧ validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o => { o with txOutDatum := .OutputDatum (Data.B b) })) =
---         true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is a list instead of the
--- declared type, it is rejected (for members that need their continuations).
--- theorem h8_spend_Cancel_wrongForm_list :
---     ∀ p (i : Nat) (l : List Data),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → i ∈
---         continuingPositions (honest_spend_Cancel p) → validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o => { o with txOutDatum := .OutputDatum (Data.List l) })) =
---         true → rejects ledgerFuel (changeOutput (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.List l) })) := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Cancel_wrongForm_list_reach :
---     ∃ p, ∃ (i : Nat), ∃ (l : List Data),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ i ∈
---         continuingPositions (honest_spend_Cancel p) ∧ validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o => { o with txOutDatum := .OutputDatum (Data.List l) })) =
---         true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is a map instead of the
--- declared type, it is rejected (for members that need their continuations).
--- theorem h8_spend_Cancel_wrongForm_map :
---     ∀ p (i : Nat) (m : List (Data × Data)),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → i ∈
---         continuingPositions (honest_spend_Cancel p) → validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o => { o with txOutDatum := .OutputDatum (Data.Map m) })) =
---         true → rejects ledgerFuel (changeOutput (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Map m) })) := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Cancel_wrongForm_map_reach :
---     ∃ p, ∃ (i : Nat), ∃ (m : List (Data × Data)),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ i ∈
---         continuingPositions (honest_spend_Cancel p) ∧ validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o => { o with txOutDatum := .OutputDatum (Data.Map m) })) =
---         true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is a constructor with the
--- unknown index 1, it is rejected (for members that need their continuations).
--- theorem h8_spend_Cancel_unknownIndex1 :
---     ∀ p (i : Nat) (x101 : Credential) (x102 : Credential) (x103 : Int) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → i ∈
---         continuingPositions (honest_spend_Cancel p) → validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 1 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 1 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Cancel_unknownIndex1_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x101 : Credential), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int),
---       ∃ (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ i ∈
---         continuingPositions (honest_spend_Cancel p) ∧ validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 1 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is a constructor with the
--- unknown index 2, it is rejected (for members that need their continuations).
--- theorem h8_spend_Cancel_unknownIndex2 :
---     ∀ p (i : Nat) (x101 : Credential) (x102 : Credential) (x103 : Int) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → i ∈
---         continuingPositions (honest_spend_Cancel p) → validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 2 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 2 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Cancel_unknownIndex2_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x101 : Credential), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int),
---       ∃ (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ i ∈
---         continuingPositions (honest_spend_Cancel p) ∧ validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 2 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is VestingDatum with an extra
--- field, it is rejected (for members that need their continuations).
--- theorem h8_spend_Cancel_VestingDatum_extraField :
---     ∀ p (i : Nat) (x101 : Credential) (x102 : Credential) (x103 : Int) (x104 : Int) (x105 : Int)
---       (x106 : Data),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → i ∈
---         continuingPositions (honest_spend_Cancel p) → validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105), x106]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105), x106]) }))
---         := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Cancel_VestingDatum_extraField_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x101 : Credential), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int),
---       ∃ (x105 : Int), ∃ (x106 : Data),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ i ∈
---         continuingPositions (honest_spend_Cancel p) ∧ validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105), x106]) }))
---         = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is VestingDatum without its
--- last field, it is rejected (for members that need their continuations).
--- theorem h8_spend_Cancel_VestingDatum_missingField :
---     ∀ p (i : Nat) (x101 : Credential) (x102 : Credential) (x103 : Int) (x104 : Int),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → i ∈
---         continuingPositions (honest_spend_Cancel p) → validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104)]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104)]) }))
---         := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Cancel_VestingDatum_missingField_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x101 : Credential), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ i ∈
---         continuingPositions (honest_spend_Cancel p) ∧ validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104)]) }))
---         = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is VestingDatum with field
--- `beneficiary` of the wrong kind, it is rejected (for members that need their continuations).
--- theorem h8_spend_Cancel_VestingDatum_wrongKind_beneficiary :
---     ∀ p (i : Nat) (x101 : Int) (x102 : Credential) (x103 : Int) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → i ∈
---         continuingPositions (honest_spend_Cancel p) → validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(Data.I x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(Data.I x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Cancel_VestingDatum_wrongKind_beneficiary_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x101 : Int), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int), ∃
---       (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ i ∈
---         continuingPositions (honest_spend_Cancel p) ∧ validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(Data.I x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is VestingDatum with field
--- `locker` of the wrong kind, it is rejected (for members that need their continuations).
--- theorem h8_spend_Cancel_VestingDatum_wrongKind_locker :
---     ∀ p (i : Nat) (x101 : Int) (x102 : Credential) (x103 : Int) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → i ∈
---         continuingPositions (honest_spend_Cancel p) → validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (Data.I x101), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (Data.I x101), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Cancel_VestingDatum_wrongKind_locker_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x101 : Int), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int), ∃
---       (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ i ∈
---         continuingPositions (honest_spend_Cancel p) ∧ validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (Data.I x101), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]) }))
---         = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is VestingDatum with field
--- `vesting` of the wrong kind, it is rejected (for members that need their continuations).
--- theorem h8_spend_Cancel_VestingDatum_wrongKind_vesting :
---     ∀ p (i : Nat) (x101 : Int) (x102 : Credential) (x103 : Credential) (x104 : Int) (x105 : Int)
---       (x106 : Int),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → i ∈
---         continuingPositions (honest_spend_Cancel p) → validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.I x101), (Data.I x104), (Data.I x105), (Data.I x106)]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.I x101), (Data.I x104), (Data.I x105), (Data.I x106)]) }))
---         := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Cancel_VestingDatum_wrongKind_vesting_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x101 : Int), ∃ (x102 : Credential), ∃ (x103 : Credential), ∃ (x104 : Int),
---       ∃ (x105 : Int), ∃ (x106 : Int),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ i ∈
---         continuingPositions (honest_spend_Cancel p) ∧ validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.I x101), (Data.I x104), (Data.I x105), (Data.I x106)]) }))
---         = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is VestingDatum with field
--- `start_time` of the wrong kind, it is rejected (for members that need their continuations).
--- theorem h8_spend_Cancel_VestingDatum_wrongKind_start_time :
---     ∀ p (i : Nat) (x101 : ByteString) (x102 : Credential) (x103 : Credential) (x104 : Int)
---       (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → i ∈
---         continuingPositions (honest_spend_Cancel p) → validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.B x101), (Data.I x104), (Data.I x105)]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.B x101), (Data.I x104), (Data.I x105)]) }))
---         := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Cancel_VestingDatum_wrongKind_start_time_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x101 : ByteString), ∃ (x102 : Credential), ∃ (x103 : Credential), ∃
---       (x104 : Int), ∃ (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ i ∈
---         continuingPositions (honest_spend_Cancel p) ∧ validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.B x101), (Data.I x104), (Data.I x105)]) }))
---         = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is VestingDatum with field
--- `end_time` of the wrong kind, it is rejected (for members that need their continuations).
--- theorem h8_spend_Cancel_VestingDatum_wrongKind_end_time :
---     ∀ p (i : Nat) (x101 : ByteString) (x102 : Credential) (x103 : Credential) (x104 : Int)
---       (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → i ∈
---         continuingPositions (honest_spend_Cancel p) → validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.B x101), (Data.I x105)]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.B x101), (Data.I x105)]) }))
---         := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Cancel_VestingDatum_wrongKind_end_time_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x101 : ByteString), ∃ (x102 : Credential), ∃ (x103 : Credential), ∃
---       (x104 : Int), ∃ (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ i ∈
---         continuingPositions (honest_spend_Cancel p) ∧ validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.B x101), (Data.I x105)]) }))
---         = true := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): with an output back to the script given a datum that is VestingDatum with field
--- `recovery_time` of the wrong kind, it is rejected (for members that need their continuations).
--- theorem h8_spend_Cancel_VestingDatum_wrongKind_recovery_time :
---     ∀ p (i : Nat) (x101 : ByteString) (x102 : Credential) (x103 : Credential) (x104 : Int)
---       (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → i ∈
---         continuingPositions (honest_spend_Cancel p) → validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.I x105), (Data.B x101)]) }))
---         = true → rejects ledgerFuel (changeOutput (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.I x105), (Data.B x101)]) }))
---         := by blaster
-
--- (H8 not selected; pass --checks H8 to generate it)
--- H8 (UP-006): reachability: some valid accepted member gives a valid changed transaction.
--- theorem h8_spend_Cancel_VestingDatum_wrongKind_recovery_time_reach :
---     ∃ p, ∃ (i : Nat), ∃ (x101 : ByteString), ∃ (x102 : Credential), ∃ (x103 : Credential), ∃
---       (x104 : Int), ∃ (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ i ∈
---         continuingPositions (honest_spend_Cancel p) ∧ validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
---         { o with txOutDatum := .OutputDatum (Data.Constr 0 [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.I x105), (Data.B x101)]) }))
---         = true := by blaster
+--         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ validScriptContext
+--         (changeContinuation (honest_spend_Cancel p) (fun o =>
+--         { o with txOutDatum := reindexOutputDatum 1 o.txOutDatum })) = true := by blaster
 
 -- (H9 not selected; pass --checks H9 to generate it)
--- H9 (UP-007): with an output back to the script given another staking credential, it is rejected
--- (for members that need their continuations).
+-- H9 (UP-007): with its first output back to the script given another staking credential, it is
+-- rejected (for members that need their continuations).
 -- theorem h9_spend_Cancel :
---     ∀ p (i : Nat) (sc : Option StakingCredential),
+--     ∀ p (sc : Option StakingCredential),
 --       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → i ∈
---         continuingPositions (honest_spend_Cancel p) → (∀ o, (outputsOf (honest_spend_Cancel p))[i]?
---         = some o → o.txOutAddress.addressStakingCredential ≠ sc) → validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
+--         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) →
+--         (firstContinuation? (honest_spend_Cancel p)).any
+--         (fun o => o.txOutAddress.addressStakingCredential == sc) = false → validScriptContext
+--         (changeContinuation (honest_spend_Cancel p) (fun o =>
 --         { o with txOutAddress := { o.txOutAddress with addressStakingCredential := sc } })) = true →
---         rejects ledgerFuel (changeOutput (honest_spend_Cancel p) i (fun o =>
+--         rejects ledgerFuel (changeContinuation (honest_spend_Cancel p) (fun o =>
 --         { o with txOutAddress := { o.txOutAddress with addressStakingCredential := sc } }))
 --         := by blaster
 
 -- (H9 not selected; pass --checks H9 to generate it)
 -- H9 (UP-007): reachability: some valid accepted member gives a valid changed transaction.
 -- theorem h9_spend_Cancel_reach :
---     ∃ p, ∃ (i : Nat), ∃ (sc : Option StakingCredential),
+--     ∃ p, ∃ (sc : Option StakingCredential),
 --       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ i ∈
---         continuingPositions (honest_spend_Cancel p) ∧ (∀ o, (outputsOf (honest_spend_Cancel p))[i]?
---         = some o → o.txOutAddress.addressStakingCredential ≠ sc) ∧ validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o =>
+--         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧
+--         (firstContinuation? (honest_spend_Cancel p)).any
+--         (fun o => o.txOutAddress.addressStakingCredential == sc) = false ∧ validScriptContext
+--         (changeContinuation (honest_spend_Cancel p) (fun o =>
 --         { o with txOutAddress := { o.txOutAddress with addressStakingCredential := sc } })) = true
 --         := by blaster
 
 -- (H10 not selected; pass --checks H10 to generate it)
--- H10 (UP-008): with a junk token from a new input added to an output back to the script, it is
--- rejected (for members that need their continuations).
+-- H10 (UP-008): with a junk token from a new input appended to its first output back to the script,
+-- it is rejected (for members that need their continuations).
 -- theorem h10_spend_Cancel :
---     ∀ p (i : Nat) (r : TxOutRef) (a : Int),
+--     ∀ p (r : TxOutRef) (a : Int),
 --       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → i ∈
---         continuingPositions (honest_spend_Cancel p) → validScriptContext
---         (addJunkFrom (honest_spend_Cancel p) i r a) = true → rejects ledgerFuel
---         (addJunkFrom (honest_spend_Cancel p) i r a) := by blaster
+--         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → validScriptContext
+--         (addJunkFrom (honest_spend_Cancel p) r a) = true → rejects ledgerFuel
+--         (addJunkFrom (honest_spend_Cancel p) r a) := by blaster
 
 -- (H10 not selected; pass --checks H10 to generate it)
 -- H10 (UP-008): reachability: some valid accepted member gives a valid changed transaction.
 -- theorem h10_spend_Cancel_reach :
---     ∃ p, ∃ (i : Nat), ∃ (r : TxOutRef), ∃ (a : Int),
+--     ∃ p, ∃ (r : TxOutRef), ∃ (a : Int),
 --       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ i ∈
---         continuingPositions (honest_spend_Cancel p) ∧ validScriptContext
---         (addJunkFrom (honest_spend_Cancel p) i r a) = true := by blaster
+--         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ validScriptContext
+--         (addJunkFrom (honest_spend_Cancel p) r a) = true := by blaster
 
+-- (H11 not selected; pass --checks H11 to generate it)
 -- H11 (UP-010, double satisfaction): with the input of any second valid accepted member added, its
 -- value pocketed and the outputs unchanged, the two script runs do not both accept while both
--- relying on the outputs back to the script: one run rejects, or one run still accepts with those
--- outputs redirected.
-theorem h11_spend_Cancel :
-    ∀ p q r,
-      validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
-        → validScriptContext (honest_spend_Cancel q) = true → accepts ledgerFuel
-        (honest_spend_Cancel q) → validScriptContext
-        (addSpendOf (honest_spend_Cancel p) (honest_spend_Cancel q) r) = true → (rejects ledgerFuel
-        (addSpendOf (honest_spend_Cancel p) (honest_spend_Cancel q) r) ∨ rejects ledgerFuel
-        (asSpendOf (addSpendOf (honest_spend_Cancel p) (honest_spend_Cancel q) r)
-        (honest_spend_Cancel q) r) ∨ accepts ledgerFuel (redirectContinuations (addSpendOf
-        (honest_spend_Cancel p) (honest_spend_Cancel q) r)) ∨ accepts ledgerFuel
-        (redirectContinuations (asSpendOf (addSpendOf (honest_spend_Cancel p) (honest_spend_Cancel
-        q) r) (honest_spend_Cancel q) r))) := by blaster
+-- relying on the outputs: one run rejects, or one run still accepts with every output redirected.
+-- theorem h11_spend_Cancel :
+--     ∀ p q r,
+--       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
+--         → validScriptContext (honest_spend_Cancel q) = true → accepts ledgerFuel
+--         (honest_spend_Cancel q) → validScriptContext
+--         (addSpendOf (honest_spend_Cancel p) (honest_spend_Cancel q) r) = true → (rejects ledgerFuel
+--         (addSpendOf (honest_spend_Cancel p) (honest_spend_Cancel q) r) ∨ rejects ledgerFuel
+--         (asSpendOf (addSpendOf (honest_spend_Cancel p) (honest_spend_Cancel q) r)
+--         (honest_spend_Cancel q) r) ∨ accepts ledgerFuel (redirectOutputs (addSpendOf
+--         (honest_spend_Cancel p) (honest_spend_Cancel q) r)) ∨ accepts ledgerFuel (redirectOutputs
+--         (asSpendOf (addSpendOf (honest_spend_Cancel p) (honest_spend_Cancel q) r)
+--         (honest_spend_Cancel q) r))) := by blaster
 
+-- (H11 not selected; pass --checks H11 to generate it)
 -- H11 (UP-010, double satisfaction): reachability: some valid accepted member gives a valid changed
 -- transaction.
-theorem h11_spend_Cancel_reach :
-    ∃ p, ∃ q, ∃ r,
-      validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
-        ∧ validScriptContext (honest_spend_Cancel q) = true ∧ accepts ledgerFuel
-        (honest_spend_Cancel q) ∧ validScriptContext
-        (addSpendOf (honest_spend_Cancel p) (honest_spend_Cancel q) r) = true := by blaster
+-- theorem h11_spend_Cancel_reach :
+--     ∃ p, ∃ q, ∃ r,
+--       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
+--         ∧ validScriptContext (honest_spend_Cancel q) = true ∧ accepts ledgerFuel
+--         (honest_spend_Cancel q) ∧ validScriptContext
+--         (addSpendOf (honest_spend_Cancel p) (honest_spend_Cancel q) r) = true := by blaster
 
 -- (H12 not selected; pass --checks H12 to generate it)
 -- H12 (UP-013): with an unbounded validity range, it is rejected.
@@ -1577,6 +691,22 @@ theorem h11_spend_Cancel_reach :
 --         (withOutputs (honest_spend_Cancel p) (outputsOf (honest_spend_Cancel p)).reverse) = true
 --         := by blaster
 
+-- (H27 not selected; pass --checks H27 to generate it)
+-- H27 (UP-015): with its first output moved to the end, it is still accepted.
+-- theorem h27_spend_Cancel :
+--     ∀ p,
+--       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
+--         → validScriptContext (rotateOutputs (honest_spend_Cancel p)) = true → accepts ledgerFuel
+--         (rotateOutputs (honest_spend_Cancel p)) := by blaster
+
+-- (H27 not selected; pass --checks H27 to generate it)
+-- H27 (UP-015): reachability: some valid accepted member gives a valid changed transaction
+-- (required: an acceptance check that holds only vacuously says nothing).
+-- theorem h27_spend_Cancel_reach :
+--     ∃ p,
+--       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
+--         ∧ validScriptContext (rotateOutputs (honest_spend_Cancel p)) = true := by blaster
+
 -- (H17 not selected; pass --checks H17 to generate it)
 -- H17: with an unrelated input and output added, it is still accepted.
 -- theorem h17_spend_Cancel :
@@ -1594,281 +724,19 @@ theorem h11_spend_Cancel_reach :
 --         ∧ validScriptContext (addUnrelatedOutput (honest_spend_Cancel p) r a) = true := by blaster
 
 -- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by an integer instead of the declared type, it is rejected.
--- theorem h18_spend_Cancel_wrongForm_int :
---     ∀ p (n : Int),
+-- H18: with its datum given the unknown constructor index 1, keeping its fields, it is rejected.
+-- theorem h18_spend_Cancel :
+--     ∀ p,
 --       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.I n)) = true → rejects
---         ledgerFuel (withSpendDatum (honest_spend_Cancel p) (Data.I n)) := by blaster
+--         → validScriptContext (reindexSpendDatum (honest_spend_Cancel p) 1) = true → rejects
+--         ledgerFuel (reindexSpendDatum (honest_spend_Cancel p) 1) := by blaster
 
 -- (H18 not selected; pass --checks H18 to generate it)
 -- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Cancel_wrongForm_int_reach :
---     ∃ p, ∃ (n : Int),
+-- theorem h18_spend_Cancel_reach :
+--     ∃ p,
 --       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.I n)) = true
---         := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by a byte string instead of the declared type, it is rejected.
--- theorem h18_spend_Cancel_wrongForm_bytes :
---     ∀ p (b : ByteString),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.B b)) = true → rejects
---         ledgerFuel (withSpendDatum (honest_spend_Cancel p) (Data.B b)) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Cancel_wrongForm_bytes_reach :
---     ∃ p, ∃ (b : ByteString),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.B b)) = true
---         := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by a list instead of the declared type, it is rejected.
--- theorem h18_spend_Cancel_wrongForm_list :
---     ∀ p (l : List Data),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.List l)) = true → rejects
---         ledgerFuel (withSpendDatum (honest_spend_Cancel p) (Data.List l)) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Cancel_wrongForm_list_reach :
---     ∃ p, ∃ (l : List Data),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.List l)) = true
---         := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by a map instead of the declared type, it is rejected.
--- theorem h18_spend_Cancel_wrongForm_map :
---     ∀ p (m : List (Data × Data)),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Map m)) = true → rejects
---         ledgerFuel (withSpendDatum (honest_spend_Cancel p) (Data.Map m)) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Cancel_wrongForm_map_reach :
---     ∃ p, ∃ (m : List (Data × Data)),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Map m)) = true
---         := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by a constructor with the unknown index 1, it is rejected.
--- theorem h18_spend_Cancel_unknownIndex1 :
---     ∀ p (x101 : Credential) (x102 : Credential) (x103 : Int) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Constr 1 [(IsData.toData
---         x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]))
---         = true → rejects ledgerFuel (withSpendDatum (honest_spend_Cancel p) (Data.Constr 1
---         [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104),
---         (Data.I x105)])) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Cancel_unknownIndex1_reach :
---     ∃ p, ∃ (x101 : Credential), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int), ∃
---       (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Constr 1 [(IsData.toData
---         x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]))
---         = true := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by a constructor with the unknown index 2, it is rejected.
--- theorem h18_spend_Cancel_unknownIndex2 :
---     ∀ p (x101 : Credential) (x102 : Credential) (x103 : Int) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Constr 2 [(IsData.toData
---         x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]))
---         = true → rejects ledgerFuel (withSpendDatum (honest_spend_Cancel p) (Data.Constr 2
---         [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104),
---         (Data.I x105)])) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Cancel_unknownIndex2_reach :
---     ∃ p, ∃ (x101 : Credential), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int), ∃
---       (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Constr 2 [(IsData.toData
---         x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]))
---         = true := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by VestingDatum with an extra field, it is rejected.
--- theorem h18_spend_Cancel_VestingDatum_extraField :
---     ∀ p (x101 : Credential) (x102 : Credential) (x103 : Int) (x104 : Int) (x105 : Int)
---       (x106 : Data),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0 [(IsData.toData
---         x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105),
---         x106])) = true → rejects ledgerFuel (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0
---         [(IsData.toData x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104),
---         (Data.I x105), x106])) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Cancel_VestingDatum_extraField_reach :
---     ∃ p, ∃ (x101 : Credential), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int), ∃
---       (x105 : Int), ∃ (x106 : Data),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0 [(IsData.toData
---         x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105),
---         x106])) = true := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by VestingDatum without its last field, it is rejected.
--- theorem h18_spend_Cancel_VestingDatum_missingField :
---     ∀ p (x101 : Credential) (x102 : Credential) (x103 : Int) (x104 : Int),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0 [(IsData.toData
---         x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104)])) = true →
---         rejects ledgerFuel (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0 [(IsData.toData
---         x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104)])) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Cancel_VestingDatum_missingField_reach :
---     ∃ p, ∃ (x101 : Credential), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0 [(IsData.toData
---         x101), (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104)])) = true
---         := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by VestingDatum with field `beneficiary` of the wrong kind, it is
--- rejected.
--- theorem h18_spend_Cancel_VestingDatum_wrongKind_beneficiary :
---     ∀ p (x101 : Int) (x102 : Credential) (x103 : Int) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0 [(Data.I x101),
---         (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)])) = true
---         → rejects ledgerFuel (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0 [(Data.I x101),
---         (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]))
---         := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Cancel_VestingDatum_wrongKind_beneficiary_reach :
---     ∃ p, ∃ (x101 : Int), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int), ∃ (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0 [(Data.I x101),
---         (IsData.toData x102), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)])) = true
---         := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by VestingDatum with field `locker` of the wrong kind, it is
--- rejected.
--- theorem h18_spend_Cancel_VestingDatum_wrongKind_locker :
---     ∀ p (x101 : Int) (x102 : Credential) (x103 : Int) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0 [(IsData.toData
---         x102), (Data.I x101), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)])) = true
---         → rejects ledgerFuel (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0 [(IsData.toData
---         x102), (Data.I x101), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)]))
---         := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Cancel_VestingDatum_wrongKind_locker_reach :
---     ∃ p, ∃ (x101 : Int), ∃ (x102 : Credential), ∃ (x103 : Int), ∃ (x104 : Int), ∃ (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0 [(IsData.toData
---         x102), (Data.I x101), (Data.List []), (Data.I x103), (Data.I x104), (Data.I x105)])) = true
---         := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by VestingDatum with field `vesting` of the wrong kind, it is
--- rejected.
--- theorem h18_spend_Cancel_VestingDatum_wrongKind_vesting :
---     ∀ p (x101 : Int) (x102 : Credential) (x103 : Credential) (x104 : Int) (x105 : Int) (x106 : Int),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0 [(IsData.toData
---         x102), (IsData.toData x103), (Data.I x101), (Data.I x104), (Data.I x105), (Data.I x106)])) =
---         true → rejects ledgerFuel (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0
---         [(IsData.toData x102), (IsData.toData x103), (Data.I x101), (Data.I x104), (Data.I x105),
---         (Data.I x106)])) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Cancel_VestingDatum_wrongKind_vesting_reach :
---     ∃ p, ∃ (x101 : Int), ∃ (x102 : Credential), ∃ (x103 : Credential), ∃ (x104 : Int), ∃
---       (x105 : Int), ∃ (x106 : Int),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0 [(IsData.toData
---         x102), (IsData.toData x103), (Data.I x101), (Data.I x104), (Data.I x105), (Data.I x106)])) =
---         true := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by VestingDatum with field `start_time` of the wrong kind, it is
--- rejected.
--- theorem h18_spend_Cancel_VestingDatum_wrongKind_start_time :
---     ∀ p (x101 : ByteString) (x102 : Credential) (x103 : Credential) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0 [(IsData.toData
---         x102), (IsData.toData x103), (Data.List []), (Data.B x101), (Data.I x104), (Data.I x105)]))
---         = true → rejects ledgerFuel (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0
---         [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.B x101), (Data.I x104),
---         (Data.I x105)])) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Cancel_VestingDatum_wrongKind_start_time_reach :
---     ∃ p, ∃ (x101 : ByteString), ∃ (x102 : Credential), ∃ (x103 : Credential), ∃ (x104 : Int), ∃
---       (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0 [(IsData.toData
---         x102), (IsData.toData x103), (Data.List []), (Data.B x101), (Data.I x104), (Data.I x105)]))
---         = true := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by VestingDatum with field `end_time` of the wrong kind, it is
--- rejected.
--- theorem h18_spend_Cancel_VestingDatum_wrongKind_end_time :
---     ∀ p (x101 : ByteString) (x102 : Credential) (x103 : Credential) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0 [(IsData.toData
---         x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.B x101), (Data.I x105)]))
---         = true → rejects ledgerFuel (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0
---         [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.B x101),
---         (Data.I x105)])) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Cancel_VestingDatum_wrongKind_end_time_reach :
---     ∃ p, ∃ (x101 : ByteString), ∃ (x102 : Credential), ∃ (x103 : Credential), ∃ (x104 : Int), ∃
---       (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0 [(IsData.toData
---         x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.B x101), (Data.I x105)]))
---         = true := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: with its datum replaced by VestingDatum with field `recovery_time` of the wrong kind, it is
--- rejected.
--- theorem h18_spend_Cancel_VestingDatum_wrongKind_recovery_time :
---     ∀ p (x101 : ByteString) (x102 : Credential) (x103 : Credential) (x104 : Int) (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0 [(IsData.toData
---         x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.I x105), (Data.B x101)]))
---         = true → rejects ledgerFuel (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0
---         [(IsData.toData x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.I x105),
---         (Data.B x101)])) := by blaster
-
--- (H18 not selected; pass --checks H18 to generate it)
--- H18: reachability: some valid accepted member gives a valid changed transaction.
--- theorem h18_spend_Cancel_VestingDatum_wrongKind_recovery_time_reach :
---     ∃ p, ∃ (x101 : ByteString), ∃ (x102 : Credential), ∃ (x103 : Credential), ∃ (x104 : Int), ∃
---       (x105 : Int),
---       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ validScriptContext (withSpendDatum (honest_spend_Cancel p) (Data.Constr 0 [(IsData.toData
---         x102), (IsData.toData x103), (Data.List []), (Data.I x104), (Data.I x105), (Data.B x101)]))
---         = true := by blaster
+--         ∧ validScriptContext (reindexSpendDatum (honest_spend_Cancel p) 1) = true := by blaster
 
 -- (H19 not selected; pass --checks H19 to generate it)
 -- H19: without a datum, it is rejected (review: some validators allow this on purpose).
@@ -1903,14 +771,15 @@ theorem h11_spend_Cancel_reach :
 --         := by blaster
 
 -- (H24 not selected; pass --checks H24 to generate it)
--- H24: with an extra signatory, it is still accepted.
+-- H24: with an extra signatory, not already in the list, added first, it is still accepted.
 -- theorem h24_spend_Cancel :
 --     ∀ p (k : PubKeyHash),
 --       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → k ∉ (signatoriesOf (honest_spend_Cancel p)) → validScriptContext (withSignatories
---         (honest_spend_Cancel p) (List.append (signatoriesOf (honest_spend_Cancel p)) [k])) = true →
---         accepts ledgerFuel (withSignatories (honest_spend_Cancel p) (List.append (signatoriesOf
---         (honest_spend_Cancel p)) [k])) := by blaster
+--         → (signatoriesOf (honest_spend_Cancel p)).contains k = false → validScriptContext
+--         (withSignatories (honest_spend_Cancel p) (k :: (signatoriesOf (honest_spend_Cancel p)))) =
+--         true → accepts ledgerFuel
+--         (withSignatories (honest_spend_Cancel p) (k :: (signatoriesOf (honest_spend_Cancel p))))
+--         := by blaster
 
 -- (H24 not selected; pass --checks H24 to generate it)
 -- H24: reachability: some valid accepted member gives a valid changed transaction
@@ -1918,9 +787,9 @@ theorem h11_spend_Cancel_reach :
 -- theorem h24_spend_Cancel_reach :
 --     ∃ p, ∃ (k : PubKeyHash),
 --       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ k ∉ (signatoriesOf (honest_spend_Cancel p)) ∧ validScriptContext (withSignatories
---         (honest_spend_Cancel p) (List.append (signatoriesOf (honest_spend_Cancel p)) [k])) = true
---         := by blaster
+--         ∧ (signatoriesOf (honest_spend_Cancel p)).contains k = false ∧ validScriptContext
+--         (withSignatories (honest_spend_Cancel p) (k :: (signatoriesOf (honest_spend_Cancel p)))) =
+--         true := by blaster
 
 -- (H25 not selected; pass --checks H25 to generate it)
 -- H25: with an unrelated token minted and sent to an unrelated output, it is still accepted.
@@ -1939,26 +808,24 @@ theorem h11_spend_Cancel_reach :
 --         ∧ validScriptContext (addUnrelatedMint (honest_spend_Cancel p) r a) = true := by blaster
 
 -- (H26 not selected; pass --checks H26 to generate it)
--- H26: with a reference script on an output back to the script, it is rejected
+-- H26: with a reference script on its first output back to the script, it is rejected
 -- (review; for members that need their continuations).
 -- theorem h26_spend_Cancel :
---     ∀ p (i : Nat) (s : ByteString),
+--     ∀ p (s : ByteString),
 --       validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel (honest_spend_Cancel p)
---         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → i ∈
---         continuingPositions (honest_spend_Cancel p) → validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o => { o with txOutReferenceScript := some s })) = true →
---         rejects ledgerFuel (changeOutput (honest_spend_Cancel p) i (fun o =>
---         { o with txOutReferenceScript := some s })) := by blaster
+--         → rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) → validScriptContext
+--         (changeContinuation (honest_spend_Cancel p) (fun o =>
+--         { o with txOutReferenceScript := some s })) = true → rejects ledgerFuel (changeContinuation
+--         (honest_spend_Cancel p) (fun o => { o with txOutReferenceScript := some s })) := by blaster
 
 -- (H26 not selected; pass --checks H26 to generate it)
 -- H26: reachability: some valid accepted member gives a valid changed transaction.
 -- theorem h26_spend_Cancel_reach :
---     ∃ p, ∃ (i : Nat), ∃ (s : ByteString),
+--     ∃ p, ∃ (s : ByteString),
 --       validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
---         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ i ∈
---         continuingPositions (honest_spend_Cancel p) ∧ validScriptContext (changeOutput
---         (honest_spend_Cancel p) i (fun o => { o with txOutReferenceScript := some s })) = true
---         := by blaster
+--         ∧ rejects ledgerFuel (redirectContinuations (honest_spend_Cancel p)) ∧ validScriptContext
+--         (changeContinuation (honest_spend_Cancel p) (fun o =>
+--         { o with txOutReferenceScript := some s })) = true := by blaster
 
 -- (H6 its form is still to be decided)
 -- H6: some amount of lovelace taken out of an output back to the script is rejected
