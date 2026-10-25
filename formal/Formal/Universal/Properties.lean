@@ -10,6 +10,7 @@ namespace Formal.Universal.Properties
 open PlutusCore.UPLC.Term (Program Term Const)
 open PlutusCore.UPLC.CekMachine (State step initialState applyParams)
 open PlutusCore.Data (Data)
+open PlutusCore.ByteString (ByteString)
 open CardanoLedgerApi.V3
 
 /-- CEK step bound used by generated checks; not a ledger CPU or memory budget. -/
@@ -87,6 +88,67 @@ def signatoriesOf (h : ScriptContext) : List PubKeyHash := h.scriptContextTxInfo
 
 def withSignatories (h : ScriptContext) (sigs : List PubKeyHash) : ScriptContext :=
   { h with scriptContextTxInfo := { h.scriptContextTxInfo with txInfoSignatories := sigs } }
+
+def keyAddr (h : PubKeyHash) : Address := ⟨.PubKeyCredential h, none⟩
+
+def withOutputs (h : ScriptContext) (outs : List TxOut) : ScriptContext :=
+  { h with scriptContextTxInfo := { h.scriptContextTxInfo with txInfoOutputs := outs } }
+
+/-- The input being spent, if the context is a spend and the input is in the transaction. -/
+def ownInput? (ctx : ScriptContext) : Option TxInInfo :=
+  match ctx.scriptContextScriptInfo with
+  | .SpendingScript ref _ => ctx.scriptContextTxInfo.txInfoInputs.find? (fun i => i.txInInfoOutRef == ref)
+  | _ => none
+
+/-- The key that receives redirected or pocketed value. -/
+def attackerKey : ByteString := "61747461636b6572"
+
+/-- The key of inputs and outputs unrelated to the script. -/
+def unrelatedKey : ByteString := "756e72656c61746564"
+
+/-- `h` with every output back to the script sent to `attackerKey` instead, without a datum.
+    "The member needs its continuations" is that this is rejected. -/
+def redirectContinuations (h : ScriptContext) : ScriptContext :=
+  match ownInput? h with
+  | some i =>
+      withOutputs h (List.map (fun (o : TxOut) =>
+        if o.txOutAddress.addressCredential == i.txInInfoResolved.txOutAddress.addressCredential then
+          { o with txOutAddress := keyAddr attackerKey, txOutDatum := .NoOutputDatum }
+        else o) h.scriptContextTxInfo.txInfoOutputs)
+  | none => h
+
+/-- Whether `o` goes back to the script: it has the payment credential of the input being spent. -/
+def isContinuation (h : ScriptContext) (o : TxOut) : Bool :=
+  match ownInput? h with
+  | some i => o.txOutAddress.addressCredential == i.txInInfoResolved.txOutAddress.addressCredential
+  | none => false
+
+/-- `outs` with `f` applied to the first output satisfying `p`. -/
+def changeFirst (p : TxOut → Bool) (f : TxOut → TxOut) : List TxOut → List TxOut
+  | [] => []
+  | o :: os => if p o then f o :: os else o :: changeFirst p f os
+
+/-- `h` with `f` applied to its first output back to the script. With `reverseOutputs` and `rotateOutputs` checking that the
+    order of outputs does not matter, this stands for any output back to the script. -/
+def changeContinuation (h : ScriptContext) (f : TxOut → TxOut) : ScriptContext :=
+  withOutputs h (changeFirst (isContinuation h) f h.scriptContextTxInfo.txInfoOutputs)
+
+/-- A policy that sorts after the policies of real values, so that a junk token appended at the end
+    of a value keeps it sorted. -/
+def lastPolicy : ByteString := "zzzzjunk"
+
+/-- `h` with a new input `r` at `unrelatedKey` holding `a` lovelace and one junk token; the junk token
+    is appended to its first output back to the script, and the lovelace goes to a new output at
+    `unrelatedKey`. -/
+def addJunkFrom (h : ScriptContext) (r : TxOutRef) (a : Int) : ScriptContext :=
+  let junk : Data × Data := (.B lastPolicy, .Map [(.B lastPolicy, .I 1)])
+  let info := h.scriptContextTxInfo
+  let h' := { h with scriptContextTxInfo := { info with
+    txInfoInputs := List.append info.txInfoInputs
+      [⟨r, ⟨keyAddr unrelatedKey, [(.B "", .Map [(.B "", .I a)]), junk], .NoOutputDatum, none⟩⟩]
+    txInfoOutputs := List.append info.txInfoOutputs
+      [⟨keyAddr unrelatedKey, [(.B "", .Map [(.B "", .I a)])], .NoOutputDatum, none⟩] } }
+  changeContinuation h' (fun o => { o with txOutValue := List.append o.txOutValue [junk] })
 
 end Formal.Universal.Properties
 
