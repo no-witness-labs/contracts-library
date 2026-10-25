@@ -221,4 +221,91 @@ def unrelatedOutput : TxOut :=
 def rangeAlways : Data :=
   .Constr 0 [.Constr 0 [.Constr 0 [], .Constr 1 []], .Constr 0 [.Constr 2 [], .Constr 1 []]]
 
+/-! ## Changes to a shape (H checks over shapes)
+
+Keys and policies are literals: a symbolic currency symbol stops Blaster inside
+`validScriptContext` (`DEAD_ENDS.md` §17). -/
+
+/-- The key that receives redirected or pocketed value. -/
+def attackerKey : ByteString := "61747461636b6572"
+/-- The key of inputs and outputs unrelated to the script. -/
+def unrelatedKey : ByteString := "756e72656c61746564"
+/-- The policy and token name of junk and unrelated tokens. -/
+def junkPolicy : ByteString := "6a756e6b"
+
+/-- `h` with every output back to the script sent to `attackerKey` instead, without a datum.
+    "The member needs its continuations" is that this is rejected. -/
+def redirectContinuations (h : ScriptContext) : ScriptContext :=
+  match ownInput? h with
+  | some i =>
+      withOutputs h (List.map (fun (o : TxOut) =>
+        if o.txOutAddress.addressCredential == i.txInInfoResolved.txOutAddress.addressCredential then
+          { o with txOutAddress := keyAddr attackerKey, txOutDatum := .NoOutputDatum }
+        else o) h.scriptContextTxInfo.txInfoOutputs)
+  | none => h
+
+/-- `h` with a new input `r` at `unrelatedKey` holding `a` lovelace and one junk token, both added
+    to the output at `i`. -/
+def addJunkFrom (h : ScriptContext) (i : Nat) (r : TxOutRef) (a : Int) : ScriptContext :=
+  let junkIn : TxInInfo := ⟨r, ⟨keyAddr unrelatedKey,
+    [(.B "", .Map [(.B "", .I a)]), (.B junkPolicy, .Map [(.B junkPolicy, .I 1)])], .NoOutputDatum, none⟩⟩
+  changeOutput (withInputs h (List.append h.scriptContextTxInfo.txInfoInputs [junkIn])) i (fun o =>
+    { o with txOutValue :=
+        CardanoLedgerApi.V1.Value.add junkPolicy junkPolicy 1 (CardanoLedgerApi.V1.Value.add "" "" a o.txOutValue) })
+
+/-- `h` with the input that `g` spends added under `r`, with `g`'s redeemer recorded for it, and its
+    value sent to `attackerKey`: one set of outputs for two script inputs. -/
+def addSpendOf (h g : ScriptContext) (r : TxOutRef) : ScriptContext :=
+  match ownInput? g with
+  | some i =>
+      let info := h.scriptContextTxInfo
+      { h with scriptContextTxInfo := { info with
+          txInfoInputs := List.append info.txInfoInputs [⟨r, i.txInInfoResolved⟩]
+          txInfoOutputs := List.append info.txInfoOutputs
+            [⟨keyAddr attackerKey, i.txInInfoResolved.txOutValue, .NoOutputDatum, none⟩]
+          txInfoRedeemers := List.append info.txInfoRedeemers [(.Spending r, g.scriptContextRedeemer)] } }
+  | none => h
+
+/-- `h` as seen by the run of the script for the input `r`, which `g` spent with its datum and
+    redeemer. -/
+def asSpendOf (h g : ScriptContext) (r : TxOutRef) : ScriptContext :=
+  match g.scriptContextScriptInfo with
+  | .SpendingScript _ d => { h with scriptContextRedeemer := g.scriptContextRedeemer
+                                    scriptContextScriptInfo := .SpendingScript r d }
+  | _ => h
+
+/-- `h` with the redeemer `r`, both the one passed to the script and its entry in the redeemer map. -/
+def withOwnRedeemer (h : ScriptContext) (r : Data) : ScriptContext :=
+  let purpose := h.scriptContextScriptInfo.toScriptPurpose
+  { h with
+      scriptContextRedeemer := r
+      scriptContextTxInfo := { h.scriptContextTxInfo with
+        txInfoRedeemers := List.map (fun (e : ScriptPurpose × Redeemer) =>
+          if e.1 == purpose then (e.1, r) else e) h.scriptContextTxInfo.txInfoRedeemers } }
+
+/-- `h` with a new input `r` at `unrelatedKey` holding `a` lovelace, appended, and an output of the
+    same value to `unrelatedKey`. -/
+def addUnrelatedOutput (h : ScriptContext) (r : TxOutRef) (a : Int) : ScriptContext :=
+  let info := h.scriptContextTxInfo
+  { h with scriptContextTxInfo := { info with
+      txInfoInputs := List.append info.txInfoInputs [⟨r, ⟨keyAddr unrelatedKey, [(.B "", .Map [(.B "", .I a)])], .NoOutputDatum, none⟩⟩]
+      txInfoOutputs := List.append info.txInfoOutputs [⟨keyAddr unrelatedKey, [(.B "", .Map [(.B "", .I a)])], .NoOutputDatum, none⟩] } }
+
+/-- The same as `addUnrelatedOutput`, with the new input first, so that the script's own input is no
+    longer the first input. -/
+def addUnrelatedInputFirst (h : ScriptContext) (r : TxOutRef) (a : Int) : ScriptContext :=
+  let info := h.scriptContextTxInfo
+  { h with scriptContextTxInfo := { info with
+      txInfoInputs := ⟨r, ⟨keyAddr unrelatedKey, [(.B "", .Map [(.B "", .I a)])], .NoOutputDatum, none⟩⟩ :: info.txInfoInputs
+      txInfoOutputs := List.append info.txInfoOutputs [⟨keyAddr unrelatedKey, [(.B "", .Map [(.B "", .I a)])], .NoOutputDatum, none⟩] } }
+
+/-- `h` with one junk token minted, sent with `a` lovelace from a new input `r` to `unrelatedKey`. -/
+def addUnrelatedMint (h : ScriptContext) (r : TxOutRef) (a : Int) : ScriptContext :=
+  let info := h.scriptContextTxInfo
+  { h with scriptContextTxInfo := { info with
+      txInfoInputs := List.append info.txInfoInputs [⟨r, ⟨keyAddr unrelatedKey, [(.B "", .Map [(.B "", .I a)])], .NoOutputDatum, none⟩⟩]
+      txInfoOutputs := List.append info.txInfoOutputs
+        [⟨keyAddr unrelatedKey, [(.B "", .Map [(.B "", .I a)]), (.B junkPolicy, .Map [(.B junkPolicy, .I 1)])], .NoOutputDatum, none⟩]
+      txInfoMint := List.append info.txInfoMint [(.B junkPolicy, .Map [(.B junkPolicy, .I 1)])] } }
+
 end Formal.Universal.Properties

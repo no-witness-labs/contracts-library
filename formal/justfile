@@ -76,14 +76,16 @@ clean:
 # Formal/Universal/PROPERTIES.md): Types.lean, General.lean and Honest.lean are
 # replaced on every run; Tx.lean, the honest transactions, is written only when it
 # does not exist. `folder` is under Formal/, for example
-# Formal/Vesting/Linear/Blueprint. Needs python3 (standard library only).
+# Formal/Vesting/Linear/Blueprint. `checks` names the H checks to generate,
+# comma-separated, for example H2,H11; the others are written as comments, and
+# H1 and the G checks are always generated. Needs python3 (standard library only).
 
 # Generate a validator's universal checks into a folder from a blueprint.
-blueprint validator folder plutus=(onchain / "plutus.json"): (cbor validator plutus)
-    python3 -I scripts/process_blueprint.py "{{plutus}}" "{{validator}}" --out "{{folder}}" --scripts {{scripts}}
+blueprint validator folder checks="" plutus=(onchain / "plutus.json"): (cbor validator plutus)
+    python3 -I scripts/process_blueprint.py "{{plutus}}" "{{validator}}" --out "{{folder}}" --scripts {{scripts}} --checks "{{checks}}"
 
 # Build Formal.Universal and the folder's Types.lean and Tx.lean, then run Lean on
-# its General.lean and Honest.lean, one proof at a time, with a limit of 120
+# its General.lean and Honest.lean, one proof at a time, with a limit of 900
 # seconds for each file.
 
 # Re-check Formal.Universal and a folder's generated universal checks (annotated output).
@@ -95,11 +97,11 @@ universal folder:
     for f in "{{folder}}/General.lean" "{{folder}}/Honest.lean"; do
       echo "universal checks: $f"
       set +e
-      time timeout 120 lake env lean "$f" 2>&1 | awk -f scripts/annotate-blaster-logs.awk
-      status=${PIPESTATUS[0]}
+      time timeout 900 lake env lean "$f"
+      status=$?
       set -e
       if [ "$status" -ne 0 ]; then
-        echo "  $f: lean exited with status $status (124: the 120-second limit was reached)"
+        echo "  $f: lean exited with status $status (124: the 900-second limit was reached)"
       fi
     done
 

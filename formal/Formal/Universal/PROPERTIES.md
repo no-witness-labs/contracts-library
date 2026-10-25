@@ -4,7 +4,7 @@ Two kinds of check are kept.
 The **G checks** are proved by Blaster over every transaction, with no input from the validator's author.
 The **H checks** are stated over a *shape*: a transaction for one action with a fixed structure and symbolic leaves, written by the validator's author.
 Each H check states something about every member of the shape that the ledger model and the script accept, or about such a member with one thing changed.
-For now, only H1 and H2 are generated; the other H checks are added back one at a time.
+H1 is always generated; the author selects the others with `--checks`.
 
 ## Where the checks live, and how to run them
 
@@ -122,12 +122,53 @@ No predicate says which members are honest.
 Each check quantifies over every value of the leaves, and uses "valid in the ledger model and accepted by the script" as its hypothesis, so Blaster itself finds which members the script accepts.
 With the structure fixed, the script makes only binary decisions on leaves, such as a comparison of amounts or of keys, so the checks finish.
 
-| Check | Statement | Required result |
-|---|---|---|
-| H1 (UP-000) | `∃ p, validScriptContext (shape p) = true ∧ accepts ledgerFuel (shape p)` | Some member of the shape is valid in the ledger model and accepted. |
-| H2 (UP-002) | `∀ p, validScriptContext (shape p) = true → accepts ledgerFuel (shape p) → validScriptContext (withSignatories (shape p) []) = true ∧ rejects ledgerFuel (withSignatories (shape p) [])` | Every valid accepted member, without any signatory, is still valid and is rejected. |
+Each check below is generated for every shape it applies to.
+H1 is always generated; the others only when named with `--checks`, for example `just blueprint linear_vesting Formal/Vesting/Linear/Blueprint H2,H11`, and are otherwise written into `Honest.lean` as comments.
 
-H1 also shows that the hypothesis of the other checks can hold, so they do not pass merely because no member is valid and accepted.
+A check on a change has the form `∀ p …, valid (shape p) → accepts (shape p) → [extra hypotheses] → valid (change) → verdict (change)`: the verdict is required only when the ledger would accept the changed transaction.
+Beside it, a `_reach` check states `∃ p …, valid (shape p) ∧ accepts (shape p) ∧ [extra hypotheses] ∧ valid (change)`.
+If the `_reach` check fails, no valid changed transaction exists, and the main check holds only because the ledger rejects the change; for an acceptance check, that makes its pass meaningless.
+
+"Needs its continuations" means: with every output back to the script redirected to another key address, the member is rejected (`redirectContinuations`).
+It keeps the continuation checks to members whose outputs back to the script matter; for example, a linear-vesting claim after the end time needs none.
+
+| Check | Change, for every valid accepted member | Required verdict | Extra hypotheses |
+|---|---|---|---|
+| H1 (UP-000) | None: some member of the shape exists | Valid and accepted | |
+| H2 (UP-002, UP-012) | One signatory removed, at each position | Rejected | |
+| H3 (UP-004) | None: some member of the shape exists | Valid and rejected | |
+| H4 | One signatory replaced by a key not in the list | Rejected | |
+| H5 (UP-011) | The address of an output back to the script changed | Rejected | Needs its continuations |
+| H7 (UP-014) | An output back to the script given another well-formed datum | Rejected | Needs its continuations |
+| H8 (UP-006) | An output back to the script given a malformed datum, one variant per way of failing to decode | Rejected | Needs its continuations |
+| H9 (UP-007) | The staking credential of an output back to the script changed | Rejected | Needs its continuations |
+| H10 (UP-008) | A junk token, from a new input, added to an output back to the script | Rejected | Needs its continuations |
+| **H11 (UP-010)** | **The spent input of any second valid accepted member added, its value pocketed, the outputs unchanged** | **One of the two script runs rejects, or one still accepts with the outputs back to the script redirected** | |
+| H12 (UP-013) | The validity range made unbounded | Rejected | |
+| H13 (UP-016) | One more token minted under the script's own policy (mint handlers) | Rejected | |
+| H14 | The mint turned into a burn, or the other way round (mint handlers) | Rejected | |
+| H15 | The redeemer changed to another action, in the redeemer map too | Rejected | |
+| H16 (UP-015) | The outputs in reverse order | Accepted | |
+| H17 | An unrelated input and an output of the same value added | Accepted | |
+| H18 | The spent datum malformed, one variant per way of failing to decode | Rejected | |
+| H19 | The spent input without a datum | Rejected, to review | |
+| H23 | An unrelated input added before the script's own, and an output of the same value | Accepted | |
+| H24 | An extra signatory, not already in the list | Accepted | |
+| H25 | An unrelated token minted and sent to an unrelated output | Accepted | |
+| H26 | A reference script on an output back to the script | Rejected, to review | Needs its continuations |
+
+**H11, double satisfaction.**
+The changed transaction is `p`'s, with the spent input of a second member `q` added under a new reference, `q`'s redeemer recorded for it, and an output sending `q`'s spent value to another key: one set of outputs for two script inputs.
+Each script input runs the script separately, so the check considers the run for `p`'s input and the run for the new input.
+Double satisfaction is both runs accepting while both rely on the outputs back to the script; the check requires that this never happens.
+Because `q` is any member, it covers the same position spent twice (`q = p`) and two different positions.
+A first form, which required `q` to need its continuations in `q`'s own transaction, was falsified by a legitimate case (`DEAD_ENDS.md` §18).
+
+**Not generated.**
+H6 and H21, "some amount of lovelace (H6) or tokens (H21) taken out of an output back to the script is rejected", are written as comments whatever `--checks` names, because their form is still to be decided (`DEAD_ENDS.md` §18).
+H20 (UP-009) is not generated, because the ledger model treats a spent input with a hashed datum as invalid.
+
+H1 also shows that the hypothesis of the checks on changes can hold, so they do not pass merely because no member is valid and accepted.
 `validScriptContext` is the V3 model's `validScriptInfo` and `validTxInfo`.
 For a spend, it requires, among other things:
 
@@ -147,40 +188,8 @@ Currently that is the currency symbol of a value: with a symbolic policy, Blaste
 On `linear_vesting`, the `Claim` shape has 2 inputs (the vesting position and the signer's fee input), 2 outputs (the continuation and the payout) and 1 signatory, with 17 symbolic leaves: both keys, the token name, the total, the start, end and recovery times, the script hash, both transaction ids, the ada of both inputs, the ada and tokens kept, the fee, `now` and the signer.
 The `Cancel` shape has 2 inputs, 1 output to the signer and 1 signatory, with 15 symbolic leaves.
 H1 and H2 for both, 4 checks, were proved in a run of `Honest.lean` that took 29 seconds, including the time Lean takes to load.
-
-### H checks to add back
-
-These were generated before, on a single concrete transaction, and are not generated now.
-They will be added back one at a time, over shapes, in the form of H2: the hypothesis is that the member is valid and accepted, and the conclusion states the verdict for the changed transaction.
-The change helpers they use are still in `Properties.lean`.
-
-| Check | Change made to the honest transaction | Required verdict |
-|---|---|---|
-| H3 (UP-012) | One signatory removed, for each signatory. | Rejected. |
-| H4 | One signatory replaced by another key. | Rejected. |
-| H5 (UP-011) | A protected output sent to another address. | Rejected. |
-| H6 | 1 lovelace less in a protected output. | Rejected. |
-| H7 (UP-014) | A protected output given another datum. | Rejected. |
-| H8 (UP-006) | An output back to the script given a malformed datum. | Rejected. |
-| H9 (UP-007) | An output back to the script given another staking credential. | Rejected. |
-| H10 (UP-008) | A junk token added to an output back to the script. | Rejected. |
-| H11 (UP-010) | A second input from the same script output added. | Rejected. |
-| H12 (UP-013) | The validity range made unbounded. | Rejected. |
-| H13 (UP-016) | One more token minted under the script's own policy. | Rejected. |
-| H14 | The mint turned into a burn, or the other way round. | Rejected. |
-| H15 | The redeemer changed to another action. | Rejected. |
-| H16 (UP-015) | The outputs put in reverse order. | Accepted. |
-| H17 | An unrelated output added (2 ada to a key address). | Accepted. |
-| H18 | The spent input's datum replaced by a malformed one. | Rejected. |
-| H19 | The spent input's datum removed. | Rejected. |
-
-Points to settle when they are added back:
-
-- A check should state "if the ledger accepts the changed transaction, the script rejects it": validity of the changed transaction is a hypothesis.
-- A change that disturbs the balance or the ordering gets new leaves for what it disturbs, such as a symbolic fee for H6, so that the version an attacker would submit is among those checked.
-- Each check gets a reachability check, `∃ …, valid (shape p) ∧ accepts (shape p) ∧ valid (change (shape p))`, which shows whether a pass is about real transactions or holds only because no valid changed transaction exists.
-- H5 to H7 need the positions of the outputs the script must protect, which `Tx.lean` will then define as `honest_<purpose>_<Action>_protected`.
-- H11 should require rejection only when the honest transaction has an output back to the script; cancelling two positions in one transaction is legitimate.
+H1 and H11 with its `_reach` check for both, 6 checks, were proved in a run that took 3 minutes 17 seconds.
+The statements of all 180 checks generated with every check selected type-check; the other checks have not been run yet.
 
 ## Tier 3: not kept as general checks
 

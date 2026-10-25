@@ -28,6 +28,7 @@
     if (name != "") out = out " [" name "]"
   }
   print out rest
+  fflush()
 }
 
 function nameAt(file, lineno,    i, current, l, m) {

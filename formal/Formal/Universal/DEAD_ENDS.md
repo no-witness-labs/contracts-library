@@ -2,7 +2,7 @@
 
 Every approach below was tried, and dropped, while building universal checks with Blaster.
 Almost all of them failed for one reason: a statement that Blaster has to prove by following the script through a run with many variables does not finish, because the number of paths it has to follow grows with every choice the script makes on a variable.
-What was kept is described in `PROPERTIES.md`: checks that the script rejects before it reads the transaction (G1, G2), and checks over shapes of honest transactions written by the validator's author (H1 and H2 for now).
+What was kept is described in `PROPERTIES.md`: checks that the script rejects before it reads the transaction (G1, G2), and checks over shapes of honest transactions written by the validator's author (H1 to H26).
 
 ## How Blaster works, and why that matters here
 
@@ -258,3 +258,18 @@ Which part of the validity rules causes it was not traced; the currency symbols 
 
 **What was kept.**
 The policy is a literal in every shape, and the token name is a leaf.
+
+## 18. Checks over shapes that were false for correct validators
+
+**H6 and H21: one unit less in an output back to the script, rejected.**
+In a shape, amounts are leaves, so every amount is already a member.
+"For every accepted member, one token less is rejected" is false whenever a member keeps more than the minimum: for linear vesting at time 1500, a member keeping 80 tokens is accepted, and so is the same transaction keeping 79.
+The check would hold only for the member keeping exactly the minimum, and knowing the minimum is knowing the contract's rules.
+An existential form, "some amount taken out is rejected", says that the script checks the amount at all; but because every leaf is general, Blaster may also move the time or the schedule to find it, so what it shows is not settled.
+Both are written as comments until their form is decided.
+
+**H11, first form.**
+H11 first required each of the two members to need its continuations in its own transaction.
+On linear vesting it was falsified: `p` claimed at time 5, and `q`, by the same beneficiary, needed its continuation at its own time 3 but had an end time of 4.
+In the combined transaction the time is `p`'s, so `q`'s position was fully vested, its run required no continuation, and taking it all was legitimate.
+The kept form tests the reliance on the outputs back to the script inside the combined transaction: one run must reject, or still accept with those outputs redirected.

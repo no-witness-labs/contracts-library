@@ -751,6 +751,49 @@ def honest_handlers(info):
     return [h for h in info.handlers if h.purpose in ("spend", "mint", "withdraw")]
 
 
+def malformed(tr, kind, ctors, first_var, fixed=False):
+    """[(suffix, text, binders, Data term)]: the ways a value of a type of this kind and these
+    constructors fails to decode, each with its variables. With `fixed`, a constructor with an
+    unknown index has the first constructor's fields instead of a list of variable length."""
+    out = []
+    for form in MALFORMED[kind]:
+        text, v, ty, term = FORMS[form]
+        out.append((f"wrongForm_{form}", f"{text} instead of the declared type", [f"({v} : {ty})"], f"({term})"))
+    if kind == "constructors" and ctors:
+        k = len(ctors)
+        for idx in (k, k + 1):
+            if fixed:
+                w = Terms(tr)
+                w.n = first_var
+                term = w.ctor(idx, ctors[0][2])
+                out.append((f"unknownIndex{idx}", f"a constructor with the unknown index {idx}", w.binders, term))
+            else:
+                out.append((f"unknownIndex{idx}", f"a constructor with the unknown index {idx}",
+                            ["(fs : List Data)"], f"(Data.Constr {idx} fs)"))
+        for ctor, index, fields in ctors:
+            c = short(ctor)
+            w = Terms(tr)
+            w.n = first_var
+            items = [w.term(ft) for _, ft in fields]
+            extra = w.var("Data")
+            out.append((f"{c}_extraField", f"{c} with an extra field", w.binders,
+                        f"(Data.Constr {index} [{', '.join(items + [extra])}])"))
+            if fields:
+                w = Terms(tr)
+                w.n = first_var
+                items = [w.term(ft) for _, ft in fields[:-1]]
+                out.append((f"{c}_missingField", f"{c} without its last field", w.binders,
+                            f"(Data.Constr {index} [{', '.join(items)}])"))
+            for j, (f, ft) in enumerate(fields):
+                w = Terms(tr)
+                w.n = first_var
+                bad = w.wrong(ft)
+                if bad is not None:
+                    out.append((f"{c}_wrongKind_{plain(f)}", f"{c} with field `{plain(f)}` of the wrong kind",
+                                w.binders, w.ctor(index, fields, {j: bad})))
+    return out
+
+
 def general(info):
     """Pass 2: the lines of General.lean, the G checks (proved by Blaster)."""
     declared = [h.purpose for h in info.handlers]
@@ -767,41 +810,6 @@ def general(info):
         G.extend(theorem_lines(f"{name}{binder}", quant, f"¬ accepts ledgerFuel{pa} ({ctx})", "by blaster"))
         G.append("")
 
-    def malformed(kind, ctors, first_var):
-        """[(suffix, text, binders, Data term)]: the ways a value of a type of this kind and these
-        constructors fails to decode, each with its variables."""
-        out = []
-        for form in MALFORMED[kind]:
-            text, v, ty, term = FORMS[form]
-            out.append((f"wrongForm_{form}", f"{text} instead of the declared type", [f"({v} : {ty})"], f"({term})"))
-        if kind == "constructors" and ctors:
-            k = len(ctors)
-            for idx in (k, k + 1):
-                out.append((f"unknownIndex{idx}", f"a constructor with the unknown index {idx}",
-                            ["(fs : List Data)"], f"(Data.Constr {idx} fs)"))
-            for ctor, index, fields in ctors:
-                c = short(ctor)
-                w = Terms(tr)
-                w.n = first_var
-                items = [w.term(ft) for _, ft in fields]
-                extra = w.var("Data")
-                out.append((f"{c}_extraField", f"{c} with an extra field", w.binders,
-                            f"(Data.Constr {index} [{', '.join(items + [extra])}])"))
-                if fields:
-                    w = Terms(tr)
-                    w.n = first_var
-                    items = [w.term(ft) for _, ft in fields[:-1]]
-                    out.append((f"{c}_missingField", f"{c} without its last field", w.binders,
-                                f"(Data.Constr {index} [{', '.join(items)}])"))
-                for j, (f, ft) in enumerate(fields):
-                    w = Terms(tr)
-                    w.n = first_var
-                    bad = w.wrong(ft)
-                    if bad is not None:
-                        out.append((f"{c}_wrongKind_{plain(f)}", f"{c} with field `{plain(f)}` of the wrong kind",
-                                    w.binders, w.ctor(index, fields, {j: bad})))
-        return out
-
     # ---- G1: a purpose with no handler is rejected.
     for q in undeclared:
         S = EVERY[q]
@@ -811,7 +819,7 @@ def general(info):
     # ---- G2: a redeemer that does not decode as its declared type is rejected.
     for h in info.handlers:
         S = EVERY[h.purpose]
-        for sfx, text, bs, term in malformed(h.redeemer_kind, h.redeemer_ctors, 0):
+        for sfx, text, bs, term in malformed(tr, h.redeemer_kind, h.redeemer_ctors, 0):
             g("G2 (UP-005)", f"no {NOUN[h.purpose]} is accepted whose redeemer is {text}.",
               f"g2_{h.purpose}_{sfx}", bs + [f"(t : {S})"], f"{S}.ctx t {term}")
 
@@ -831,40 +839,178 @@ def general(info):
     return L
 
 
-def honest(info):
-    """Pass 2: the lines of Honest.lean, the H checks over the shapes in Tx.lean."""
+# The H checks that `--checks` can select (H1 is always generated). H6 and H21 are written as
+# comments whatever is selected: their form is still to be decided.
+SELECTABLE = ["H2", "H3", "H4", "H5", "H7", "H8", "H9", "H10", "H11", "H12", "H13", "H14", "H15",
+              "H16", "H17", "H18", "H19", "H23", "H24", "H25", "H26"]
+DEFERRED = ["H6", "H21"]
+
+
+def honest(info, selected):
+    """Pass 2: the lines of Honest.lean, the H checks over the shapes in Tx.lean. A check not in
+    `selected` is written as a comment."""
     hp = " honestParams" if info.has_params else ""
+    tr = info.translator
     H = []
 
-    def hthm(prop, name, quant, claim, text):
-        H.extend(comment(f"{prop}: {text}"))
-        H.extend(theorem_lines(name, quant, claim, "by blaster"))
+    def V(e):
+        return f"validScriptContext {e} = true"
+
+    def A(e):
+        return f"accepts ledgerFuel{hp} {e}"
+
+    def R(e):
+        return f"rejects ledgerFuel{hp} {e}"
+
+    def emit(check, prop, text, name, quant, claim, active):
+        lines = comment(f"{prop}: {text}") + theorem_lines(name, quant, claim, "by blaster")
+        if not active:
+            note = ("its form is still to be decided" if check in DEFERRED
+                    else f"not selected; pass --checks {check} to generate it")
+            lines = [f"-- ({check} {note})"] + ["-- " + l if not l.startswith("--") else l for l in lines]
+        H.extend(lines)
         H.append("")
 
-    for h in honest_handlers(info):
-        for a, _, _ in actions(h, info.translator):
-            x = f"(honest_{h.purpose}_{a} p)"
-            n = f"{h.purpose}_{a}"
-            ok = f"validScriptContext {x} = true → accepts ledgerFuel{hp} {x} →"
-            hthm("H1 (UP-000)", f"h1_{n}", "∃ p,",
-                 f"validScriptContext {x} = true ∧ accepts ledgerFuel{hp} {x}",
-                 "some member of the shape is valid in the ledger model and accepted.")
-            changed = f"(withSignatories {x} [])"
-            hthm("H2 (UP-002)", f"h2_{n}", f"∀ p, {ok}",
-                 f"validScriptContext {changed} = true ∧ rejects ledgerFuel{hp} {changed}",
-                 "every valid accepted member, without any signatory, is still valid and is rejected.")
+    def change_check(check, prop, text, n, x, binders, hyps, changed, verdict, accept=False):
+        """A check on a change: for every valid accepted member (and the binders, under `hyps`),
+        if the changed transaction is valid, it has the verdict; and its reachability check."""
+        active = check in selected
+        vs = " ".join(["p"] + binders)
+        base = [V(x), A(x)] + hyps
+        claim = " → ".join(base + [V(changed), verdict])
+        emit(check, prop, text, f"{check.lower()}_{n}", f"∀ {vs},", claim, active)
+        reach = " ∧ ".join(base + [V(changed)])
+        emit(check, prop, "reachability: some valid accepted member gives a valid changed transaction"
+             + (" (required: an acceptance check that holds only vacuously says nothing)." if accept else "."),
+             f"{check.lower()}_{n}_reach", "∃ " + ", ∃ ".join(["p"] + binders) + ",", reach, active)
 
-    nh = len([l for l in H if l.startswith("theorem ")])
+    for h in honest_handlers(info):
+        spend = h.purpose == "spend"
+        mint = h.purpose == "mint"
+        for a, _, _ in actions(h, tr):
+            x = f"(honest_{h.purpose}_{a} p)"
+            y = f"(honest_{h.purpose}_{a} q)"
+            n = f"{h.purpose}_{a}"
+            sigs = f"(signatoriesOf {x})"
+            outs = f"(outputsOf {x})"
+            cont = f"i ∈ continuingPositions {x}"
+            needs = R(f"(redirectContinuations {x})")
+
+            emit("H1", "H1 (UP-000)", "some member of the shape is valid in the ledger model and accepted.",
+                 f"h1_{n}", "∃ p,", f"{V(x)} ∧ {A(x)}", True)
+            emit("H3", "H3 (UP-004)", "some member of the shape is valid in the ledger model and rejected.",
+                 f"h3_{n}", "∃ p,", f"{V(x)} ∧ {R(x)}", "H3" in selected)
+            ch = f"(withSignatories {x} {sigs}.tail)"
+            change_check("H2", "H2 (UP-002, UP-012)", "with its first signatory removed, it is rejected (every "
+                         "signatory key is a leaf, so this covers removing any one).", n, x,
+                         [], [f"{sigs} ≠ []"], ch, R(ch))
+            ch = f"(withSignatories {x} (k :: {sigs}.tail))"
+            change_check("H4", "H4", "with its first signatory replaced by a key not in the list, it is rejected.",
+                         n, x, ["(k : PubKeyHash)"], [f"{sigs} ≠ []", f"{sigs}.contains k = false"], ch, R(ch))
+            if spend:
+                ch = f"(changeOutput {x} i (fun o => {{ o with txOutAddress := addr }}))"
+                change_check("H5", "H5 (UP-011)", "with the address of an output back to the script changed, "
+                             "it is rejected (for members that need their continuations).", n, x,
+                             ["(i : Nat)", "(addr : Address)"],
+                             [needs, cont, f"(∀ o, {outs}[i]? = some o → o.txOutAddress ≠ addr)"], ch, R(ch))
+                if info.datum_type is not None and info.datum_kind == "constructors" and info.datum_ctors:
+                    w = Terms(tr)
+                    w.n = 200
+                    good = w.term(info.datum_type)
+                    ch = f"(changeOutput {x} i (fun o => {{ o with txOutDatum := .OutputDatum {good} }}))"
+                    change_check("H7", "H7 (UP-014)", "with an output back to the script given another "
+                                 "well-formed datum, it is rejected (for members that need their continuations).",
+                                 n, x, ["(i : Nat)"] + w.binders,
+                                 [needs, cont, f"(∀ o, {outs}[i]? = some o → o.txOutDatum ≠ .OutputDatum {good})"],
+                                 ch, R(ch))
+                    for sfx, text, bs, term in malformed(tr, info.datum_kind, info.datum_ctors, 100, fixed=True):
+                        ch = f"(changeOutput {x} i (fun o => {{ o with txOutDatum := .OutputDatum {term} }}))"
+                        change_check("H8", "H8 (UP-006)", f"with an output back to the script given a datum that "
+                                     f"is {text}, it is rejected (for members that need their continuations).",
+                                     f"{n}_{sfx}", x, ["(i : Nat)"] + bs, [needs, cont], ch, R(ch))
+                ch = (f"(changeOutput {x} i (fun o => {{ o with txOutAddress := "
+                      f"{{ o.txOutAddress with addressStakingCredential := sc }} }}))")
+                change_check("H9", "H9 (UP-007)", "with an output back to the script given another staking "
+                             "credential, it is rejected (for members that need their continuations).", n, x,
+                             ["(i : Nat)", "(sc : Option StakingCredential)"],
+                             [needs, cont, f"(∀ o, {outs}[i]? = some o → o.txOutAddress.addressStakingCredential ≠ sc)"],
+                             ch, R(ch))
+                ch = f"(addJunkFrom {x} i r a)"
+                change_check("H10", "H10 (UP-008)", "with a junk token from a new input added to an output back "
+                             "to the script, it is rejected (for members that need their continuations).", n, x,
+                             ["(i : Nat)", "(r : TxOutRef)", "(a : Int)"], [needs, cont], ch, R(ch))
+                d = f"(addSpendOf {x} {y} r)"
+                dq = f"(asSpendOf {d} {y} r)"
+                verdict = (f"({R(d)} ∨ {R(dq)} ∨ {A(f'(redirectContinuations {d})')} ∨ "
+                           f"{A(f'(redirectContinuations {dq})')})")
+                change_check("H11", "H11 (UP-010, double satisfaction)", "with the input of any second valid "
+                             "accepted member added, its value pocketed and the outputs unchanged, the two script "
+                             "runs do not both accept while both relying on the outputs back to the script: one "
+                             "run rejects, or one run still accepts with those outputs redirected.", n, x,
+                             ["q", "r"], [V(y), A(y)], d, verdict)
+            ch = f"(withRange {x} rangeAlways)"
+            change_check("H12", "H12 (UP-013)", "with an unbounded validity range, it is rejected.", n, x,
+                         [], [], ch, R(ch))
+            if mint:
+                ch = f"(mintOneMore {x})"
+                change_check("H13", "H13 (UP-016)", "with one more token minted under the script's own policy, "
+                             "it is rejected.", n, x, [], [], ch, R(ch))
+                ch = f"(withMint {x} (negateMint (mintOf {x})))"
+                change_check("H14", "H14", "with the mint turned into a burn, or the other way round, it is "
+                             "rejected.", n, x, [], [], ch, R(ch))
+            for other, oindex, ofields in (h.redeemer_ctors or []):
+                if short(other) == a:
+                    continue
+                w = Terms(tr)
+                term = w.ctor(oindex, ofields)
+                ch = f"(withOwnRedeemer {x} {term})"
+                change_check("H15", "H15", f"with the redeemer changed to {short(other)}, it is rejected.",
+                             f"{n}_as{short(other)}", x, w.binders, [], ch, R(ch))
+            ch = f"(withOutputs {x} {outs}.reverse)"
+            change_check("H16", "H16 (UP-015)", "with its outputs in reverse order, it is still accepted.", n, x,
+                         [], [], ch, A(ch), accept=True)
+            ch = f"(addUnrelatedOutput {x} r a)"
+            change_check("H17", "H17", "with an unrelated input and output added, it is still accepted.", n, x,
+                         ["(r : TxOutRef)", "(a : Int)"], [], ch, A(ch), accept=True)
+            if spend and info.datum_type is not None and info.datum_kind not in ("any", "none"):
+                for sfx, text, bs, term in malformed(tr, info.datum_kind, info.datum_ctors, 100, fixed=True):
+                    ch = f"(withSpendDatum {x} {term})"
+                    change_check("H18", "H18", f"with its datum replaced by {text}, it is rejected.",
+                                 f"{n}_{sfx}", x, bs, [], ch, R(ch))
+            if spend:
+                ch = f"(withoutSpendDatum {x})"
+                change_check("H19", "H19", "without a datum, it is rejected (review: some validators allow this "
+                             "on purpose).", n, x, [], [], ch, R(ch))
+            ch = f"(addUnrelatedInputFirst {x} r a)"
+            change_check("H23", "H23", "with an unrelated input added before its own and an unrelated output, "
+                         "it is still accepted.", n, x, ["(r : TxOutRef)", "(a : Int)"], [], ch, A(ch), accept=True)
+            ch = f"(withSignatories {x} (List.append {sigs} [k]))"
+            change_check("H24", "H24", "with an extra signatory, it is still accepted.", n, x,
+                         ["(k : PubKeyHash)"], [f"k ∉ {sigs}"], ch, A(ch), accept=True)
+            ch = f"(addUnrelatedMint {x} r a)"
+            change_check("H25", "H25", "with an unrelated token minted and sent to an unrelated output, it is "
+                         "still accepted.", n, x, ["(r : TxOutRef)", "(a : Int)"], [], ch, A(ch), accept=True)
+            if spend:
+                ch = f"(changeOutput {x} i (fun o => {{ o with txOutReferenceScript := some s }}))"
+                change_check("H26", "H26", "with a reference script on an output back to the script, it is "
+                             "rejected (review; for members that need their continuations).", n, x,
+                             ["(i : Nat)", "(s : ByteString)"], [needs, cont], ch, R(ch))
+                for check, what in (("H6", "lovelace"), ("H21", "tokens of an asset")):
+                    emit(check, check, f"some amount of {what} taken out of an output back to the script is "
+                         "rejected (the script checks that amount at all).", f"{check.lower()}_{n}", "∃ p,",
+                         f"{V(x)} ∧ {A(x)} ∧ {needs} ∧ ...", False)
+
+    nt = len([l for l in H if l.startswith("theorem ")])
     L = check_header(info, [f"{info.prefix}.Tx"])
-    L += ["open CardanoLedgerApi.V3 (validScriptContext)", "",
+    L += ["open CardanoLedgerApi.V3 (Address Credential PubKeyHash StakingCredential TxOutRef validScriptContext)", "",
           "/-! ## H checks",
           "",
-          f"{nh} checks over the shapes in `Tx.lean`, one shape per action. A shape is a function",
-          "from a structure of leaves to a transaction with a fixed structure; `p` ranges over every",
-          "value of the leaves, and Blaster finds which members the script accepts.",
-          "  H1 (UP-000)  some member of the shape is valid in the ledger model and accepted.",
-          "  H2 (UP-002)  every valid accepted member, without any signatory, is still valid and",
-          "               is rejected.",
+          f"{nt} checks generated over the shapes in `Tx.lean`, one shape per action; the checks not",
+          "selected with `--checks` are written as comments. A shape is a function from a structure",
+          "of leaves to a transaction with a fixed structure; `p` ranges over every value of the",
+          "leaves, and Blaster finds which members the script accepts. A check on a change requires",
+          "the verdict only when the changed transaction is valid in the ledger model; its",
+          "`_reach` check shows that such a changed transaction exists.",
           "-/", ""] + H
     L.append(f"end {info.prefix}")
     return L
@@ -905,6 +1051,8 @@ def main():
     ap.add_argument("--scripts", default="Scripts", help="directory for the .cbor file, as seen by Lean")
     ap.add_argument("--no-checks", action="store_true", help="write Types.lean only (no theorems, no Blaster)")
     ap.add_argument("--cbor-only", action="store_true", help="write only the .cbor file and print its path")
+    ap.add_argument("--checks", default="", help="H checks to generate, comma-separated, e.g. H2,H11; "
+                    "H1 and the G checks are always generated")
     ap.add_argument("--translation", action="store_true", help="print the translation table and exit")
     a = ap.parse_args()
     if a.translation:
@@ -929,7 +1077,12 @@ def main():
     files = {"Types.lean": lines + [f"end {info.prefix}"]}
     if not a.no_checks:
         files["General.lean"] = general(info)
-        files["Honest.lean"] = honest(info)
+        selected = {c.strip().upper() for c in a.checks.split(",") if c.strip()}
+        unknown = selected - set(SELECTABLE) - {"H1"}
+        if unknown:
+            sys.exit(f"process_blueprint: unknown checks {', '.join(sorted(unknown))}; "
+                     f"choose from {', '.join(SELECTABLE)}")
+        files["Honest.lean"] = honest(info, selected)
     for name, body in files.items():
         (out / name).write_text("\n".join(body) + "\n")
         print(f"wrote {out / name}")
