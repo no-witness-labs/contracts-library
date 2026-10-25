@@ -10,6 +10,7 @@ namespace Formal.Universal.Properties
 open PlutusCore.UPLC.Term (Program Term Const)
 open PlutusCore.UPLC.CekMachine (State step initialState applyParams)
 open PlutusCore.Data (Data)
+open PlutusCore.ByteString (ByteString)
 open CardanoLedgerApi.V3
 
 /-- CEK step bound used by generated checks; not a ledger CPU or memory budget. -/
@@ -87,6 +88,48 @@ def signatoriesOf (h : ScriptContext) : List PubKeyHash := h.scriptContextTxInfo
 
 def withSignatories (h : ScriptContext) (sigs : List PubKeyHash) : ScriptContext :=
   { h with scriptContextTxInfo := { h.scriptContextTxInfo with txInfoSignatories := sigs } }
+
+def keyAddr (h : PubKeyHash) : Address := ⟨.PubKeyCredential h, none⟩
+
+def withOutputs (h : ScriptContext) (outs : List TxOut) : ScriptContext :=
+  { h with scriptContextTxInfo := { h.scriptContextTxInfo with txInfoOutputs := outs } }
+
+/-- The input being spent, if the context is a spend and the input is in the transaction. -/
+def ownInput? (ctx : ScriptContext) : Option TxInInfo :=
+  match ctx.scriptContextScriptInfo with
+  | .SpendingScript ref _ => ctx.scriptContextTxInfo.txInfoInputs.find? (fun i => i.txInInfoOutRef == ref)
+  | _ => none
+
+/-- The key that receives redirected or pocketed value. -/
+def attackerKey : ByteString := "61747461636b6572"
+
+/-- `h` with every output sent to `attackerKey` instead, without a datum. In `doubleSatisfaction`, a run that still
+    accepts this does not rely on any output, so sharing the outputs gives it nothing. -/
+def redirectOutputs (h : ScriptContext) : ScriptContext :=
+  withOutputs h (List.map (fun (o : TxOut) =>
+    { o with txOutAddress := keyAddr attackerKey, txOutDatum := .NoOutputDatum })
+    h.scriptContextTxInfo.txInfoOutputs)
+
+/-- `h` with the input that `g` spends added under `r`, with `g`'s redeemer recorded for it, and its
+    value sent to `attackerKey`: one set of outputs for two script inputs. -/
+def addSpendOf (h g : ScriptContext) (r : TxOutRef) : ScriptContext :=
+  match ownInput? g with
+  | some i =>
+      let info := h.scriptContextTxInfo
+      { h with scriptContextTxInfo := { info with
+          txInfoInputs := List.append info.txInfoInputs [⟨r, i.txInInfoResolved⟩]
+          txInfoOutputs := List.append info.txInfoOutputs
+            [⟨keyAddr attackerKey, i.txInInfoResolved.txOutValue, .NoOutputDatum, none⟩]
+          txInfoRedeemers := List.append info.txInfoRedeemers [(.Spending r, g.scriptContextRedeemer)] } }
+  | none => h
+
+/-- `h` as seen by the run of the script for the input `r`, which `g` spent with its datum and
+    redeemer. -/
+def asSpendOf (h g : ScriptContext) (r : TxOutRef) : ScriptContext :=
+  match g.scriptContextScriptInfo with
+  | .SpendingScript _ d => { h with scriptContextRedeemer := g.scriptContextRedeemer
+                                    scriptContextScriptInfo := .SpendingScript r d }
+  | _ => h
 
 end Formal.Universal.Properties
 
