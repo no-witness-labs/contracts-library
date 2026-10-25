@@ -1,237 +1,221 @@
-# Universal checks: the properties we keep
+# Universal checks
 
-Two kinds of check are kept.
-The **G checks** are proved by Blaster over every transaction, with no input from the validator's author.
-The **H checks** are stated over a *shape*: a transaction for one action with a fixed structure and symbolic leaves, written by the validator's author.
-Each H check states something about every member of the shape that the ledger model and the script accept, or about such a member with one thing changed.
-H1 is always generated; the author selects the others with `--checks`.
+A universal check is a property that any validator should have, checked on the compiled code with Blaster.
+The checks are generated from the validator's blueprint (`plutus.json`).
+The only input from the validator's author is `Tx.lean`, one honest transaction per action, called a *shape*.
 
-## Where the checks live, and how to run them
+Checks are called by name, such as `doubleSatisfaction`.
+The numbers in this document, such as 9.1, only give the order; they are not used anywhere else.
 
-Each validator has its own folder under `Formal/`, chosen when the checks are generated, for example `Formal/Vesting/Linear/Blueprint/` for linear vesting.
-`scripts/process_blueprint.py` writes the folder from the blueprint (`plutus.json`):
+## The checks
 
-| File | Written by | Contents |
-|---|---|---|
-| `Types.lean` | The generator, on every run | The validator's types and `IsData` instances, `args`, `program` (loaded with `#import_uplc`), `scriptHashHex`, `accepts` and `rejects`. |
-| `General.lean` | The generator, on every run | The G checks. |
-| `Honest.lean` | The generator, on every run | The H checks. |
-| `Tx.lean` | The validator's author | The shapes, one per action. The generator writes it as a stub with `sorry` only when it does not exist, and never replaces it. |
+The checks are in sections, in the order of the parts of a transaction.
+In each section, the checks that must reject come first, then the checks that must still accept.
 
-The four files share the namespace given by the folder, for example `Formal.Vesting.Linear.Blueprint`.
-Nothing imports them, so `lake build` does not check them; the validator's recipe in the `justfile` does.
-The helpers the checks use are in `Formal/Universal/Properties.lean`, in the namespace `Formal.Universal.Properties`.
+"Over" says what a check quantifies over:
+
+- **every tx**: every transaction of the purpose; everything not named in the statement is a variable.
+- **shapes**: every value of the leaves of each shape in `Tx.lean`.
+
+"Applies to" says which shapes a check is generated for, or when it says something:
+
+- **continuations**: the check concerns transactions that need their outputs back to the script, meaning that with those outputs sent to another key, the transaction is rejected.
+  For a shape without outputs back to the script, the check does not apply.
+- **signatories**: the shape has at least one signatory.
+
+"Former" is the check's earlier ID, used in `DEAD_ENDS.md` and older notes, where the `_applies` checks are called `_reach`.
+"Catalogue" is the matching entry in Jonathan's catalogue of universal properties.
+
+| No. | Name | Over | Change to an honest transaction | Expected | Applies to | Catalogue | Former |
+|---|---|---|---|---|---|---|---|
+| | **1. Sanity** | | | | | | |
+| 1.1 | `someAccepted` | shapes | none | some transaction of the shape is valid and accepted | every shape | UP-000 | H1 |
+| 1.2 | `someRejected` | shapes | none | some valid transaction of the shape is rejected | every shape | UP-004 | H3 |
+| | **2. Purpose and arguments** | | | | | | |
+| 2.1 | `otherPurpose` | every tx | a purpose the validator has no handler for | reject | each purpose without a handler | UP-001 | G1 |
+| 2.2 | `malformedRedeemer` | every tx | a redeemer that does not decode as its declared type | reject | each handler | UP-005 | G2 |
+| 2.3 | `otherRedeemer` | shapes | the redeemer changed to another action | reject | each other action | | H15 |
+| 2.4 | `spendDatumTag` | shapes | the spent datum given an unknown constructor index, fields kept | reject | spends with a constructor datum | | H18 |
+| 2.5 | `noSpendDatum` | shapes | the spent input without a datum | reject (review) | spends | | H19 |
+| | **3. Signatories** | | | | | | |
+| 3.1 | `dropSigner` | shapes | the first signatory removed | reject | signatories | UP-002, UP-012 | H2 |
+| 3.2 | `wrongSigner` | shapes | the first signatory replaced by a key not in the list | reject | signatories | | H4 |
+| 3.3 | `extraSigner` | shapes | a signatory not in the list added first | accept | every shape | | H24 |
+| | **4. Inputs** | | | | | | |
+| 4.1 | `unrelatedInput` | shapes | an unrelated input added before the script's own, with an output of the same value | accept | every shape | | H23 |
+| | **5. Outputs** | | | | | | |
+| 5.1 | `reverseOutputs` | shapes | the outputs in reverse order | accept | every shape | UP-015 | H16 |
+| 5.2 | `rotateOutputs` | shapes | the first output moved to the end | accept | every shape | UP-015 | H27 |
+| 5.3 | `unrelatedOutput` | shapes | an unrelated input and an output of the same value added | accept | every shape | | H17 |
+| | **6. Outputs back to the script** | | | | | | |
+| 6.1 | `continuationElsewhere` | shapes | the first output back to the script given another payment credential | reject | continuations | UP-011 | H5 |
+| 6.2 | `continuationStake` | shapes | the first output back to the script given another staking credential | reject | continuations | UP-007 | H9 |
+| 6.3 | `continuationOtherDatum` | shapes | the first output back to the script given another well-formed datum | reject | continuations, constructor datum | UP-014 | H7 |
+| 6.4 | `continuationDatumTag` | shapes | that output's datum given an unknown constructor index, fields kept | reject | continuations, constructor datum | UP-006 | H8 |
+| 6.5 | `junkToken` | shapes | a junk token, from a new input, appended to that output | reject | continuations | UP-008 | H10 |
+| 6.6 | `continuationRefScript` | shapes | a reference script put on that output | reject (review) | continuations | | H26 |
+| | **7. Mint** | | | | | | |
+| 7.1 | `extraMint` | shapes | one more token minted under the script's own policy | reject | mints | UP-016 | H13 |
+| 7.2 | `mintAsBurn` | shapes | the mint turned into a burn, or the other way round | reject | mints | | H14 |
+| 7.3 | `unrelatedMint` | shapes | an unrelated token minted and sent to an unrelated output | accept | every shape | | H25 |
+| | **8. Validity range** | | | | | | |
+| 8.1 | `unboundedRange` | shapes | the validity range made unbounded | reject | every shape | UP-013 | H12 |
+| | **9. Several script inputs** | | | | | | |
+| 9.1 | **`doubleSatisfaction`** | shapes | the input of a second honest transaction of the same shape added, its value sent to another key, the outputs unchanged | the two script runs do not both accept while both relying on the outputs | spends | UP-010 | H11 |
+
+Not generated:
+
+- `continuationLovelace` and `continuationTokens` (former H6 and H21): some lovelace, or some tokens, taken out of an output back to the script is rejected.
+  Their form is still to be decided (`DEAD_ENDS.md` §18).
+- UP-009 (a spent input with a hashed datum can still be spent): the ledger model treats such an input as invalid.
+
+## Running
+
 Run from `formal/`, with the validator's recipe in the `justfile` (`vesting` for `linear_vesting`):
 
 ```sh
-just vesting G                      # the G checks
-just vesting H11                    # one H check (with H1)
-just vesting H11 --counterexamples  # the same, printing each counterexample
-just vesting H11 --from-log         # summarise the last run's log without running Lean
+just vesting doubleSatisfaction                      # one check, with someAccepted
+just vesting doubleSatisfaction --counterexamples    # the same, printing each counterexample
+just vesting doubleSatisfaction --from-log           # summarise the last run's log without running Lean
 ```
 
+One run is one check over every shape it applies to, with `someAccepted`, stopped after 5 minutes.
 The recipe calls `scripts/universal.py`, which:
 
 1. runs `aiken build` in the blueprint's folder, and fails if the validator is not in the blueprint, listing the validators that are;
 2. copies the validator's `compiledCode` to `Scripts/<module>.<validator>.cbor`, where `Types.lean` reads it;
-3. regenerates the files with `scripts/process_blueprint.py`: for `G`, `General.lean`; for one H check, `Honest.lean` with only that check and H1; when `Tx.lean` did not exist, it writes the stub and stops;
+3. regenerates `Types.lean` and `Checks.lean` with `scripts/process_blueprint.py`; when `Tx.lean` did not exist, it writes a skeleton and stops;
 4. builds `Formal.Universal` and the folder's `Types.lean` and `Tx.lean`;
-5. runs Lean on the file with a limit of 5 minutes, showing its output and saving it to `logs/<folder>/<check>.log`, for example `logs/Vesting/Linear/H11.log`; because the output goes into a pipe, Lean prints it all when the file finishes;
-6. prints one line per theorem: proved, counterexample, error, or no result.
+5. runs Lean on `Checks.lean`, showing its output and saving it to `logs/<folder below Formal>/<check>.log`, for example `logs/Vesting/Linear/doubleSatisfaction.log`;
+6. prints one line per check and shape, by section.
 
-Both generated check files set `set_option Elab.async false`, so Lean checks one proof at a time, in file order, and prints each result as soon as it is known.
-In the brackets, `UP-0xx` is the number of the corresponding property in Jonathan's catalogue.
+The files of a validator's `Blueprint/` folder:
 
-## Why the checks are split this way
+| File | Written by | Contents |
+|---|---|---|
+| `Types.lean` | the generator, on every run | the validator's types and `IsData` instances, `program` (loaded with `#import_uplc`), `scriptHashHex`, `accepts` and `rejects` |
+| `Tx.lean` | the validator's author | the shapes, one per action; written as a skeleton only when it does not exist, never replaced |
+| `Checks.lean` | the generator, on every run | the selected check and `someAccepted`, in the order of the table; the other checks are listed in its header |
 
-A universal check is useful only if a pass means what the property says, for every transaction the check claims to cover.
-A check that passes because it considered too few transactions is worse than no check, because it reads as assurance.
+Nothing imports them, so `lake build` does not check them.
+The helpers the checks use are in `Formal/Universal/Properties.lean`, and the builders for shapes in `Formal/Universal/TxBuilder.lean`.
 
-The earlier checks, in Jonathan's commits, covered the whole catalogue, but they finished only by narrowing the transactions:
+## Reading a result
 
-- Every list held at most two items.
-- In the fast mode, every sum type was fixed to its first constructor.
+Each check gets one line per shape:
 
-A pass then held only for those transactions.
-Some checks could not fail at all: when no address has a staking part, "the continuing output keeps its staking credential" always holds.
-Without the narrowing, the checks did not finish: Jonathan's notes record the full mode not finishing on vesting within 25 minutes.
-
-The cause is how Blaster works, explained at the top of `DEAD_ENDS.md`.
-Any property about what the script does after decoding its arguments, such as checking signatories or payments, requires the script's accepting run with every part of the transaction a variable, and that run does not finish.
-
-So the checks are split by what can be proved:
-
-- G1 and G2 are proved over every transaction, with nothing fixed, because the script rejects while it decodes its arguments, before it reads the transaction.
-- Every other property is an H check, over a shape.
-  With the structure of the transaction fixed and only its leaves symbolic, the script makes binary decisions on leaves, and the check finishes.
-
-This is a good place to stop for the general checks.
-G1 and G2 appear to be what Blaster can prove automatically for any validator, and extending the general checks further brings back the narrowing described above.
-What remains is writing shapes for each contract, which adds coverage without changing the design.
-
-Several ideas come from Jonathan's commits: the UP catalogue and its numbering, generating the checks from the blueprint, and testing by changing one thing in an accepted transaction.
-
-## How to read a result
-
-A pass is Blaster's message `✅ Valid`, followed by the warning `declaration uses 'blasterProven'` at the theorem's line.
-`scripts/annotate-blaster-logs.awk` adds the theorem's name to that line, for example `[g1_mint]`.
-A failure is an `error:` at the theorem's line, with `❌ Falsified`.
-For a G check, the counterexample is an input that the script accepts although the check says it must be rejected, and it is a finding to review.
-For an H check, a counterexample gives values of the shape's leaves; for H1, a failure means no member of the shape is both valid and accepted, and the shape is what to review first.
-
-`accepts ledgerFuel ctx` means that the script, run on the script context `ctx`, ends with the unit value within `ledgerFuel` (1,000,000) steps of the CEK machine.
-That limit is far above what any transaction the ledger accepts can use, so "not accepted within `ledgerFuel` steps" means "rejected" in practice.
-`rejects ledgerFuel ctx` means that the script, run on `ctx`, reaches an error or ends with a value other than unit within `ledgerFuel` steps; running out of steps does not count as rejection.
-
-## Tier 1: G checks, proved over every transaction
-
-| Check | Property |
+| Reading | Meaning |
 |---|---|
-| G1 (UP-001) | A script context for a purpose that the validator has no handler for is rejected. |
-| G2 (UP-005) | A redeemer that does not decode as the redeemer type declared in the blueprint is rejected. |
+| holds | proved, and its `_applies` check proved |
+| does not apply | proved, but no valid changed transaction of that kind exists, so the check says nothing; for example `dropSigner` on a shape without signatories |
+| FAILS | Blaster found a counterexample: values of the shape's leaves for which the check is false |
+| no result | nothing was reported, usually because the 5-minute limit came first |
+| error | Lean reported another error at the check |
 
-Each G check has the form `∀ …, ¬ accepts ledgerFuel (ctx)`.
-Every part of the transaction that the statement does not name is a variable.
+A FAILS is not always a bug.
+For a check that must reject, it is an accepted transaction that the check expected to be rejected: either a finding, or a case the validator allows on purpose.
+For a check that must still accept, the validator is stricter than the check expects.
+For `someAccepted`, no transaction of the shape is valid and accepted, and the shape is the first thing to review.
 
-**G1** is generated once for each purpose without a handler: mint, withdraw, publish, vote, propose, or spend.
-Each statement leaves the whole `TxInfo`, the redeemer and the purpose's own data as variables.
-For example, `g1_mint` states that no mint is accepted, for any transaction, any redeemer and any policy.
+**`_applies`.**
+A check on a change requires its verdict only when the changed transaction is valid in the ledger model.
+Beside it, a check named `<name>_<shape>_applies` states that some honest transaction gives a valid changed transaction.
+When it fails, the main check holds only because no such transaction exists, and the summary says "does not apply".
 
-**G2** is generated once for each way a redeemer can fail to decode, for each handler:
+**Accepts and rejects.**
+`accepts ledgerFuel ctx` means that the script, run on the script context `ctx`, ends with the unit value within `ledgerFuel` (1,000,000) steps of the CEK machine.
+That limit is far above what any transaction the ledger accepts can use.
+`rejects ledgerFuel ctx` means that the script reaches an error or ends with a value other than unit within `ledgerFuel` steps; running out of steps does not count as rejection.
 
-- `wrongForm_int`, `wrongForm_bytes`, `wrongForm_list`, `wrongForm_map`: the redeemer is an integer, a byte string, a list or a map instead of a constructor.
-  For a redeemer type that is not a constructor type, the forms that differ from it are used instead.
-- `unknownIndex2`, `unknownIndex3` (for a type with 2 constructors): the redeemer is a constructor whose index is not one of the type's.
-- `<Constructor>_extraField`: the redeemer has the constructor's index and one field more than the constructor has.
-- `<Constructor>_missingField`: the redeemer has the constructor's index and is missing its last field.
-- `<Constructor>_wrongKind_<field>`: one field has the wrong kind of `Data`, for example a byte string where the type has an integer.
+## Writing shapes
 
-In a malformed redeemer that needs well-formed fields next to the malformed one, the integers, byte strings and credentials in those fields are variables, and their lists and maps are empty.
-The lists are empty because a list of variable length makes Blaster follow one path per possible length.
-
-**Measured result.**
-On `linear_vesting`, G1 and G2 give 13 checks: 5 for G1, and 8 for G2 (4 forms, 2 unknown indices, and an extra field for each of `Claim` and `Cancel`).
-All 13 were proved in one run of 34 seconds, including the time Lean takes to load.
-They were proved again with `just vesting G`, in a run of `General.lean` that took 71 seconds on a different machine.
-On `sale`, the same checks were proved.
-On `stake`, G1 and the four `wrongForm` checks of G2 were proved earlier, in their earlier names (UP-001 and UP-005).
-
-## Tier 2: H checks, over shapes
-
-`Tx.lean` defines, for each action of each spend, mint and withdraw handler, a *shape*: `honest_<purpose>_<Action> : P → ScriptContext`, where `P` is a structure of the shape's leaves that the author defines.
+`Tx.lean` defines, for each action of each spend, mint and withdraw handler, a shape: a function from a structure of leaves to a transaction, named after the action, for example `buy : BuyLeaves → ScriptContext`.
 For a validator with parameters, it also defines `honestParams`.
 The shape fixes the structure of the transaction: the number of inputs, outputs and signatories, the kind of every address, datum and redeemer, and the assets in every value.
-Every leaf, such as an amount, a time, a key or a hash, is a field of `P`, and so a variable in the checks.
-The builders in `Formal/Universal/TxBuilder.lean` make it easy to build a transaction from leaves.
+Every amount, time, key or hash is a leaf, and so a variable in the checks.
+No predicate says which transactions are honest: every check uses "valid in the ledger model and accepted by the script" as its hypothesis, so Blaster finds which values the script accepts.
 
-No predicate says which members are honest.
-Each check quantifies over every value of the leaves, and uses "valid in the ledger model and accepted by the script" as its hypothesis, so Blaster itself finds which members the script accepts.
-With the structure fixed, the script makes only binary decisions on leaves, such as a comparison of amounts or of keys, so the checks finish.
+A spend is written with `Spend.context { own, others, outputs, signatories, validFrom, fee, txId, redeemer }`, and every input and output named with `let`.
+The generated skeleton has this form, with `sorry` where the author fills in the transaction.
 
-Each check below is generated for every shape it applies to.
-H1 is always generated; the others only when named with `--checks`, for example `--checks H2,H11` to `scripts/process_blueprint.py`, and are otherwise written into `Honest.lean` as comments.
+Rules for shapes:
 
-A check on a change has the form `∀ p …, valid (shape p) → accepts (shape p) → [extra hypotheses] → valid (change) → verdict (change)`: the verdict is required only when the ledger would accept the changed transaction.
-Beside it, a `_reach` check states `∃ p …, valid (shape p) ∧ accepts (shape p) ∧ [extra hypotheses] ∧ valid (change)`.
-If the `_reach` check fails, no valid changed transaction exists, and the main check holds only because the ledger rejects the change; for an acceptance check, that makes its pass meaningless.
+- **Signatories as independent leaves**, such as `[p.s1, p.s2]`, rather than `[p.owner, p.cosigner]`.
+  The ledger sorts signatories, and the checks change the first signatory to stand for any one; with independent leaves, every assignment of roles to positions is covered.
+- **Currency symbols as literals**, such as a constant `itemPolicy : ByteString := "policyA"`.
+  With a symbolic policy, Blaster stops inside `validScriptContext` with "Inductive datatype with instance parameters not supported" (`DEAD_ENDS.md` §17).
+  Every other leaf stays symbolic.
+- **Inputs sorted by reference**, since the ledger model requires it; `input tx 0`, `input tx 1` with the same transaction id are sorted.
 
-"Needs its continuations" means: with every output back to the script redirected to another key address, the member is rejected (`redirectContinuations`).
-It keeps the continuation checks to members whose outputs back to the script matter; for example, a linear-vesting claim after the end time needs none.
+The ledger model, `validScriptContext`, requires among other things: the redeemer map to hold the spend's redeemer for the spent input; inputs, signatories and the redeemer map sorted; every value with positive ada first, then sorted assets with positive quantities; a fee greater than 0 and a non-empty validity range; and a balanced transaction.
+It does not check the length of hashes.
 
-| Check | Change, for every valid accepted member | Required verdict | Extra hypotheses |
-|---|---|---|---|
-| H1 (UP-000) | None: some member of the shape exists | Valid and accepted | |
-| H2 (UP-002, UP-012) | The first signatory removed | Rejected | |
-| H3 (UP-004) | None: some member of the shape exists | Valid and rejected | |
-| H4 | The first signatory replaced by a key not in the list | Rejected | |
-| H5 (UP-011) | The payment credential of the first output back to the script changed (the staking part is H9) | Rejected | Needs its continuations |
-| H7 (UP-014) | The first output back to the script given another well-formed datum | Rejected | Needs its continuations |
-| H8 (UP-006) | The datum of the first output back to the script given an unknown constructor index, keeping its fields | Rejected | Needs its continuations |
-| H9 (UP-007) | The staking credential of the first output back to the script changed | Rejected | Needs its continuations |
-| H10 (UP-008) | A junk token, from a new input, appended to the first output back to the script | Rejected | Needs its continuations |
-| **H11 (UP-010)** | **The spent input of any second valid accepted member added, its value pocketed, the outputs unchanged** | **One of the two script runs rejects, or one still accepts with every output redirected** | |
-| H12 (UP-013) | The validity range made unbounded | Rejected | |
-| H13 (UP-016) | One more token minted under the script's own policy (mint handlers) | Rejected | |
-| H14 | The mint turned into a burn, or the other way round (mint handlers) | Rejected | |
-| H15 | The redeemer changed to another action, in the redeemer map too | Rejected | |
-| H16 (UP-015) | The outputs in reverse order | Accepted | |
-| H17 | An unrelated input and an output of the same value added | Accepted | |
-| H18 | The spent datum given an unknown constructor index, keeping its fields | Rejected, to review | |
-| H19 | The spent input without a datum | Rejected, to review | |
-| H23 | An unrelated input added before the script's own, and an output of the same value | Accepted | |
-| H24 | An extra signatory, not already in the list, added first | Accepted | |
-| H25 | An unrelated token minted and sent to an unrelated output | Accepted | |
-| H26 | A reference script on the first output back to the script | Rejected, to review | Needs its continuations |
-| H27 (UP-015) | The first output moved to the end | Accepted | |
+## Design notes
+
+**Why two kinds of check.**
+A check is useful only if a pass means what the property says for every transaction it claims to cover.
+The earlier checks, in Jonathan's commits, covered the whole catalogue, but finished only by narrowing the transactions: lists of at most two items and, in the fast mode, every sum type fixed to its first constructor.
+Without the narrowing, they did not finish.
+The cause is how Blaster works (`DEAD_ENDS.md`, top): a property about what the script does after decoding its arguments needs the script's accepting run with every part of the transaction a variable, and that run does not finish.
+`otherPurpose` and `malformedRedeemer` are proved over every transaction because the script rejects while decoding its arguments, before it reads the transaction.
+Every other check is over shapes: with the structure fixed and only the leaves symbolic, the script makes binary decisions on leaves, and the check finishes.
 
 **The first signatory, the first output back to the script.**
-No check uses a symbolic position in a list: Blaster would follow every value the position could take (`DEAD_ENDS.md` §19).
-Checks act on the first signatory or the first output back to the script instead, which stands for any one of them because:
+No check uses a symbolic position in a list, because Blaster would follow every value the position could take (`DEAD_ENDS.md` §19).
+Checks act on the first signatory, or the first output back to the script, instead.
+That stands for any one of them because the order of outputs should not matter to a validator, which `reverseOutputs` and `rotateOutputs` check, and because signatories are independent leaves.
+Conditions are Boolean tests, such as `contains k = false`, rather than membership (`∉`) or other inductive propositions, which Blaster handles poorly.
 
-- the order of outputs should not matter to a validator, and H16 (outputs reversed) and H27 (first output moved to the end) check that it does not;
-- the ledger sorts signatories by key, and when the shape's signatory keys are independent leaves, the members include every assignment of roles to positions.
-
-So **authors should write the signatories of a shape as independent leaves**, such as `[p.s1, p.s2]`, with the keys in the datum as separate leaves, rather than as `[p.owner, p.cosigner]`.
-With roles tied to positions, sorting forces the order of the keys, and the first signatory is always the same role.
-Likewise, checks state conditions as Boolean tests, such as `contains k = false`, rather than as membership (`∉`) or other inductive propositions, which Blaster handles poorly.
-
-**H11, double satisfaction.**
-The changed transaction is `p`'s, with the spent input of a second member `q` added under a new reference, `q`'s redeemer recorded for it, and an output sending `q`'s spent value to another key: one set of outputs for two script inputs.
-Each script input runs the script separately, so the check considers the run for `p`'s input and the run for the new input.
-Double satisfaction is both runs accepting while both rely on the outputs; the check requires that this never happens.
+**doubleSatisfaction.**
+The changed transaction is `p`'s, with the spent input of a second honest transaction `q` added under a new reference, `q`'s redeemer recorded for it, and an output sending that input's value to another key: one set of outputs for two script inputs.
+Each script input runs the script separately.
+Double satisfaction is both runs accepting while both rely on the outputs, and the check requires that this never happens.
 A run relies on the outputs when it rejects with every output sent to another key (`redirectOutputs`).
-A second form redirected only the outputs back to the script, and so passed on a sale that pays the seller's key: two listings of one seller, bought with one payment.
-Because `q` is any member, it covers the same position spent twice (`q = p`) and two different positions.
-A first form, which required `q` to need its continuations in `q`'s own transaction, was falsified by a legitimate case (`DEAD_ENDS.md` §18).
+Because `q` is any honest transaction of the shape, the check covers the same position spent twice and two different positions.
+It covers only a second input of the same shape.
+A first form, which required `q` to need its outputs back to the script, was falsified by a legitimate case (`DEAD_ENDS.md` §18).
+A second form redirected only the outputs back to the script, and so passed on a sale that pays the seller's key.
 
-**Not generated.**
-H6 and H21, "some amount of lovelace (H6) or tokens (H21) taken out of an output back to the script is rejected", are written as comments whatever `--checks` names, because their form is still to be decided (`DEAD_ENDS.md` §18).
-H20 (UP-009) is not generated, because the ledger model treats a spent input with a hashed datum as invalid.
+## Results so far
 
-H1 also shows that the hypothesis of the checks on changes can hold, so they do not pass merely because no member is valid and accepted.
-`validScriptContext` is the V3 model's `validScriptInfo` and `validTxInfo`.
-For a spend, it requires, among other things:
+| Check | linear vesting: claim | linear vesting: cancel | sale: buy | sale: cancel |
+|---|---|---|---|---|
+| `someAccepted` | holds | holds | holds | holds |
+| `someRejected` | holds | holds | holds | holds |
+| `otherPurpose` | holds | | holds | |
+| `malformedRedeemer` | holds | | holds | |
+| `otherRedeemer` | FAILS, legitimate: the beneficiary may be the locker | FAILS, legitimate | holds | FAILS, legitimate: a seller who pays themselves the price also satisfies buy |
+| `spendDatumTag` | FAILS in an earlier form, to review | FAILS in an earlier form, to review | FAILS, to review | FAILS, to review |
+| `noSpendDatum` | holds | holds | holds | holds |
+| `dropSigner` | holds | holds | does not apply | holds |
+| `wrongSigner` | holds | holds | does not apply | holds |
+| `extraSigner` | holds | holds | holds | holds |
+| `unrelatedInput` | holds | holds | holds | holds |
+| `reverseOutputs` | holds | holds | holds | holds |
+| `rotateOutputs` | holds | holds | holds | holds |
+| `unrelatedOutput` | holds | holds | holds | holds |
+| `continuationElsewhere` | holds | does not apply | does not apply | does not apply |
+| `continuationStake` | **FAILS: the staking credential is not checked** | does not apply | does not apply | does not apply |
+| `continuationOtherDatum` | holds | does not apply | does not apply | does not apply |
+| `continuationDatumTag` | not run | does not apply | does not apply | does not apply |
+| `junkToken` | **FAILS: extra tokens are accepted** | does not apply | does not apply | does not apply |
+| `continuationRefScript` | FAILS, to review | does not apply | does not apply | does not apply |
+| `unrelatedMint` | holds | holds | holds | holds |
+| `unboundedRange` | holds | holds | FAILS, legitimate: the sale ignores time | FAILS, legitimate |
+| `doubleSatisfaction` | holds | holds | **FAILS: one output pays for two listings** | holds |
 
-- the redeemer map to contain the spend's redeemer for the spent input, with the spent input in the inputs, at a script address, with an inline datum equal to the datum passed to the script;
-- inputs sorted by reference, signatories sorted, and the redeemer map sorted;
-- every value with positive ada first, then currency symbols and token names sorted, with positive quantities;
-- a fee greater than 0, and a non-empty validity range;
-- a balanced transaction: the value in the inputs plus the mint equals the value in the outputs plus the fee.
+These were run under the former IDs, before the checks were renamed; the statements are unchanged, apart from the new `doubleSatisfaction` form.
+The G checks (`otherPurpose`, `malformedRedeemer`) on linear vesting gave 13 checks, proved in 34 to 71 seconds depending on the machine.
+In the `doubleSatisfaction` counterexample on the sale, the second listing's seller is the first buyer, and the first buyer's own output, with the item and 1 lovelace, is enough to pay the second listing's price.
+Blaster picked negative prices; a price up to that output's lovelace would likely work too.
 
-The model does not check the length of hashes.
+## Not kept as checks over every transaction
 
-**Which leaves are symbolic.**
-A leaf stays concrete only when a recorded limitation requires it.
-Currently that is the currency symbol of a value: with a symbolic policy, Blaster stops inside `validScriptContext` with "Inductive datatype with instance parameters not supported" (`DEAD_ENDS.md` §17).
-
-**Measured result.**
-On `linear_vesting`, the `Claim` shape has 2 inputs (the vesting position and the signer's fee input), 2 outputs (the continuation and the payout) and 1 signatory, with 17 symbolic leaves: both keys, the token name, the total, the start, end and recovery times, the script hash, both transaction ids, the ada of both inputs, the ada and tokens kept, the fee, `now` and the signer.
-The `Cancel` shape has 2 inputs, 1 output to the signer and 1 signatory, with 15 symbolic leaves.
-H1 and H2 for both, 4 checks, were proved in a run of `Honest.lean` that took 29 seconds, including the time Lean takes to load.
-H1 and H11 with its `_reach` check for both, 6 checks, were proved in a run that took 3 minutes 17 seconds.
-The statements of all 184 checks generated with every check selected type-check; H2 and H4 in their current form were proved on the author's machine; the other checks have not been run yet.
-
-## Tier 3: not kept as general checks
-
-These properties are not generated as G checks.
-For each, the reason is given, and the H check that covers it, if any.
-
-- **UP-000 (some transaction with this action is accepted) and UP-004 (some transaction with this action is rejected), stated over every transaction.**
-  Blaster has to follow the script through its accepting run with every part of the transaction a variable.
-  Each variable that the script inspects (a credential, an optional staking part, a datum, the length of a list) multiplies the number of paths.
-  For UP-000 on `sale`, the run did not finish even with every list limited to at most 2 items and the datum and redeemer given their declared types.
-  H1 covers UP-000 over a shape.
-  Any H check that requires rejection will cover UP-004.
+- **UP-000 and UP-004 (some transaction of an action is accepted, or rejected).**
+  Over every transaction, the accepting run does not finish: on `sale`, UP-000 did not finish even with every list limited to 2 items.
+  `someAccepted` and `someRejected` cover them over shapes.
 - **UP-002, UP-006, UP-007, UP-008, UP-010 and UP-013, stated as "every accepted transaction satisfies Q".**
-  These require the same accepting run, for the same reason.
-  H2 covers UP-002 over a shape; H3, H8, H9, H10, H11 and H12 will cover the others.
-- **The datum checks over every transaction (a malformed datum is rejected; a spend without a datum is rejected).**
-  On `linear_vesting`, the checks for a datum that is not a constructor were proved for the action `Cancel`.
-  For the action `Claim`, the first of them had not finished when the run reached its 2-minute limit.
-  For `Cancel`, the check for a datum with an unknown constructor index had not finished when the run reached its 2-minute limit.
-  On `sale`, the checks for the action `Buy` did not finish.
-  Whether they finish depends on where the compiled script first reads the datum, which cannot be known from the blueprint.
-  H18 and H19 will cover them over a shape.
-- **UP-009 (a spent input with a hashed datum can still be spent).**
-  The ledger model in CardanoLedgerApi treats an input with a hashed datum whose datum is passed to the script as invalid, as Jonathan noted.
-  It is not generated.
+  These need the same accepting run; the checks over shapes in the table cover them.
+- **Datum checks over every transaction (a malformed datum, no datum).**
+  Whether they finish depends on where the compiled script first reads the datum, which the blueprint does not say; on `linear_vesting` and `sale` some did not finish within 2 minutes.
+  `spendDatumTag` and `noSpendDatum` cover them over shapes.

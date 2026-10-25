@@ -4,13 +4,13 @@ import CardanoLedgerApi
 /-!
 # Helpers for universal checks
 
-Hand-written once; used by the generated files of each validator (`Types.lean`, `General.lean`
-and `Honest.lean` in a validator's `Blueprint/` folder), which state the G checks and the H checks.
+Hand-written once; used by the generated `Types.lean` and `Checks.lean` in each validator's
+`Blueprint/` folder (see docs/Universal/PROPERTIES.md).
 
-* G checks hold for every transaction: the builders `Every<Purpose>` leave the whole `TxInfo`, and
-  the purpose's own data, as variables.
-* H checks start from one accepted transaction written by the validator's author and change one
-  thing in it; the helpers below make those changes.
+* `otherPurpose` and `malformedRedeemer` hold for every transaction: the builders `Every<Purpose>`
+  leave the whole `TxInfo`, and the purpose's own data, as variables.
+* The other checks start from a shape in `Tx.lean`, written by the validator's author, and change
+  one thing in it; the helpers below make those changes.
 -/
 
 open PlutusCore.Data (Data)
@@ -52,7 +52,7 @@ def rejectedWithin (p : Program) (args : List Term) (fuel : Nat) : Prop :=
       | some (.Halt v) => v ≠ .VCon Const.Unit
       | _ => False
 
-/-! ## Every transaction, per purpose (G checks) -/
+/-! ## Every transaction, per purpose -/
 
 structure EverySpend where
   txInfo : TxInfo
@@ -103,7 +103,7 @@ structure EveryPropose where
 def EveryPropose.ctx (t : EveryPropose) (r : Data) : ScriptContext :=
   mkCtx t.txInfo r (.ProposingScript t.idx t.proposal)
 
-/-! ## Changes to an honest transaction (H checks) -/
+/-! ## Changes to an honest transaction -/
 
 def inputsOf (h : ScriptContext) : List TxInInfo := h.scriptContextTxInfo.txInfoInputs
 def outputsOf (h : ScriptContext) : List TxOut := h.scriptContextTxInfo.txInfoOutputs
@@ -221,7 +221,7 @@ def unrelatedOutput : TxOut :=
 def rangeAlways : Data :=
   .Constr 0 [.Constr 0 [.Constr 0 [], .Constr 1 []], .Constr 0 [.Constr 2 [], .Constr 1 []]]
 
-/-! ## Changes to a shape (H checks over shapes)
+/-! ## Changes to a shape
 
 Keys and policies are literals: a symbolic currency symbol stops Blaster inside
 `validScriptContext` (`docs/Universal/DEAD_ENDS.md` §17). -/
@@ -244,7 +244,7 @@ def redirectContinuations (h : ScriptContext) : ScriptContext :=
         else o) h.scriptContextTxInfo.txInfoOutputs)
   | none => h
 
-/-- `h` with every output sent to `attackerKey` instead, without a datum. In H11, a run that still
+/-- `h` with every output sent to `attackerKey` instead, without a datum. In `doubleSatisfaction`, a run that still
     accepts this does not rely on any output, so sharing the outputs gives it nothing. -/
 def redirectOutputs (h : ScriptContext) : ScriptContext :=
   withOutputs h (List.map (fun (o : TxOut) =>
@@ -262,7 +262,7 @@ def changeFirst (p : TxOut → Bool) (f : TxOut → TxOut) : List TxOut → List
   | [] => []
   | o :: os => if p o then f o :: os else o :: changeFirst p f os
 
-/-- `h` with `f` applied to its first output back to the script. With H16 and H27 checking that the
+/-- `h` with `f` applied to its first output back to the script. With `reverseOutputs` and `rotateOutputs` checking that the
     order of outputs does not matter, this stands for any output back to the script. -/
 def changeContinuation (h : ScriptContext) (f : TxOut → TxOut) : ScriptContext :=
   withOutputs h (changeFirst (isContinuation h) f h.scriptContextTxInfo.txInfoOutputs)

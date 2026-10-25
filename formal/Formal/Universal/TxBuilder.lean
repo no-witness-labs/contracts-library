@@ -4,7 +4,7 @@ import CardanoLedgerApi
 # Building script contexts
 
 Validator-independent builders for the honest transactions in each validator's `Tx.lean`. Any
-argument may be a variable, so that a shape can leave every leaf symbolic. `spend` adds the
+argument may be a variable, so that a shape can leave every leaf symbolic. `Spend` adds the
 bookkeeping the ledger model requires; inputs are taken in the order given, so the caller keeps
 them sorted by reference.
 -/
@@ -36,32 +36,46 @@ def toKey (key : ByteString) (value : Value) : TxOut :=
 def toScript (hash : ByteString) (value : Value) (datum : Data) : TxOut :=
   ⟨scriptAddress hash, value, .OutputDatum datum, none⟩
 
-/-- A spend of `own`, with `others` as the remaining inputs, in that order. The datum passed to
-    the script is `own`'s inline datum, if it has one; the redeemer is recorded for `own`. -/
-def spend (own : TxInInfo) (others : List TxInInfo) (outputs : List TxOut)
-    (signatories : List ByteString) (validFrom fee : Int) (txId : ByteString) (redeemer : Data) :
-    ScriptContext :=
-  let datum := match own.txInInfoResolved.txOutDatum with
+/-- An input: the output `out`, created by transaction `tx` at position `index`. -/
+def input (tx : ByteString) (index : Int) (out : TxOut) : TxInInfo :=
+  ⟨⟨tx, index⟩, out⟩
+
+/-- A spend of `own`, with `others` as the remaining inputs, in that order. -/
+structure Spend where
+  own : TxInInfo
+  others : List TxInInfo := []
+  outputs : List TxOut
+  signatories : List ByteString := []
+  /-- The transaction is valid from this time on, with no upper bound. -/
+  validFrom : Int
+  fee : Int
+  txId : ByteString
+  redeemer : Data
+
+/-- The script context of `s`. The datum passed to the script is `own`'s inline datum, if it has
+    one; the redeemer is recorded for `own`. -/
+def Spend.context (s : Spend) : ScriptContext :=
+  let datum := match s.own.txInInfoResolved.txOutDatum with
     | .OutputDatum d => some d
     | _ => none
   { scriptContextTxInfo :=
-      { txInfoInputs := own :: others
+      { txInfoInputs := s.own :: s.others
         txInfoReferenceInputs := []
-        txInfoOutputs := outputs
-        txInfoFee := fee
+        txInfoOutputs := s.outputs
+        txInfoFee := s.fee
         txInfoMint := []
         txInfoTxCerts := []
         txInfoWdrl := []
-        txInfoValidRange := IsData.toData (CardanoLedgerApi.V1.Time.after validFrom)
-        txInfoSignatories := signatories
-        txInfoRedeemers := [(.Spending own.txInInfoOutRef, redeemer)]
+        txInfoValidRange := IsData.toData (CardanoLedgerApi.V1.Time.after s.validFrom)
+        txInfoSignatories := s.signatories
+        txInfoRedeemers := [(.Spending s.own.txInInfoOutRef, s.redeemer)]
         txInfoData := []
-        txInfoId := txId
+        txInfoId := s.txId
         txInfoVotes := []
         txInfoProposalProcedures := []
         txInfoCurrentTreasuryAmount := IsData.toData (none : Option Int)
         txInfoTreasuryDonation := IsData.toData (none : Option Int) }
-    scriptContextRedeemer := redeemer
-    scriptContextScriptInfo := .SpendingScript own.txInInfoOutRef datum }
+    scriptContextRedeemer := s.redeemer
+    scriptContextScriptInfo := .SpendingScript s.own.txInInfoOutRef datum }
 
 end Formal.Universal.TxBuilder

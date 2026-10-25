@@ -79,8 +79,7 @@ just verify            # all the hand-written Lean: Formal/Universal and every v
 just universal         # only the Lean in Formal/Universal
 just vesting           # linear vesting's hand-written proofs
 just vesting Soundness # one file of them
-just vesting G         # its G checks
-just vesting H11       # one of its H checks (with H1)
+just vesting doubleSatisfaction  # one of its universal checks (with someAccepted)
 just build             # aiken build in ../onchain
 just clean             # delete Scripts/ and the Lake build files
 ```
@@ -94,12 +93,12 @@ The recipes rely on these conventions, and fail with a message when one does not
 3. Every validator has one recipe in the `justfile`, naming its folder under `Formal/` and its name in the blueprint, for example `vesting` names `Formal/Vesting/Linear` and `linear_vesting`.
    To add a validator, add its recipe; when it has hand-written proofs, also add it to `proved`.
 4. A validator's hand-written proofs are the files in its folder, imported by `<folder>.lean`, for example `Formal/Vesting/Linear.lean`; `Formal.lean` imports every one of these.
-5. A validator's universal checks are in `<folder>/Blueprint/`: `Tx.lean` is written by hand, and the other `.lean` files are generated.
+5. A validator's universal checks are in `<folder>/Blueprint/`: `Tx.lean` is written by hand, and `Types.lean` and `Checks.lean` are generated.
 6. Validator-independent Lean is in `Formal/Universal`.
 7. `Formal/` holds only `.lean` files.
-   The documentation of `Formal/X` is in `docs/X`, and the logs of its universal checks are in `logs/X`, for example `docs/Vesting/Linear/README.md` and `logs/Vesting/Linear/H11.log`; `logs/` is not committed.
+   The documentation of `Formal/X` is in `docs/X`, and the logs of its universal checks are in `logs/X`, for example `docs/Vesting/Linear/README.md` and `logs/Vesting/Linear/doubleSatisfaction.log`; `logs/` is not committed.
 
-A recipe's argument chooses what runs: none, the hand-written proofs; `G` or `H<n>`, one group of universal checks; any other name, that file of the hand-written proofs.
+A recipe's argument chooses what runs: none, the hand-written proofs; a check's name, starting lower-case, such as `doubleSatisfaction`, that universal check; a name starting upper-case, such as `Soundness`, that file of the hand-written proofs.
 Hand-written proofs are checked with `lake build`, whose output `scripts/annotate-blaster-logs.awk` labels with theorem names.
 
 Or directly, inside the dev shell:
@@ -136,13 +135,13 @@ they discharge.
 Besides the hand-written proofs, each validator can have universal checks, generated from the blueprint into its `Blueprint/` folder:
 
 ```bash
-just vesting G
-just vesting H11
-just vesting H11 --counterexamples   # also print each counterexample
-just vesting H11 --from-log          # summarise the last run's log without running Lean
+just vesting doubleSatisfaction
+just vesting doubleSatisfaction --counterexamples   # also print each counterexample
+just vesting doubleSatisfaction --from-log          # summarise the last run's log without running Lean
 ```
 
-The folder holds `Types.lean`, `General.lean` and `Honest.lean`, which are replaced on every run, and `Tx.lean`, the honest transactions written by the validator's author, which is never replaced.
+Each run is one check, by name, over every shape it applies to.
+The folder holds `Types.lean` and `Checks.lean`, which are replaced on every run, and `Tx.lean`, the honest transactions written by the validator's author, which is never replaced.
 `lake build` does not check these files; the validator's recipe does.
 See [`docs/Universal/PROPERTIES.md`](docs/Universal/PROPERTIES.md) for what the checks state and how to read their results.
 

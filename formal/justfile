@@ -35,8 +35,9 @@ verify:
 universal:
     {{run}} build Formal.Universal
 
-# One recipe per validator. No argument: its hand-written proofs. G or H<n>: one group of its
-# universal checks (add --counterexamples, or --from-log to summarise the last run's log).
+# One recipe per validator. No argument: its hand-written proofs. A check's name, such as
+# doubleSatisfaction: that universal check (add --counterexamples, or --from-log to summarise the
+# last run's log; the checks are listed in docs/Universal/PROPERTIES.md).
 # Any other name: that file of its hand-written proofs, for example `just vesting Soundness`.
 
 vesting *args:

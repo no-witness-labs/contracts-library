@@ -3,7 +3,7 @@
 
   universal.py run <folder> <validator> <blueprint> [arg] [--counterexamples] [--from-log]
       no arg      the hand-written proofs: lake build of <folder>.lean
-      G or H<n>   one group of universal checks: General.lean, or Honest.lean with H1 and H<n>
+      a check     one family of universal checks, such as doubleSatisfaction, with someAccepted
       other       one file of the hand-written proofs: lake build of <folder>/<arg>.lean
   universal.py verify <blueprint> <validator>...   copy each validator's code, then lake build
   universal.py build <module>                      lake build of <module>
@@ -13,13 +13,16 @@ an aiken.toml, and the validator's compiledCode is copied to Scripts/<module>.<v
 The copy is rewritten only when its bytes change; then the Lake build files of every module that
 reads it are deleted, because Lake does not know that `#import_uplc` reads the file.
 
-A group of universal checks runs with `lake env lean`, stopped after 5 minutes. Its output is shown
-and saved to logs/<folder below Formal>/<check>.log, then each theorem gets one status, taken only from the
-messages at its lines:
-  proved           Blaster's `declaration uses 'blasterProven'` warning appears for it
-  counterexample   `Falsified` appears for it
-  error            another error appears for it
-  no result        nothing appears for it, for example because the time limit was reached first
+A family of universal checks runs with `lake env lean` on <folder>/Blueprint/Checks.lean, stopped
+after 5 minutes. Its output is shown and saved to logs/<folder below Formal>/<check>.log. Each
+theorem gets a status from the messages at its lines only: proved (Blaster's `blasterProven`
+warning), counterexample (`Falsified`), error (another error), or no result (nothing, for example
+because the time limit came first). Then each check gets one line, by section:
+  holds            proved, and its `_applies` check proved, when it has one
+  does not apply   proved, but its `_applies` check has a counterexample: no changed transaction
+                   of the kind exists, so the check says nothing
+  FAILS            a counterexample
+  error, no result as for the theorem
 --counterexamples prints each counterexample; --from-log summarises the saved log without running Lean.
 """
 import json
@@ -31,6 +34,9 @@ import tempfile
 import threading
 import time
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from process_blueprint import FAMILIES, SECTIONS  # noqa: E402
 
 SCRIPTS = Path("Scripts")
 LIMIT = 300
@@ -122,7 +128,8 @@ def theorems(path):
             for k, (start, name) in enumerate(starts)]
 
 
-def summarise(lean_file, log, timed_out, counterexamples):
+def statuses(lean_file, log):
+    """{theorem: status} and {theorem: [message lines]}, from the log."""
     thms = theorems(lean_file)
     status = {n: "no result" for n, _, _ in thms}
     details = {n: [] for n, _, _ in thms}
@@ -148,17 +155,48 @@ def summarise(lean_file, log, timed_out, counterexamples):
             current = None
         elif current is not None and line.strip():
             details[current].append(line.strip())
-    width = max((len(n) for n, _, _ in thms), default=10)
+    return status, details
+
+
+def reading(main, applies):
+    if main == "counterexample":
+        return "FAILS: counterexample"
+    if main != "proved":
+        return main
+    if applies in (None, "proved"):
+        return "holds"
+    if applies == "counterexample":
+        return "does not apply"
+    return f"holds (applies: {applies})"
+
+
+def summarise(lean_file, log, timed_out, counterexamples):
+    status, details = statuses(lean_file, log)
+    rows = {}
+    for name in status:
+        if name.endswith("_applies"):
+            continue
+        family = name.split("_")[0]
+        rows.setdefault(family, []).append(
+            (name[len(family) + 1:], reading(status[name], status.get(name + "_applies")), name))
+    width = max((len(f) for f in rows), default=10)
+    rest = max((len(r) for rs in rows.values() for r, _, _ in rs), default=10)
     print()
     print(f"Summary of {lean_file}" + (" (stopped by the time limit)" if timed_out else ""))
-    for name, start, _ in thms:
-        print(f"  {name:<{width}}  line {start:<5} {status[name]}")
-        if counterexamples and status[name] == "counterexample":
-            for d in details[name]:
-                print(f"      {d}")
     counts = {}
-    for s in status.values():
-        counts[s] = counts.get(s, 0) + 1
+    for _, title, families in SECTIONS:
+        present = [f for f in families if f in rows]
+        if not present:
+            continue
+        print(f"  {title}")
+        for f in present:
+            for r, read, name in rows[f]:
+                print(f"    {f:<{width}}  {r:<{rest}}  {read}")
+                key = read.split(":")[0].split(" (")[0]
+                counts[key] = counts.get(key, 0) + 1
+                if counterexamples and read.startswith("FAILS"):
+                    for d in details[name]:
+                        print(f"        {d}")
     print("  " + ", ".join(f"{v} {k}" for k, v in sorted(counts.items())))
 
 
@@ -191,12 +229,12 @@ def universal_checks(folder, validator, plutus, check, counterexamples, from_log
     tx = blueprint / "Tx.lean"
     had_tx = tx.exists()
     r = subprocess.run([sys.executable, "-I", PROCESS, plutus, validator, "--out", str(blueprint),
-                        "--scripts", str(SCRIPTS), "--checks", "" if check == "G" else check])
+                        "--scripts", str(SCRIPTS), "--check", check])
     if r.returncode != 0:
         sys.exit(r.returncode)
     if not had_tx:
         fail(f"wrote the stub {tx}: write the honest transactions there, then run again")
-    lean_file = blueprint / ("General.lean" if check == "G" else "Honest.lean")
+    lean_file = blueprint / "Checks.lean"
     log = Path("logs", *Path(folder).parts[1:], f"{check}.log")
     log.parent.mkdir(parents=True, exist_ok=True)
     if from_log:
@@ -215,11 +253,13 @@ def run(args):
     rest = [a for a in args if not a.startswith("--")]
     unknown = flags - {"--counterexamples", "--from-log"}
     if unknown or not 3 <= len(rest) <= 4:
-        fail("usage: run <folder> <validator> <blueprint> [G | H<n> | file] [--counterexamples] [--from-log]")
+        fail("usage: run <folder> <validator> <blueprint> [check | file] [--counterexamples] [--from-log]")
     folder, validator, plutus = rest[:3]
     arg = rest[3] if len(rest) == 4 else ""
     module = module_of(folder)
-    universal = re.fullmatch(r"G|H\d+", arg) is not None
+    universal = arg in FAMILIES
+    if arg[:1].islower() and not universal:
+        fail(f"no check `{arg}`; the checks are: {', '.join(FAMILIES)}")
     if not (universal and "--from-log" in flags):
         prepare(plutus, validator)
     if universal:
@@ -231,7 +271,8 @@ def run(args):
     else:
         if not (Path(folder) / f"{arg}.lean").exists():
             files = sorted(p.stem for p in Path(folder).glob("*.lean"))
-            fail(f"no {folder}/{arg}.lean; the argument is G, H<n> or one of: {', '.join(files) or 'none'}")
+            fail(f"no {folder}/{arg}.lean; the argument is a check, such as doubleSatisfaction, or one of: "
+                 f"{', '.join(files) or 'none'}")
         lake_build([f"{module}.{arg}"])
 
 
