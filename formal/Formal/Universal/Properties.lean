@@ -88,6 +88,17 @@ def signatoriesOf (h : ScriptContext) : List PubKeyHash := h.scriptContextTxInfo
 def withSignatories (h : ScriptContext) (sigs : List PubKeyHash) : ScriptContext :=
   { h with scriptContextTxInfo := { h.scriptContextTxInfo with txInfoSignatories := sigs } }
 
+def outputsOf (h : ScriptContext) : List TxOut := h.scriptContextTxInfo.txInfoOutputs
+
+def withOutputs (h : ScriptContext) (outs : List TxOut) : ScriptContext :=
+  { h with scriptContextTxInfo := { h.scriptContextTxInfo with txInfoOutputs := outs } }
+
+/-- `h` with its first output moved to the end. -/
+def rotateOutputs (h : ScriptContext) : ScriptContext :=
+  match h.scriptContextTxInfo.txInfoOutputs with
+  | [] => h
+  | o :: os => withOutputs h (List.append os [o])
+
 end Formal.Universal.Properties
 
 /-!
