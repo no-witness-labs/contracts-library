@@ -19,26 +19,38 @@ open CardanoLedgerApi.V3 (validScriptContext)
 
 /-! ## H checks
 
-4 checks on the honest transactions in `Tx.lean`, one transaction per action.
-  H0           the honest transaction is valid in the V3 ledger model.
-  H1 (UP-000)  the honest transaction is accepted.
-Together they state UP-000 for a transaction the ledger accepts.
+4 checks over the shapes in `Tx.lean`, one shape per action. A shape is a function
+from a structure of leaves to a transaction with a fixed structure; `p` ranges over every
+value of the leaves, and Blaster finds which members the script accepts.
+  H1 (UP-000)  some member of the shape is valid in the ledger model and accepted.
+  H2 (UP-002)  every valid accepted member, without any signatory, is still valid and
+               is rejected.
 -/
 
--- H0: the honest transaction is valid in the V3 ledger model.
-theorem h0_spend_Claim :
-    validScriptContext honest_spend_Claim = true := by blaster
-
--- H1 (UP-000): the honest transaction is accepted.
+-- H1 (UP-000): some member of the shape is valid in the ledger model and accepted.
 theorem h1_spend_Claim :
-    accepts ledgerFuel honest_spend_Claim := by blaster
+    ∃ p,
+      validScriptContext (honest_spend_Claim p) = true ∧ accepts ledgerFuel (honest_spend_Claim p)
+        := by blaster
 
--- H0: the honest transaction is valid in the V3 ledger model.
-theorem h0_spend_Cancel :
-    validScriptContext honest_spend_Cancel = true := by blaster
+-- H2 (UP-002): every valid accepted member, without any signatory, is still valid and is rejected.
+theorem h2_spend_Claim :
+    ∀ p, validScriptContext (honest_spend_Claim p) = true → accepts ledgerFuel
+      (honest_spend_Claim p) →
+      validScriptContext (withSignatories (honest_spend_Claim p) []) = true ∧ rejects ledgerFuel
+        (withSignatories (honest_spend_Claim p) []) := by blaster
 
--- H1 (UP-000): the honest transaction is accepted.
+-- H1 (UP-000): some member of the shape is valid in the ledger model and accepted.
 theorem h1_spend_Cancel :
-    accepts ledgerFuel honest_spend_Cancel := by blaster
+    ∃ p,
+      validScriptContext (honest_spend_Cancel p) = true ∧ accepts ledgerFuel (honest_spend_Cancel p)
+        := by blaster
+
+-- H2 (UP-002): every valid accepted member, without any signatory, is still valid and is rejected.
+theorem h2_spend_Cancel :
+    ∀ p, validScriptContext (honest_spend_Cancel p) = true → accepts ledgerFuel
+      (honest_spend_Cancel p) →
+      validScriptContext (withSignatories (honest_spend_Cancel p) []) = true ∧ rejects ledgerFuel
+        (withSignatories (honest_spend_Cancel p) []) := by blaster
 
 end Formal.Vesting.Linear.Blueprint

@@ -2,9 +2,9 @@
 
 Two kinds of check are kept.
 The **G checks** are proved by Blaster over every transaction, with no input from the validator's author.
-The **H checks** are stated on an *honest transaction*: a transaction for one action that the ledger model and the script both accept, written by the validator's author.
-Each H check states something about the honest transaction, or about the honest transaction with one thing changed.
-For now, only H0 and H1 are generated; the other H checks are added back one at a time once these have been run on more validators.
+The **H checks** are stated over a *shape*: a transaction for one action with a fixed structure and symbolic leaves, written by the validator's author.
+Each H check states something about every member of the shape that the ledger model and the script accept, or about such a member with one thing changed.
+For now, only H1 and H2 are generated; the other H checks are added back one at a time.
 
 ## Where the checks live, and how to run them
 
@@ -16,7 +16,7 @@ Each validator has its own folder under `Formal/`, chosen when the checks are ge
 | `Types.lean` | The generator, on every run | The validator's types and `IsData` instances, `args`, `program` (loaded with `#import_uplc`), `scriptHashHex`, `accepts` and `rejects`. |
 | `General.lean` | The generator, on every run | The G checks. |
 | `Honest.lean` | The generator, on every run | The H checks. |
-| `Tx.lean` | The validator's author | The honest transactions, one per action. The generator writes it as a stub with `sorry` only when it does not exist, and never replaces it. |
+| `Tx.lean` | The validator's author | The shapes, one per action. The generator writes it as a stub with `sorry` only when it does not exist, and never replaces it. |
 
 The four files share the namespace given by the folder, for example `Formal.Vesting.Linear.Blueprint`.
 Nothing imports them, so `lake build` does not check them; `just universal` does.
@@ -26,8 +26,8 @@ Run from `formal/`:
 ```sh
 just blueprint linear_vesting Formal/Vesting/Linear/Blueprint                      # from ../onchain/plutus.json
 just blueprint linear_vesting Formal/Vesting/Linear/Blueprint path/to/plutus.json  # from another blueprint
-just universal Formal/Vesting/Linear/Blueprint          # inside `nix develop`
-just universal-local Formal/Vesting/Linear/Blueprint    # with Lean, Z3 and gawk already on PATH
+just universal Formal/Vesting/Linear/Blueprint          # with Lean, Z3 and gawk on PATH
+just universal-nix Formal/Vesting/Linear/Blueprint      # the same, inside `nix develop`
 ```
 
 `just blueprint` first runs `just cbor <validator>`, which copies that validator's `compiledCode` from `plutus.json` to `Scripts/<module>.<validator>.cbor`, where `Types.lean` reads it.
@@ -56,13 +56,12 @@ Any property about what the script does after decoding its arguments, such as ch
 So the checks are split by what can be proved:
 
 - G1 and G2 are proved over every transaction, with nothing fixed, because the script rejects while it decodes its arguments, before it reads the transaction.
-- Every other property is an H check, on an honest transaction.
-  With a concrete transaction, the script follows a single path.
-  Because the transaction is one the ledger model and the script accept (H0 and H1), a pass cannot hold for the wrong reason.
+- Every other property is an H check, over a shape.
+  With the structure of the transaction fixed and only its leaves symbolic, the script makes binary decisions on leaves, and the check finishes.
 
 This is a good place to stop for the general checks.
 G1 and G2 appear to be what Blaster can prove automatically for any validator, and extending the general checks further brings back the narrowing described above.
-What remains is writing honest transactions for each contract, which adds coverage without changing the design.
+What remains is writing shapes for each contract, which adds coverage without changing the design.
 
 Several ideas come from Jonathan's commits: the UP catalogue and its numbering, generating the checks from the blueprint, and testing by changing one thing in an accepted transaction.
 
@@ -72,7 +71,7 @@ A pass is Blaster's message `✅ Valid`, followed by the warning `declaration us
 `scripts/annotate-blaster-logs.awk` adds the theorem's name to that line, for example `[g1_mint]`.
 A failure is an `error:` at the theorem's line, with `❌ Falsified`.
 For a G check, the counterexample is an input that the script accepts although the check says it must be rejected, and it is a finding to review.
-For H0 or H1, a failure means the honest transaction in `Tx.lean` is not valid in the ledger model, or not accepted by the script; the transaction is what to review first.
+For an H check, a counterexample gives values of the shape's leaves; for H1, a failure means no member of the shape is both valid and accepted, and the shape is what to review first.
 
 `accepts ledgerFuel ctx` means that the script, run on the script context `ctx`, ends with the unit value within `ledgerFuel` (1,000,000) steps of the CEK machine.
 That limit is far above what any transaction the ledger accepts can use, so "not accepted within `ledgerFuel` steps" means "rejected" in practice.
@@ -107,24 +106,28 @@ The lists are empty because a list of variable length makes Blaster follow one p
 **Measured result.**
 On `linear_vesting`, G1 and G2 give 13 checks: 5 for G1, and 8 for G2 (4 forms, 2 unknown indices, and an extra field for each of `Claim` and `Cancel`).
 All 13 were proved in one run of 34 seconds, including the time Lean takes to load.
-They were proved again with `just universal-local Formal/Vesting/Linear/Blueprint`, in a run of `General.lean` that took 71 seconds on a different machine.
+They were proved again with `just universal Formal/Vesting/Linear/Blueprint`, in a run of `General.lean` that took 71 seconds on a different machine.
 On `sale`, the same checks were proved.
 On `stake`, G1 and the four `wrongForm` checks of G2 were proved earlier, in their earlier names (UP-001 and UP-005).
 
-## Tier 2: H checks, on honest transactions
+## Tier 2: H checks, over shapes
 
-`Tx.lean` defines, for each action of each spend, mint and withdraw handler, `honest_<purpose>_<Action> : ScriptContext`.
+`Tx.lean` defines, for each action of each spend, mint and withdraw handler, a *shape*: `honest_<purpose>_<Action> : P → ScriptContext`, where `P` is a structure of the shape's leaves that the author defines.
 For a validator with parameters, it also defines `honestParams`.
+The shape fixes the structure of the transaction: the number of inputs, outputs and signatories, the kind of every address, datum and redeemer, and the assets in every value.
+Every leaf, such as an amount, a time, a key or a hash, is a field of `P`, and so a variable in the checks.
+The builders in `Formal/Universal/TxBuilder.lean` make it easy to build a transaction from leaves.
 
-The honest transaction must be concrete: every list, every constructor and every leaf has a fixed value.
-With a concrete transaction, the script follows a single path, which is why the H checks finish.
+No predicate says which members are honest.
+Each check quantifies over every value of the leaves, and uses "valid in the ledger model and accepted by the script" as its hypothesis, so Blaster itself finds which members the script accepts.
+With the structure fixed, the script makes only binary decisions on leaves, such as a comparison of amounts or of keys, so the checks finish.
 
 | Check | Statement | Required result |
 |---|---|---|
-| H0 | `validScriptContext honest = true` | The honest transaction is valid in the V3 ledger model. |
-| H1 (UP-000) | `accepts ledgerFuel honest` | The script accepts the honest transaction. |
+| H1 (UP-000) | `∃ p, validScriptContext (shape p) = true ∧ accepts ledgerFuel (shape p)` | Some member of the shape is valid in the ledger model and accepted. |
+| H2 (UP-002) | `∀ p, validScriptContext (shape p) = true → accepts ledgerFuel (shape p) → validScriptContext (withSignatories (shape p) []) = true ∧ rejects ledgerFuel (withSignatories (shape p) [])` | Every valid accepted member, without any signatory, is still valid and is rejected. |
 
-Together, H0 and H1 state UP-000 for a transaction the ledger accepts: some valid transaction with this action is accepted.
+H1 also shows that the hypothesis of the other checks can hold, so they do not pass merely because no member is valid and accepted.
 `validScriptContext` is the V3 model's `validScriptInfo` and `validTxInfo`.
 For a spend, it requires, among other things:
 
@@ -136,20 +139,23 @@ For a spend, it requires, among other things:
 
 The model does not check the length of hashes.
 
+**Which leaves are symbolic.**
+A leaf stays concrete only when a recorded limitation requires it.
+Currently that is the currency symbol of a value: with a symbolic policy, Blaster stops inside `validScriptContext` with "Inductive datatype with instance parameters not supported" (`DEAD_ENDS.md` §17).
+
 **Measured result.**
-On `linear_vesting`, H0 and H1 give 4 checks, for `Claim` and `Cancel`.
-All 4 were proved in a run of `Honest.lean` that took 11 seconds, including the time Lean takes to load.
-Changing the honest transactions confirmed that the checks can fail: with a fee of 0, `h0_spend_Claim` was falsified, and with 49 tokens instead of the required 50 in the continuation, `h1_spend_Claim` was falsified.
+On `linear_vesting`, the `Claim` shape has 2 inputs (the vesting position and the signer's fee input), 2 outputs (the continuation and the payout) and 1 signatory, with 17 symbolic leaves: both keys, the token name, the total, the start, end and recovery times, the script hash, both transaction ids, the ada of both inputs, the ada and tokens kept, the fee, `now` and the signer.
+The `Cancel` shape has 2 inputs, 1 output to the signer and 1 signatory, with 15 symbolic leaves.
+H1 and H2 for both, 4 checks, were proved in a run of `Honest.lean` that took 29 seconds, including the time Lean takes to load.
 
 ### H checks to add back
 
-These were generated before, with `by sorry`, and are not generated now.
-They will be added back one at a time.
+These were generated before, on a single concrete transaction, and are not generated now.
+They will be added back one at a time, over shapes, in the form of H2: the hypothesis is that the member is valid and accepted, and the conclusion states the verdict for the changed transaction.
 The change helpers they use are still in `Properties.lean`.
 
 | Check | Change made to the honest transaction | Required verdict |
 |---|---|---|
-| H2 (UP-002) | Every signatory removed. | Rejected. |
 | H3 (UP-012) | One signatory removed, for each signatory. | Rejected. |
 | H4 | One signatory replaced by another key. | Rejected. |
 | H5 (UP-011) | A protected output sent to another address. | Rejected. |
@@ -170,8 +176,9 @@ The change helpers they use are still in `Properties.lean`.
 
 Points to settle when they are added back:
 
-- Several changes make the transaction invalid in the ledger model; for example, H6 unbalances the ada.
-  Each change helper should then also make the adjustment that keeps the transaction valid, such as adding the removed lovelace to the fee.
+- A check should state "if the ledger accepts the changed transaction, the script rejects it": validity of the changed transaction is a hypothesis.
+- A change that disturbs the balance or the ordering gets new leaves for what it disturbs, such as a symbolic fee for H6, so that the version an attacker would submit is among those checked.
+- Each check gets a reachability check, `∃ …, valid (shape p) ∧ accepts (shape p) ∧ valid (change (shape p))`, which shows whether a pass is about real transactions or holds only because no valid changed transaction exists.
 - H5 to H7 need the positions of the outputs the script must protect, which `Tx.lean` will then define as `honest_<purpose>_<Action>_protected`.
 - H11 should require rejection only when the honest transaction has an output back to the script; cancelling two positions in one transaction is legitimate.
 
@@ -184,18 +191,18 @@ For each, the reason is given, and the H check that covers it, if any.
   Blaster has to follow the script through its accepting run with every part of the transaction a variable.
   Each variable that the script inspects (a credential, an optional staking part, a datum, the length of a list) multiplies the number of paths.
   For UP-000 on `sale`, the run did not finish even with every list limited to at most 2 items and the datum and redeemer given their declared types.
-  H0 and H1 cover UP-000 on an honest transaction.
+  H1 covers UP-000 over a shape.
   Any H check that requires rejection will cover UP-004.
 - **UP-002, UP-006, UP-007, UP-008, UP-010 and UP-013, stated as "every accepted transaction satisfies Q".**
   These require the same accepting run, for the same reason.
-  H2, H3, H8, H9, H10, H11 and H12 will cover them on an honest transaction.
+  H2 covers UP-002 over a shape; H3, H8, H9, H10, H11 and H12 will cover the others.
 - **The datum checks over every transaction (a malformed datum is rejected; a spend without a datum is rejected).**
   On `linear_vesting`, the checks for a datum that is not a constructor were proved for the action `Cancel`.
   For the action `Claim`, the first of them had not finished when the run reached its 2-minute limit.
   For `Cancel`, the check for a datum with an unknown constructor index had not finished when the run reached its 2-minute limit.
   On `sale`, the checks for the action `Buy` did not finish.
   Whether they finish depends on where the compiled script first reads the datum, which cannot be known from the blueprint.
-  H18 and H19 will cover them on an honest transaction.
+  H18 and H19 will cover them over a shape.
 - **UP-009 (a spent input with a hashed datum can still be spent).**
   The ledger model in CardanoLedgerApi treats an input with a hashed datum whose datum is passed to the script as invalid, as Jonathan noted.
   It is not generated.

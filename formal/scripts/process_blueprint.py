@@ -832,49 +832,57 @@ def general(info):
 
 
 def honest(info):
-    """Pass 2: the lines of Honest.lean, the H checks on the honest transactions in Tx.lean."""
+    """Pass 2: the lines of Honest.lean, the H checks over the shapes in Tx.lean."""
     hp = " honestParams" if info.has_params else ""
     H = []
 
-    def hthm(prop, name, claim, text):
+    def hthm(prop, name, quant, claim, text):
         H.extend(comment(f"{prop}: {text}"))
-        H.extend(theorem_lines(name, "", claim, "by blaster"))
+        H.extend(theorem_lines(name, quant, claim, "by blaster"))
         H.append("")
 
     for h in honest_handlers(info):
         for a, _, _ in actions(h, info.translator):
-            x = f"honest_{h.purpose}_{a}"
+            x = f"(honest_{h.purpose}_{a} p)"
             n = f"{h.purpose}_{a}"
-            hthm("H0", f"h0_{n}", f"validScriptContext {x} = true",
-                 "the honest transaction is valid in the V3 ledger model.")
-            hthm("H1 (UP-000)", f"h1_{n}", f"accepts ledgerFuel{hp} {x}",
-                 "the honest transaction is accepted.")
+            ok = f"validScriptContext {x} = true → accepts ledgerFuel{hp} {x} →"
+            hthm("H1 (UP-000)", f"h1_{n}", "∃ p,",
+                 f"validScriptContext {x} = true ∧ accepts ledgerFuel{hp} {x}",
+                 "some member of the shape is valid in the ledger model and accepted.")
+            changed = f"(withSignatories {x} [])"
+            hthm("H2 (UP-002)", f"h2_{n}", f"∀ p, {ok}",
+                 f"validScriptContext {changed} = true ∧ rejects ledgerFuel{hp} {changed}",
+                 "every valid accepted member, without any signatory, is still valid and is rejected.")
 
     nh = len([l for l in H if l.startswith("theorem ")])
     L = check_header(info, [f"{info.prefix}.Tx"])
     L += ["open CardanoLedgerApi.V3 (validScriptContext)", "",
           "/-! ## H checks",
           "",
-          f"{nh} checks on the honest transactions in `Tx.lean`, one transaction per action.",
-          "  H0           the honest transaction is valid in the V3 ledger model.",
-          "  H1 (UP-000)  the honest transaction is accepted.",
-          "Together they state UP-000 for a transaction the ledger accepts.",
+          f"{nh} checks over the shapes in `Tx.lean`, one shape per action. A shape is a function",
+          "from a structure of leaves to a transaction with a fixed structure; `p` ranges over every",
+          "value of the leaves, and Blaster finds which members the script accepts.",
+          "  H1 (UP-000)  some member of the shape is valid in the ledger model and accepted.",
+          "  H2 (UP-002)  every valid accepted member, without any signatory, is still valid and",
+          "               is rejected.",
           "-/", ""] + H
     L.append(f"end {info.prefix}")
     return L
 
 
 def tx_stub(info):
-    """The lines of Tx.lean as first written: every honest transaction is `sorry`."""
-    L = ["-- The honest transactions for the H checks in `Honest.lean`: for each action, one transaction",
-         "-- that the ledger model and the script both accept. Written once by process_blueprint.py as",
-         "-- a stub; it is never replaced, so edit it freely.",
+    """The lines of Tx.lean as first written: every shape is `sorry`."""
+    L = ["-- The honest transactions for the H checks in `Honest.lean`: for each action, a shape, that is a",
+         "-- transaction with a fixed structure whose leaves are the fields of a structure. Written once by",
+         "-- process_blueprint.py as a stub; it is never replaced, so edit it freely.",
          "import CardanoLedgerApi",
+         "import Formal.Universal.TxBuilder",
          f"import {info.prefix}.Types",
          "",
          f"namespace {info.prefix}",
          "",
          "open CardanoLedgerApi.V3 (ScriptContext)",
+         "open Formal.Universal.TxBuilder",
          ""]
     if info.has_params:
         L += ["/-- The parameters the honest transactions are for. -/",
@@ -882,8 +890,9 @@ def tx_stub(info):
     for h in honest_handlers(info):
         for a, _, _ in actions(h, info.translator):
             on = "" if a == "any" else f" with redeemer {a}"
-            L += [f"/-- A {NOUN[h.purpose]}{on} that the ledger model and the script accept. -/",
-                  f"def honest_{h.purpose}_{a} : ScriptContext := sorry", ""]
+            L += [f"/-- A {NOUN[h.purpose]}{on}: replace `Unit` with a structure of the shape's leaves, and",
+                  "    build the transaction from them with the builders in `TxBuilder`. -/",
+                  f"def honest_{h.purpose}_{a} (p : Unit) : ScriptContext := sorry", ""]
     L.append(f"end {info.prefix}")
     return L
 

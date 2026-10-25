@@ -5,8 +5,9 @@
 # (Lean-Blaster) proofs against that code. The point of the copy step is that the
 # proofs target the *actual compiled validator*, not a hand-written model.
 #
-# Lean v4.24.0 + Z3 4.15.2 come from ./flake.nix (`nix develop`); `aiken` must
-# be on PATH. Run `just deps` once before the first `just verify`.
+# The recipes expect Lean v4.24.0, Z3 4.15.2, gawk, python3 and `aiken` on PATH.
+# Run `just deps` once before the first `just verify`. The recipes ending in
+# `-nix`, at the end of this file, run the same steps inside ./flake.nix's shell.
 
 onchain   := "../onchain"
 scripts   := "Scripts"
@@ -20,7 +21,7 @@ list:
 
 # Fetch the Lean dependencies (Blaster). Run once, or after bumping its rev.
 deps:
-    nix develop --command lake update
+    lake update
 
 # Compile the validators into ../onchain/plutus.json.
 build:
@@ -60,17 +61,16 @@ cbor validator plutus=(onchain / "plutus.json"): build
             .lake/build/ir/"$mod".setup.json
     done
 
-# Re-check every theorem. Runs inside the flake's shell (Lean v4.24.0 + Z3
-# 4.15.2). Drop `nix develop --command` if the toolchain is already on PATH.
-# Each contract with hand-written proofs adds its validator's `cbor` here.
+# Re-check every theorem. Each contract with hand-written proofs adds its
+# validator's `cbor` here.
 
 # Re-check every Lean proof against the current compiled code (annotated lake output).
 verify: (cbor "linear_vesting")
-    nix develop --command bash -c 'set -o pipefail; lake build 2>&1 | awk -f scripts/annotate-blaster-logs.awk'
+    bash -c 'set -o pipefail; lake build 2>&1 | awk -f scripts/annotate-blaster-logs.awk'
 
 clean:
     rm -rf {{scripts}}
-    nix develop --command lake clean
+    lake clean
 
 # Generate the universal checks of one validator into `folder` (see
 # Formal/Universal/PROPERTIES.md): Types.lean, General.lean and Honest.lean are
@@ -84,15 +84,10 @@ blueprint validator folder plutus=(onchain / "plutus.json"): (cbor validator plu
 
 # Build Formal.Universal and the folder's Types.lean and Tx.lean, then run Lean on
 # its General.lean and Honest.lean, one proof at a time, with a limit of 120
-# seconds for each file. `universal` runs inside the flake's shell;
-# `universal-local` needs Lean v4.24.0, Z3 4.15.2 and gawk already on PATH.
+# seconds for each file.
 
 # Re-check Formal.Universal and a folder's generated universal checks (annotated output).
 universal folder:
-    nix develop --command just universal-local "{{folder}}"
-
-# The same as `universal`, with the toolchain on PATH instead of `nix develop`.
-universal-local folder:
     #!/usr/bin/env bash
     set -euo pipefail
     prefix="$(echo "{{folder}}" | sed -e 's#/*$##' -e 's#/#.#g')"
@@ -107,3 +102,22 @@ universal-local folder:
         echo "  $f: lean exited with status $status (124: the 120-second limit was reached)"
       fi
     done
+
+# ---- Nix: the same recipes, run inside ./flake.nix's shell (Lean v4.24.0 + Z3 4.15.2 + gawk) ----
+
+# `deps`, inside the flake's shell.
+deps-nix:
+    nix develop --command just deps
+
+# `verify`, inside the flake's shell.
+verify-nix: (cbor "linear_vesting")
+    nix develop --command bash -c 'set -o pipefail; lake build 2>&1 | awk -f scripts/annotate-blaster-logs.awk'
+
+# `clean`, inside the flake's shell.
+clean-nix:
+    rm -rf {{scripts}}
+    nix develop --command lake clean
+
+# `universal`, inside the flake's shell.
+universal-nix folder:
+    nix develop --command just universal "{{folder}}"

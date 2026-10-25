@@ -2,7 +2,7 @@
 
 Every approach below was tried, and dropped, while building universal checks with Blaster.
 Almost all of them failed for one reason: a statement that Blaster has to prove by following the script through a run with many variables does not finish, because the number of paths it has to follow grows with every choice the script makes on a variable.
-What was kept is described in `PROPERTIES.md`: checks that the script rejects before it reads the transaction (G1, G2), and checks on honest transactions written by the validator's author (H0 and H1 for now).
+What was kept is described in `PROPERTIES.md`: checks that the script rejects before it reads the transaction (G1, G2), and checks over shapes of honest transactions written by the validator's author (H1 and H2 for now).
 
 ## How Blaster works, and why that matters here
 
@@ -230,13 +230,31 @@ Each validator has its own folder, given to `just blueprint`.
 The generator replaces `Types.lean`, `General.lean` and `Honest.lean` there on every run, and writes `Tx.lean`, which holds the honest transactions, only when it does not exist.
 Only the H checks are regenerated; the honest transactions are kept.
 
-## 16. Honest transactions as families with general fields
+## 16. Concrete honest transactions, and honest predicates
 
-**What was proposed.**
-Writing each honest transaction as a function of parameters, such as the amounts and `now`, with assumptions on them, so that each H check covers many transactions.
+**What was tried.**
+First, each honest transaction was one concrete value, with H0 (it is valid in the ledger model) and H1 (it is accepted) on it.
+Both were proved for `linear_vesting` in 11 seconds.
+Then, to cover more transactions, families of transactions were considered, each with a hand-written predicate saying which members are honest, or with the honest predicate taken from the contract's `Spec.lean`.
 
-**Why it was not used yet.**
-Each H check would become a statement with hypotheses.
-If the assumptions can never hold, every check passes without the script being run, and the output looks the same as real passes.
-It would also need every family to fix the structure of the transaction, so that Blaster does not follow one path per list length.
-The honest transactions are concrete for now, and families can be reconsidered once the concrete H checks have been run on more validators.
+**Why they were dropped.**
+A concrete transaction covers one point, so a pass says little.
+A hand-written predicate makes the universal checks depend on the author stating the contract's rules correctly, and taking it from `Spec.lean` makes them depend on the specification, so they are no longer independent of the contract.
+
+**What was kept.**
+A shape fixes only the structure of the transaction, and every check uses "valid and accepted" as its hypothesis, so Blaster finds the accepted members itself.
+Statements about the contract's rules, such as "only the beneficiary can claim", belong in the hand-written proofs.
+
+## 17. A symbolic currency symbol in a value
+
+**What was tried.**
+The `Claim` shape of `linear_vesting` with every leaf symbolic, including the asset's policy and token name.
+
+**What happened.**
+Statements that do not mention `validScriptContext` were proved, for example "every accepted member has the beneficiary as signer".
+H1 and H2, which mention `validScriptContext`, stopped at once with Blaster's error "Inductive datatype with instance parameters not supported: `Eq`".
+With the policy concrete and the token name symbolic, they were proved; with the token name concrete and the policy symbolic, they stopped with the same error.
+Which part of the validity rules causes it was not traced; the currency symbols of a value are compared there for sorting and merged when values are added.
+
+**What was kept.**
+The policy is a literal in every shape, and the token name is a leaf.

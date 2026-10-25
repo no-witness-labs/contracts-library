@@ -1,7 +1,8 @@
--- The honest transactions for the H checks in `Honest.lean`: for each action, one transaction
--- that the ledger model and the script both accept. Written once by process_blueprint.py as
--- a stub; it is never replaced, so edit it freely.
+-- The honest transactions for the H checks in `Honest.lean`: for each action, a shape, that is a
+-- transaction with a fixed structure whose leaves are the fields of a structure. Written once by
+-- process_blueprint.py as a stub; it is never replaced, so edit it freely.
 import CardanoLedgerApi
+import Formal.Universal.TxBuilder
 import Formal.Vesting.Linear.Blueprint.Types
 
 namespace Formal.Vesting.Linear.Blueprint
@@ -9,82 +10,79 @@ namespace Formal.Vesting.Linear.Blueprint
 open PlutusCore.Data (Data)
 open PlutusCore.ByteString (ByteString)
 open CardanoLedgerApi.IsData.Class (IsData)
-open CardanoLedgerApi.V3 (Address ScriptContext TxInInfo TxOut TxOutRef Value)
+open CardanoLedgerApi.V3 (ScriptContext TxInInfo)
+open Formal.Universal.TxBuilder
 
-/-! ## What both transactions share -/
+/-- The datum: one vested asset, key credentials for the beneficiary and the locker. The policy is
+    the literal "policyA" everywhere: with a symbolic policy, Blaster stops inside
+    `validScriptContext` with "Inductive datatype with instance parameters not supported". -/
+def vestingDatum (beneficiary locker name : ByteString) (total start finish recovery : Int) : Data :=
+  IsData.toData
+    ({ beneficiary := .PubKeyCredential beneficiary
+       locker := .PubKeyCredential locker
+       vesting := [{ policy := "policyA", name := name, total := total }]
+       start_time := start
+       end_time := finish
+       recovery_time := recovery } : Vesting.Types.VestingDatum)
 
-def beneficiaryKey : ByteString := "beneficiary_key_hash_28bytes"
-def lockerKey : ByteString := "locker_key_hash_28bytes_____"
-def vestingScriptHash : ByteString := "linear_vesting_script_hash__"
-def vestedPolicy : ByteString := "policyA"
-def vestedName : ByteString := "assetA"
+/-! ## Claim: 2 inputs (the vesting position, the signer's fee input), 2 outputs (the continuation,
+the payout to the signer), 1 signatory. -/
 
-def vestingAddress : Address := ⟨.ScriptCredential vestingScriptHash, none⟩
-def keyAddress (h : ByteString) : Address := ⟨.PubKeyCredential h, none⟩
+structure ClaimLeaves where
+  beneficiary : ByteString
+  locker : ByteString
+  name : ByteString
+  total : Int
+  start : Int
+  finish : Int
+  recovery : Int
+  script : ByteString
+  prevTx : ByteString
+  txId : ByteString
+  scriptAda : Int
+  feeInputAda : Int
+  keptAda : Int
+  kept : Int
+  fee : Int
+  now : Int
+  signer : ByteString
 
-/-- 100 tokens vesting linearly from time 1000 to 2000; the locker may recover them after 3000. -/
-def honestDatum : Vesting.Types.VestingDatum :=
-  { beneficiary := .PubKeyCredential beneficiaryKey
-    locker := .PubKeyCredential lockerKey
-    vesting := [{ policy := vestedPolicy, name := vestedName, total := 100 }]
-    start_time := 1000
-    end_time := 2000
-    recovery_time := 3000 }
+def honest_spend_Claim (p : ClaimLeaves) : ScriptContext :=
+  let datum := vestingDatum p.beneficiary p.locker p.name p.total p.start p.finish p.recovery
+  let own : TxInInfo := ⟨⟨p.prevTx, 0⟩, toScript p.script (adaAnd p.scriptAda "policyA" p.name p.total) datum⟩
+  let feeInput : TxInInfo := ⟨⟨p.prevTx, 1⟩, toKey p.signer (ada p.feeInputAda)⟩
+  spend own [feeInput]
+    [ toScript p.script (adaAnd p.keptAda "policyA" p.name p.kept) datum,
+      toKey p.signer
+        (adaAnd (p.scriptAda + p.feeInputAda - p.keptAda - p.fee) "policyA" p.name (p.total - p.kept)) ]
+    [p.signer] p.now p.fee p.txId (IsData.toData Vesting.Types.VestingRedeemer.Claim)
 
-def adaOnly (lovelace : Int) : Value :=
-  [(.B "", .Map [(.B "", .I lovelace)])]
+/-! ## Cancel: 2 inputs (the vesting position, the signer's fee input), 1 output (everything to the
+signer), 1 signatory. -/
 
-def adaAndVested (lovelace quantity : Int) : Value :=
-  [(.B "", .Map [(.B "", .I lovelace)]), (.B vestedPolicy, .Map [(.B vestedName, .I quantity)])]
+structure CancelLeaves where
+  beneficiary : ByteString
+  locker : ByteString
+  name : ByteString
+  total : Int
+  start : Int
+  finish : Int
+  recovery : Int
+  script : ByteString
+  prevTx : ByteString
+  txId : ByteString
+  scriptAda : Int
+  feeInputAda : Int
+  fee : Int
+  now : Int
+  signer : ByteString
 
-/-- The output being spent: the vesting position, with 2 ada and all 100 tokens. -/
-def vestingRef : TxOutRef := ⟨"previous_transaction_id_32bytes_", 0⟩
-def vestingInput : TxInInfo :=
-  ⟨vestingRef, ⟨vestingAddress, adaAndVested 2000000 100, .OutputDatum (IsData.toData honestDatum), none⟩⟩
-
-/-- A spend of `vestingInput` at time `now`, signed by `signer`, whose ada for the fee comes from
-    a second input of 5 ada at `signer`'s key address. The two inputs are sorted by reference. -/
-def honestSpend (redeemer : Vesting.Types.VestingRedeemer) (now : Int) (signer : ByteString)
-    (outputs : List TxOut) (fee : Int) : ScriptContext :=
-  let feeInput : TxInInfo :=
-    ⟨⟨"previous_transaction_id_32bytes_", 1⟩, ⟨keyAddress signer, adaOnly 5000000, .NoOutputDatum, none⟩⟩
-  { scriptContextTxInfo :=
-      { txInfoInputs := [vestingInput, feeInput]
-        txInfoReferenceInputs := []
-        txInfoOutputs := outputs
-        txInfoFee := fee
-        txInfoMint := []
-        txInfoTxCerts := []
-        txInfoWdrl := []
-        txInfoValidRange := IsData.toData (CardanoLedgerApi.V1.Time.after now)
-        txInfoSignatories := [signer]
-        txInfoRedeemers := [(.Spending vestingRef, IsData.toData redeemer)]
-        txInfoData := []
-        txInfoId := "honest_transaction_id_32bytes___"
-        txInfoVotes := []
-        txInfoProposalProcedures := []
-        txInfoCurrentTreasuryAmount := IsData.toData (none : Option Int)
-        txInfoTreasuryDonation := IsData.toData (none : Option Int) }
-    scriptContextRedeemer := IsData.toData redeemer
-    scriptContextScriptInfo := .SpendingScript vestingRef (some (IsData.toData honestDatum)) }
-
-/-! ## The honest transactions -/
-
-/-- A partial claim at time 1500, when 50 of the 100 tokens have vested. The beneficiary signs,
-    takes the 50 vested tokens, and sends exactly the required 50 back to the script with the
-    same datum. Inputs: 7 ada and 100 tokens. Outputs: 6.8 ada and 100 tokens. Fee: 0.2 ada. -/
-def honest_spend_Claim : ScriptContext :=
-  honestSpend .Claim 1500 beneficiaryKey
-    [ ⟨vestingAddress, adaAndVested 2000000 50, .OutputDatum (IsData.toData honestDatum), none⟩,
-      ⟨keyAddress beneficiaryKey, adaAndVested 4800000 50, .NoOutputDatum, none⟩ ]
-    200000
-
-/-- A cancel at time 3500, after the recovery time of 3000. The locker signs and takes
-    everything, with no output back to the script. Inputs: 7 ada and 100 tokens. Outputs:
-    6.8 ada and 100 tokens. Fee: 0.2 ada. -/
-def honest_spend_Cancel : ScriptContext :=
-  honestSpend .Cancel 3500 lockerKey
-    [ ⟨keyAddress lockerKey, adaAndVested 6800000 100, .NoOutputDatum, none⟩ ]
-    200000
+def honest_spend_Cancel (p : CancelLeaves) : ScriptContext :=
+  let datum := vestingDatum p.beneficiary p.locker p.name p.total p.start p.finish p.recovery
+  let own : TxInInfo := ⟨⟨p.prevTx, 0⟩, toScript p.script (adaAnd p.scriptAda "policyA" p.name p.total) datum⟩
+  let feeInput : TxInInfo := ⟨⟨p.prevTx, 1⟩, toKey p.signer (ada p.feeInputAda)⟩
+  spend own [feeInput]
+    [ toKey p.signer (adaAnd (p.scriptAda + p.feeInputAda - p.fee) "policyA" p.name p.total) ]
+    [p.signer] p.now p.fee p.txId (IsData.toData Vesting.Types.VestingRedeemer.Cancel)
 
 end Formal.Vesting.Linear.Blueprint
