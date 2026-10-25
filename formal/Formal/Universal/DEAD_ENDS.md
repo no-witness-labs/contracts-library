@@ -2,7 +2,7 @@
 
 Every approach below was tried, and dropped, while building universal checks with Blaster.
 Almost all of them failed for one reason: a statement that Blaster has to prove by following the script through a run with many variables does not finish, because the number of paths it has to follow grows with every choice the script makes on a variable.
-What was kept is described in `PROPERTIES.md`: checks that the script rejects before it reads the transaction (G1, G2), and checks on honest transactions written by the validator's author (H1 to H19).
+What was kept is described in `PROPERTIES.md`: checks that the script rejects before it reads the transaction (G1, G2), and checks on honest transactions written by the validator's author (H0 and H1 for now).
 
 ## How Blaster works, and why that matters here
 
@@ -33,7 +33,7 @@ Blaster did not finish on such a statement, even when the definition was an `abb
 The same statement written out in full, with the validator's `accepts` in it directly, was proved.
 
 **What was kept.**
-The generator writes every statement out in full in the validator's file.
+The generator writes every statement out in full in the validator's files.
 
 ## 2. `#prep_uplc`
 
@@ -167,7 +167,7 @@ Where the compiled script first reads the datum decides whether it fails early, 
 This cannot be known from the blueprint, so the generator cannot know which datum checks will finish.
 
 **What was kept.**
-H18 and H19 state the same properties on an honest transaction, where the action's logic follows a single path.
+H18 and H19, to be added back, state the same properties on an honest transaction, where the action's logic follows a single path.
 
 ## 11. A concrete minimal transaction for the decoding checks
 
@@ -212,19 +212,31 @@ A group of 15 datum checks gave no result within 2 minutes, although one of them
 Running `lean -j1` did not change this.
 
 **What was kept.**
-The generated file sets `set_option Elab.async false` after its imports.
+The generated check files set `set_option Elab.async false` after their imports.
 Lean then checks one proof at a time, in file order, and prints each result as soon as it is known.
 A check that does not finish then delays only the checks after it, and the output shows which check it is.
 
-## 15. A separate file for the honest transactions
+## 15. A separate file for the honest transactions and their checks
 
 **What was tried.**
 The honest transactions and the H checks were generated once into `Formal/Honest/<Validator>.lean`, which was never overwritten afterwards.
 
 **Why it was dropped.**
-It split each validator's checks across two files.
-The H checks are now in the validator's generated file, after the G checks.
+It split each validator's checks across two folders, and the H checks themselves were then never regenerated.
+For a while, the H checks were in the validator's single generated file, after the G checks, but `just blueprint` replaced that file, so honest transactions written into it would have been lost.
 
-**What remains open.**
-`just blueprint` regenerates that file, so honest transactions written into it would be lost.
-They need a place that is kept when the file is regenerated before they are written.
+**What was kept.**
+Each validator has its own folder, given to `just blueprint`.
+The generator replaces `Types.lean`, `General.lean` and `Honest.lean` there on every run, and writes `Tx.lean`, which holds the honest transactions, only when it does not exist.
+Only the H checks are regenerated; the honest transactions are kept.
+
+## 16. Honest transactions as families with general fields
+
+**What was proposed.**
+Writing each honest transaction as a function of parameters, such as the amounts and `now`, with assumptions on them, so that each H check covers many transactions.
+
+**Why it was not used yet.**
+Each H check would become a statement with hypotheses.
+If the assumptions can never hold, every check passes without the script being run, and the output looks the same as real passes.
+It would also need every family to fix the structure of the transaction, so that Blaster does not follow one path per list length.
+The honest transactions are concrete for now, and families can be reconsidered once the concrete H checks have been run on more validators.

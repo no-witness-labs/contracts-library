@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 """Turn one validator of an Aiken blueprint (plutus.json) into Lean, in two passes.
 
-Usage, from formal/ (or with `just blueprint <validator>`):
-  scripts/process_blueprint.py ../onchain/plutus.json linear_vesting
-  scripts/process_blueprint.py ../onchain/plutus.json dao/stake.stake
-  scripts/process_blueprint.py ../onchain/plutus.json linear_vesting --no-checks
+Usage, from formal/ (or with `just blueprint <validator> <folder>` and `just cbor <validator>`):
+  scripts/process_blueprint.py ../onchain/plutus.json linear_vesting --out Formal/Vesting/Linear/Blueprint
+  scripts/process_blueprint.py ../onchain/plutus.json dao/stake.stake --out Formal/Dao/Stake/Blueprint
+  scripts/process_blueprint.py ../onchain/plutus.json linear_vesting --cbor-only --scripts Scripts
 
-Writes <out>/<Validator>.lean and <scripts>/<module>.<name>.cbor (the blueprint's compiledCode).
-
-Pass 1, extract: types, IsData instances, parameters, arguments and the script, plus a
-  ValidatorInfo, which is the only input of pass 2.
-Pass 2, checks: appended to the same file. The G checks (G1-G2) are proved by Blaster over every
-  transaction; the H checks (H1-H19) are on honest transactions and stay `sorry` until those are
-  written. `--no-checks` skips pass 2.
+Writes into the folder given by --out, which is under Formal/ (the Lean module names follow it):
+  Types.lean    pass 1: types, IsData instances, parameters, arguments, the script, `accepts`,
+                `rejects`. Replaced on every run.
+  General.lean  pass 2: the G checks, proved by Blaster over every transaction. Replaced on every run.
+  Honest.lean   pass 2: the H checks, on the honest transactions in Tx.lean. Replaced on every run.
+  Tx.lean       the honest transactions, written by the validator's author. Written as a stub with
+                `sorry` only when it does not exist; never replaced.
+`--no-checks` writes Types.lean only.
+`--cbor-only` writes only <scripts>/<module>.<name>.cbor (the blueprint's compiledCode) and prints
+its path; Types.lean reads it with `#import_uplc`.
 
 The validator is named `module.validator` as in the blueprint titles, or just `validator`
 when that is unambiguous. Every schema form is translated as described in TRANSLATION below;
@@ -377,6 +380,32 @@ def find_entries(bp, name):
     return [v for v in entries if head(v) == heads[0]]
 
 
+def cbor_path_of(entries, scripts_dir):
+    """`<scripts>/<module>.<validator>.cbor`, with `/` in the module replaced by `.`."""
+    module, validator = entries[0]["title"].split(".")[:2]
+    return f"{scripts_dir}/{module.replace('/', '.')}.{validator}.cbor"
+
+
+def compiled_code(entries):
+    """The compiledCode shared by all handlers of one validator."""
+    head = ".".join(entries[0]["title"].split(".")[:2])
+    codes = {e.get("compiledCode") for e in entries}
+    if len(codes) != 1:
+        raise ExtractError(f"handlers of `{head}` have different compiled code")
+    return entries[0]["compiledCode"]
+
+
+def module_prefix(folder):
+    """`Formal/Vesting/Linear/Blueprint` -> `Formal.Vesting.Linear.Blueprint`."""
+    parts = [p for p in Path(folder).parts if p not in ("", ".")]
+    if not parts or parts[0] != "Formal":
+        raise ExtractError(f"the folder `{folder}` is not under Formal/; Lean module names follow the path")
+    for p in parts:
+        if not re.fullmatch(r"[A-Z][A-Za-z0-9_]*", p):
+            raise ExtractError(f"the folder name `{p}` in `{folder}` is not a Lean module name")
+    return ".".join(parts)
+
+
 PURPOSES = ["spend", "mint", "withdraw", "publish", "vote", "propose"]
 
 
@@ -391,8 +420,8 @@ class Handler:
 @dataclass
 class ValidatorInfo:
     head: str                   # `module.validator`
-    module_name: str            # Lean file name, e.g. `LinearVesting`
-    namespace: str              # e.g. `Formal.Blueprint.LinearVesting`
+    prefix: str                 # module prefix and namespace, e.g. `Formal.Vesting.Linear.Blueprint`
+    origin: str                 # the blueprint entry and compiler, for the files' first line
     handlers: list              # [Handler], without the `else` fallback
     has_params: bool
     datum_kind: str             # kind of the spend datum, or "none" without a spend handler
@@ -408,32 +437,12 @@ def redeemer_kind(t):
             "map": "map", "data": "any"}.get(t[0], "constructors")
 
 
-def extract(bp, name, scripts_dir):
-    """Pass 1: (Lean lines without the closing `end`, cbor path, compiled code, ValidatorInfo)."""
-    return generate(bp, name, scripts_dir)
-
-
-def render(lines, info, with_checks):
-    """The validator's Lean file: pass 1's declarations, then pass 2's checks."""
-    out = list(lines)
-    if with_checks:
-        i = out.index("import CardanoLedgerApi")
-        out[i + 1:i + 1] = ["import Blaster", "import Formal.Universal.Properties", "",
-                            "-- Check one proof at a time, in order: Lean prints each result as it",
-                            "-- comes, and a slow check cannot hold up the ones before it.",
-                            "set_option Elab.async false"]
-        out += checks(info)
-    out.append(f"end {info.namespace}")
-    return "\n".join(out) + "\n"
-
-
-def generate(bp, name, scripts_dir):
+def generate(bp, name, prefix, scripts_dir):
+    """Pass 1: (the lines of Types.lean without the closing `end`, ValidatorInfo)."""
     entries = find_entries(bp, name)
     head = ".".join(entries[0]["title"].split(".")[:2])
     module, validator = head.split(".")
-    codes = {e.get("compiledCode") for e in entries}
-    if len(codes) != 1:
-        raise ExtractError(f"handlers of `{head}` have different compiled code")
+    compiled_code(entries)
     params = entries[0].get("parameters", [])
     tr = Translator(bp.get("definitions", {}))
 
@@ -446,18 +455,17 @@ def generate(bp, name, scripts_dir):
     ptys = [(ident(p.get("title"), f"param{j}"), tr.ty(p["schema"], f"parameter {p.get('title', j)}"))
             for j, p in enumerate(params)]
 
-    ns = "Formal.Blueprint." + camel(validator)
-    cbor_path = f"{scripts_dir}/{module.replace('/', '.')}.{validator}.cbor"
+    cbor_path = cbor_path_of(entries, scripts_dir)
     compiler = bp.get("preamble", {}).get("compiler", {})
     version = bp.get("preamble", {}).get("plutusVersion", "v3")
     if version != "v3":
         raise ExtractError(f"plutusVersion {version} is not supported")
+    origin = f"the blueprint entry `{head}` ({compiler.get('name', '?')} {compiler.get('version', '?')})"
 
     L = []
-    L.append(f"-- Generated by process_blueprint.py from the blueprint entry `{head}`"
-             f" ({compiler.get('name', '?')} {compiler.get('version', '?')}). Do not edit; regenerate.")
-    L += ["import PlutusCore.UPLC", "import CardanoLedgerApi", ""]
-    L.append(f"namespace {ns}")
+    L.append(f"-- Generated by process_blueprint.py from {origin}. Do not edit; regenerate.")
+    L += ["import PlutusCore.UPLC", "import CardanoLedgerApi", "import Formal.Universal.Properties", ""]
+    L.append(f"namespace {prefix}")
     L.append("")
     L += ["open PlutusCore.Data (Data)",
           "open PlutusCore.ByteString (ByteString)",
@@ -527,6 +535,11 @@ def generate(bp, name, scripts_dir):
     L.append(f"def accepts (fuel : Nat) {sig} : Prop :=")
     L.append(f"  cekExecuteProgram program {call} fuel = .Halt (.VCon Const.Unit)")
     L.append("")
+    L.append("/-- The script genuinely fails within `fuel` steps (running out of steps is not a failure). -/")
+    L.append(f"def rejects (fuel : Nat) {sig} : Prop :=")
+    L.append(f"  Formal.Universal.Properties.rejectedWithin program {call} fuel")
+    L.append("")
+
     def ctors_of(t):
         if t is None or t[0] != "named":
             return []
@@ -547,9 +560,9 @@ def generate(bp, name, scripts_dir):
         if purpose == "spend":
             datum_kind = redeemer_kind(datum) if datum is not None else "any"
             datum_ctors, datum_type = ctors_of(datum), datum
-    info = ValidatorInfo(head, camel(validator), ns, infos, bool(ptys), datum_kind, datum_ctors,
+    info = ValidatorInfo(head, prefix, origin, infos, bool(ptys), datum_kind, datum_ctors,
                          datum_type, tr, tr.warnings)
-    return L, cbor_path, entries[0]["compiledCode"], info
+    return L, info
 
 
 # ---- pass 2: the universal checks ----
@@ -698,38 +711,61 @@ def plain(field):
     return field.strip("«»")
 
 
-def checks(info):
-    """Pass 2: the Lean lines of the G checks (proved by Blaster) and the H checks (on honest
-    transactions; `sorry` until those are written)."""
+def check_header(info, extra_imports):
+    """The first lines of General.lean and Honest.lean, up to and including the namespace."""
+    return ([f"-- Generated by process_blueprint.py from {info.origin}. Do not edit; regenerate.",
+             "import Blaster",
+             "import Formal.Universal.Properties",
+             f"import {info.prefix}.Types"] + [f"import {m}" for m in extra_imports] +
+            ["",
+             "-- Check one proof at a time, in order: Lean prints each result as it",
+             "-- comes, and a slow check cannot hold up the ones before it.",
+             "set_option Elab.async false",
+             "",
+             f"namespace {info.prefix}",
+             "",
+             "open PlutusCore.Data (Data)",
+             "open PlutusCore.ByteString (ByteString)",
+             "open CardanoLedgerApi.IsData.Class (IsData)",
+             "open Formal.Universal.Properties",
+             ""])
+
+
+def actions(h, tr):
+    """[(name, binders, Data term)]: per redeemer constructor, with well-formed fields; one
+    entry `any` for a redeemer that is not a constructor type."""
+    if h.redeemer_type is None or h.redeemer_kind == "any":
+        return [("any", ["(r : Data)"], "r")]
+    if not h.redeemer_ctors:
+        w = Terms(tr)
+        return [("any", w.binders, w.term(h.redeemer_type))]
+    out = []
+    for ctor, index, fields in h.redeemer_ctors:
+        w = Terms(tr)
+        out.append((short(ctor), w.binders, w.ctor(index, fields)))
+    return out
+
+
+def honest_handlers(info):
+    """The handlers that get honest transactions and H checks."""
+    return [h for h in info.handlers if h.purpose in ("spend", "mint", "withdraw")]
+
+
+def general(info):
+    """Pass 2: the lines of General.lean, the G checks (proved by Blaster)."""
     declared = [h.purpose for h in info.handlers]
     undeclared = [p for p in PURPOSES if p not in declared]
     P = info.has_params
     binder = " (p : Params)" if P else ""
     pa = " p" if P else ""
     tr = info.translator
-    spend = next((h for h in info.handlers if h.purpose == "spend"), None)
-    typed_datum = spend is not None and info.datum_kind not in ("any", "none")
-    G, H = [], []
+    G = []
 
     def g(prop, text, name, binders, ctx):
         quant = f"∀ {' '.join(binders)}," if binders else ""
         G.extend(comment(f"{prop}: {text}"))
         G.extend(theorem_lines(f"{name}{binder}", quant, f"¬ accepts ledgerFuel{pa} ({ctx})", "by blaster"))
         G.append("")
-
-    def actions(h):
-        """[(name, binders, Data term)]: per redeemer constructor, with well-formed fields; one
-        entry `any` for a redeemer that is not a constructor type."""
-        if h.redeemer_type is None or h.redeemer_kind == "any":
-            return [("any", ["(r : Data)"], "r")]
-        if not h.redeemer_ctors:
-            w = Terms(tr)
-            return [("any", w.binders, w.term(h.redeemer_type))]
-        out = []
-        for ctor, index, fields in h.redeemer_ctors:
-            w = Terms(tr)
-            out.append((short(ctor), w.binders, w.ctor(index, fields)))
-        return out
 
     def malformed(kind, ctors, first_var):
         """[(suffix, text, binders, Data term)]: the ways a value of a type of this kind and these
@@ -779,121 +815,76 @@ def checks(info):
             g("G2 (UP-005)", f"no {NOUN[h.purpose]} is accepted whose redeemer is {text}.",
               f"g2_{h.purpose}_{sfx}", bs + [f"(t : {S})"], f"{S}.ctx t {term}")
 
-    # ---- H: honest transactions, each changed in one way.
-    hp = " honestParams" if P else ""
-    if P:
-        H += ["/-- The parameters the honest transactions are for. -/", "def honestParams : Params := sorry", ""]
-    malformed_output_datum = {"constructors": "Data.I 0", "integer": "Data.B \"\"", "bytes": "Data.I 0",
-                              "list": "Data.I 0", "map": "Data.I 0"}.get(info.datum_kind)
+    ng = len([l for l in G if l.startswith("theorem ")])
+    L = check_header(info, [])
+    L += ["/-! ## G checks",
+          "",
+          f"Declared: [{', '.join(declared)}]; " + ("parameters open." if P else "no parameters."),
+          "",
+          f"{ng} checks, proved by Blaster over every transaction (everything not named in the",
+          "statement is a variable). Where a malformed value needs well-formed fields next to the",
+          "malformed one, their leaves are variables and their lists and maps are empty.",
+          "  G1 (UP-001)  a purpose with no handler is rejected.",
+          "  G2 (UP-005)  a redeemer that does not decode as its declared type is rejected.",
+          "-/", ""] + G
+    L.append(f"end {info.prefix}")
+    return L
 
-    def hthm(prop, name, statement, text):
-        cs = chunks(statement)
-        k = next(i for i, c in enumerate(cs) if c in ("rejects", "accepts"))
+
+def honest(info):
+    """Pass 2: the lines of Honest.lean, the H checks on the honest transactions in Tx.lean."""
+    hp = " honestParams" if info.has_params else ""
+    H = []
+
+    def hthm(prop, name, claim, text):
         H.extend(comment(f"{prop}: {text}"))
-        H.extend(theorem_lines(name, " ".join(cs[:k]), " ".join(cs[k:]), "by sorry"))
+        H.extend(theorem_lines(name, "", claim, "by blaster"))
         H.append("")
 
-    for h in info.handlers:
-        if h.purpose not in ("spend", "mint", "withdraw"):
-            continue
-        for a, _, _ in actions(h):
+    for h in honest_handlers(info):
+        for a, _, _ in actions(h, info.translator):
             x = f"honest_{h.purpose}_{a}"
-            prot = f"{x}_protected"
-            outs = f"(outputsOf {x})"
-            sigs = f"(signatoriesOf {x})"
-            acc = f"accepts ledgerFuel{hp}"
-            rej = f"rejects ledgerFuel{hp}"
-            on = "" if a == "any" else f" with redeemer {a}"
-            H += [f"/-- A {NOUN[h.purpose]}{on} that the script accepts. -/",
-                  f"def {x} : ScriptContext := sorry",
-                  f"/-- The positions of the outputs of `{x}` that the script must protect. -/",
-                  f"def {prot} : List Nat := sorry", ""]
             n = f"{h.purpose}_{a}"
-            hthm("H1 (UP-000)", f"h1_{n}", f"{acc} {x}",
-                 "the honest transaction is accepted (this is what makes the other H checks meaningful).")
-            hthm("H2 (UP-002)", f"h2_{n}", f"{rej} (withSignatories {x} [])", "without any signatory, it is rejected.")
-            hthm("H3 (UP-012)", f"h3_{n}", f"∀ i : Nat, i < {sigs}.length → {rej} (withSignatories {x} ({sigs}.eraseIdx i))",
-                 "without any one of its signatories, it is rejected.")
-            hthm("H4", f"h4_{n}", f"∀ (i : Nat) (k : PubKeyHash), i < {sigs}.length → k ∉ {sigs} → "
-                 f"{rej} (withSignatories {x} ({sigs}.set i k))", "with a signatory replaced by another key, it is rejected.")
-            hthm("H5 (UP-011)", f"h5_{n}", f"∀ i ∈ {prot}, ∀ addr : Address, (∀ o, {outs}[i]? = some o → addr ≠ o.txOutAddress) → "
-                 f"{rej} (changeOutput {x} i (fun o => {{ o with txOutAddress := addr }}))",
-                 "with a protected output sent to another address, it is rejected.")
-            hthm("H6", f"h6_{n}", f"∀ i ∈ {prot}, {rej} (changeOutput {x} i (fun o => {{ o with txOutValue := lowerLovelace o.txOutValue }}))",
-                 "with 1 lovelace less in a protected output, it is rejected.")
-            hthm("H7 (UP-014)", f"h7_{n}", f"∀ i ∈ {prot}, ∀ d : OutputDatum, (∀ o, {outs}[i]? = some o → d ≠ o.txOutDatum) → "
-                 f"{rej} (changeOutput {x} i (fun o => {{ o with txOutDatum := d }}))",
-                 "with a protected output given another datum, it is rejected.")
-            if h.purpose == "spend":
-                if malformed_output_datum:
-                    hthm("H8 (UP-006)", f"h8_{n}", f"∀ i ∈ continuingPositions {x}, {rej} (changeOutput {x} i "
-                         f"(fun o => {{ o with txOutDatum := .OutputDatum ({malformed_output_datum}) }}))",
-                         "with an output back to the script given a malformed datum, it is rejected.")
-                hthm("H9 (UP-007)", f"h9_{n}", f"∀ i ∈ continuingPositions {x}, ∀ sc : Option StakingCredential, "
-                     f"(∀ o, {outs}[i]? = some o → sc ≠ o.txOutAddress.addressStakingCredential) → {rej} (changeOutput {x} i "
-                     f"(fun o => {{ o with txOutAddress := {{ o.txOutAddress with addressStakingCredential := sc }} }}))",
-                     "with an output back to the script given another staking credential, it is rejected.")
-                hthm("H10 (UP-008)", f"h10_{n}", f"∀ i ∈ continuingPositions {x}, {rej} (changeOutput {x} i "
-                     f"(fun o => {{ o with txOutValue := withJunkToken o.txOutValue }}))",
-                     "with a junk token added to an output back to the script, it is rejected.")
-                hthm("H11 (UP-010)", f"h11_{n}", f"∀ ref : TxOutRef, (∀ i ∈ inputsOf {x}, "
-                     f"i.txInInfoOutRef ≠ ref) → {rej} (duplicateOwnInput {x} ref)",
-                     "with a second input from the script that the same outputs must pay for, it is rejected.")
-            hthm("H12 (UP-013)", f"h12_{n}", f"{rej} (withRange {x} rangeAlways)",
-                 "with an unbounded validity range, it is rejected (only for actions that depend on time).")
-            if h.purpose == "mint":
-                hthm("H13 (UP-016)", f"h13_{n}", f"{rej} (mintOneMore {x})",
-                     "with one more token minted under the script's own policy, it is rejected.")
-                hthm("H14", f"h14_{n}", f"{rej} (withMint {x} (negateMint (mintOf {x})))",
-                     "with the mint turned into a burn, or the other way round, it is rejected.")
-            for other, oindex, ofields in (h.redeemer_ctors or []):
-                if short(other) == a:
-                    continue
-                w = Terms(tr)
-                term = w.ctor(oindex, ofields)
-                quant = f"∀ {' '.join(w.binders)}, " if w.binders else ""
-                hthm("H15", f"h15_{n}_as{short(other)}", f"{quant}{rej} (withRedeemer {x} {term})",
-                     f"with the redeemer changed to {short(other)}, it is rejected.")
-            hthm("H16 (UP-015)", f"h16_{n}", f"{acc} (withOutputs {x} {outs}.reverse)",
-                 "with its outputs in reverse order, it is still accepted.")
-            hthm("H17", f"h17_{n}", f"{acc} (withOutputs {x} (List.append {outs} [unrelatedOutput]))",
-                 "with an unrelated output added, it is still accepted (review: some validators require exact counts).")
-            if h.purpose == "spend" and typed_datum:
-                for dsfx, text, bs, term in malformed(info.datum_kind, info.datum_ctors, 100):
-                    quant = f"∀ {' '.join(bs)}, " if bs else ""
-                    hthm("H18", f"h18_{n}_{dsfx}", f"{quant}{rej} (withSpendDatum {x} {term})",
-                         f"with its datum replaced by {text}, it is rejected.")
-            if h.purpose == "spend":
-                hthm("H19", f"h19_{n}", f"{rej} (withoutSpendDatum {x})",
-                     "without a datum, it is rejected (review: some validators allow this on purpose).")
-    H += ["-- H20 (UP-009), a spent input with a hashed datum, is not written: the ledger model treats a",
-          "-- resolved datum on a hashed-datum input as invalid.", ""]
+            hthm("H0", f"h0_{n}", f"validScriptContext {x} = true",
+                 "the honest transaction is valid in the V3 ledger model.")
+            hthm("H1 (UP-000)", f"h1_{n}", f"accepts ledgerFuel{hp} {x}",
+                 "the honest transaction is accepted.")
 
-    ng = len([l for l in G if l.startswith("theorem ")])
     nh = len([l for l in H if l.startswith("theorem ")])
-    L = ["/-! ## Universal checks",
+    L = check_header(info, [f"{info.prefix}.Tx"])
+    L += ["open CardanoLedgerApi.V3 (validScriptContext)", "",
+          "/-! ## H checks",
+          "",
+          f"{nh} checks on the honest transactions in `Tx.lean`, one transaction per action.",
+          "  H0           the honest transaction is valid in the V3 ledger model.",
+          "  H1 (UP-000)  the honest transaction is accepted.",
+          "Together they state UP-000 for a transaction the ledger accepts.",
+          "-/", ""] + H
+    L.append(f"end {info.prefix}")
+    return L
+
+
+def tx_stub(info):
+    """The lines of Tx.lean as first written: every honest transaction is `sorry`."""
+    L = ["-- The honest transactions for the H checks in `Honest.lean`: for each action, one transaction",
+         "-- that the ledger model and the script both accept. Written once by process_blueprint.py as",
+         "-- a stub; it is never replaced, so edit it freely.",
+         "import CardanoLedgerApi",
+         f"import {info.prefix}.Types",
          "",
-         f"Declared: [{', '.join(declared)}]; " + ("parameters open." if P else "no parameters."),
+         f"namespace {info.prefix}",
          "",
-         f"G checks ({ng}), proved by Blaster over every transaction (everything not named in the",
-         "statement is a variable). Where a malformed value needs well-formed fields next to the",
-         "malformed one, their leaves are variables and their lists and maps are empty.",
-         "  G1 (UP-001)  a purpose with no handler is rejected.",
-         "  G2 (UP-005)  a redeemer that does not decode as its declared type is rejected.",
-         "The datum checks are H18 and H19. Stated over every transaction, most of them did not finish",
-         "within 2 minutes on linear_vesting or sale: the compiled script reads its datum only where it",
-         "uses a field, often after reading the transaction.",
-         "",
-         f"H checks ({nh}), on honest transactions: `sorry` until the honest transactions below are",
-         "written (each `def honest_...`), then `by blaster`. Each changes one thing in an accepted",
-         "transaction and states the verdict it must then have.",
-         "-/", "", "section UniversalChecks", "", "open Formal.Universal.Properties",
-         "open CardanoLedgerApi.V3 (PubKeyHash OutputDatum)", "",
-         "/-- The script genuinely fails within `fuel` steps (running out of steps is not a failure). -/",
-         f"def rejects (fuel : Nat){binder} (ctx : ScriptContext) : Prop :=",
-         f"  rejectedWithin program (args{pa} ctx) fuel", "",
-         "/-! ### G checks -/", ""] + G + ["/-! ### H checks -/", ""] + H
-    L += ["end UniversalChecks", ""]
+         "open CardanoLedgerApi.V3 (ScriptContext)",
+         ""]
+    if info.has_params:
+        L += ["/-- The parameters the honest transactions are for. -/",
+              "def honestParams : Params := sorry", ""]
+    for h in honest_handlers(info):
+        for a, _, _ in actions(h, info.translator):
+            on = "" if a == "any" else f" with redeemer {a}"
+            L += [f"/-- A {NOUN[h.purpose]}{on} that the ledger model and the script accept. -/",
+                  f"def honest_{h.purpose}_{a} : ScriptContext := sorry", ""]
+    L.append(f"end {info.prefix}")
     return L
 
 
@@ -901,9 +892,10 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("blueprint", nargs="?")
     ap.add_argument("validator", nargs="?", help="`module.validator` or `validator`")
-    ap.add_argument("--out", default="Formal/Blueprint", help="directory for the generated Lean file")
+    ap.add_argument("--out", default="Formal/Blueprint", help="folder for the Lean files, under Formal/")
     ap.add_argument("--scripts", default="Scripts", help="directory for the .cbor file, as seen by Lean")
-    ap.add_argument("--no-checks", action="store_true", help="run pass 1 only (no theorems, no Blaster)")
+    ap.add_argument("--no-checks", action="store_true", help="write Types.lean only (no theorems, no Blaster)")
+    ap.add_argument("--cbor-only", action="store_true", help="write only the .cbor file and print its path")
     ap.add_argument("--translation", action="store_true", help="print the translation table and exit")
     a = ap.parse_args()
     if a.translation:
@@ -913,16 +905,29 @@ def main():
         ap.error("a blueprint and a validator are required")
     try:
         bp = json.loads(Path(a.blueprint).read_text())
-        lines, cbor_path, code, info = extract(bp, a.validator, a.scripts)
-        lean = render(lines, info, not a.no_checks)
+        if a.cbor_only:
+            entries = find_entries(bp, a.validator)
+            path = Path(cbor_path_of(entries, a.scripts))
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(compiled_code(entries))
+            print(path)
+            return
+        lines, info = generate(bp, a.validator, module_prefix(a.out), a.scripts)
     except (ExtractError, KeyError, json.JSONDecodeError) as e:
         sys.exit(f"process_blueprint: {e}")
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    (out / f"{info.module_name}.lean").write_text(lean)
-    Path(cbor_path).parent.mkdir(parents=True, exist_ok=True)
-    Path(cbor_path).write_text(code)
-    print(f"wrote {out / (info.module_name + '.lean')} and {cbor_path}")
+    files = {"Types.lean": lines + [f"end {info.prefix}"]}
+    if not a.no_checks:
+        files["General.lean"] = general(info)
+        files["Honest.lean"] = honest(info)
+    for name, body in files.items():
+        (out / name).write_text("\n".join(body) + "\n")
+        print(f"wrote {out / name}")
+    tx = out / "Tx.lean"
+    if not a.no_checks and not tx.exists():
+        tx.write_text("\n".join(tx_stub(info)) + "\n")
+        print(f"wrote {tx} (a stub: write the honest transactions there)")
     for w in info.warnings:
         print(f"warning: {w}")
 

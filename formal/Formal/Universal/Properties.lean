@@ -4,8 +4,8 @@ import CardanoLedgerApi
 /-!
 # Helpers for universal checks
 
-Hand-written once; used by the generated file of each validator (`Formal/Blueprint/<V>.lean`),
-which states the G checks and the H checks.
+Hand-written once; used by the generated files of each validator (`Types.lean`, `General.lean`
+and `Honest.lean` in the folder given to `just blueprint`), which state the G checks and the H checks.
 
 * G checks hold for every transaction: the builders `Every<Purpose>` leave the whole `TxInfo`, and
   the purpose's own data, as variables.
