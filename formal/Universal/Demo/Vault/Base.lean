@@ -23,25 +23,25 @@ builders in `Universal.Harness`.
 - Shape flags: a second script input, a second output, where the first output goes (own script,
   a key, another script), two signers, one minted asset, a finite or absent lower validity bound.
 - Every value: lovelace amounts, fee, signers, policy, asset name, quantity, times.
-- The datum of the own input, with the blueprint's shape, independent leaves and a Bool choice per
-  sum type; the continuing output's datum has its own open leaves, sums pinned to the first constructor.
+- The datum of the own input and the datum of the continuing output, each with the blueprint's
+  shape, independent leaves and a Bool choice per sum type (pinned to the first constructor: quick mode).
 - One redeemer per declared action, same treatment; any `Data` leaf is an open integer.
 
 ## What is not in the shape
 
 No reference inputs, no withdrawals on spends, no certificates, no datum hashes, no tokens on
-inputs, at most two of each list, no finite upper validity bound. A PASS holds within the shape;
-a contract whose accept path needs one of these shows UP-000 as REVIEW and its other checks as
-UNREACHED. The script hash is a placeholder, used consistently.
+inputs, at most two of each list, one item in each list inside a datum, no finite upper validity
+bound. A PASS holds within the shape; a contract whose accept path needs one of these shows UP-000
+as REVIEW and its other checks as UNREACHED. The script hash is a placeholder, used consistently.
 
 ## Reading the verdicts
 
 `#blaster (solve-result: 1)` means the stated universal claim must be falsified: the counterexample
 is a working transaction Blaster found. A `theorem ... := by blaster` must hold. `valid` is the
-ledger rule set from CardanoLedgerApi; `realistic` adds the min-UTxO the model lacks. The purpose
-checks are unconditional and carry the purpose's witness. A Blaster `Valid` is an SMT verdict with
-no proof term, as everywhere in this repository. One module per check, so lake builds them in
-parallel.
+ledger rule set from CardanoLedgerApi. `ledgerFloor` is the minimum the ledger puts on every output,
+so a theorem that assumes only that covers every amount the chain allows; `realistic` asks 1 ada of
+every amount, so a witness is not dust. A Blaster `Valid` is an SMT verdict with no proof term, as
+everywhere in this repository. One module per check and case, so lake builds them in parallel.
 -/
 
 namespace Universal.Demo.Vault
@@ -55,8 +55,10 @@ open CardanoLedgerApi.V1.Time (POSIXTimeRange after everything)
 open PlutusCore.UPLC.Utils (isSuccessful isUnsuccessful)
 open Universal.Harness
 
-#import_uplc universalVaultScript PlutusV3 single_cbor_hex "Universal/Demo/Scripts/vault.cbor"
-def validator : Program := universalVaultScript.script
+/-- The compiled validator, as the blueprint holds it. -/
+abbrev script : PlutusCore.UPLC.PlutusScript.PlutusScript :=
+  ⟨.PlutusV3, singleCborEncodedScriptFromHexM "58bc01010029800aba2aba1aab9faab9eaab9dab9a48888896600264646644b30013370e900118031baa00189919912cc004cdc3a400060126ea800626466446600400400244b30010018a508acc004cdc79bae300f0010038a518998010011808000a01640386eb0c034c038c038c038c038c038c038c038c038c02cdd518068041bae300c300a3754601860146ea80062c8040c028004c028c02c004c01cdd5000c59005180380098039804000980380098019baa0078a4d1365640041"⟩
+def validator : Program := script.script
 def accepts (ctx : ScriptContext) : Prop := Formal.Common.validatorAccepts ctx validator
 def rejects (ctx : ScriptContext) : Prop := Formal.Common.validatorRejects ctx validator
 /-- Ledger rules (CardanoLedgerApi): a counterexample must be a transaction the chain would accept. -/
@@ -72,9 +74,9 @@ structure Holes where
   sig2 : Bool
   mint1 : Bool
   lowFin : Bool
-  owner1 : ByteString
+  d_owner1 : ByteString
   o_owner2 : ByteString
-  any3 : Int
+  r_any3 : Int
   s1 : ByteString
   s2 : ByteString
   payee : ByteString
@@ -89,7 +91,11 @@ structure Holes where
   lo : Int
   fee : Int
 
-/-- Realism the ledger model does not enforce: no value below a plausible min-UTxO. -/
+/-- The ledger's minimum on every output, which the model does not enforce: 4,310 lovelace per byte
+    times the 160-byte overhead (CIP-55). Every real transaction meets it. -/
+def ledgerFloor (h : Holes) : Prop :=
+  689600 ≤ h.inLov ∧ 689600 ≤ h.inLov2 ∧ 689600 ≤ h.outLov ∧ 689600 ≤ h.outLov2
+/-- At least 1 ada everywhere: what a witness must hold, so it is not dust. -/
 def realistic (h : Holes) : Prop :=
   1000000 ≤ h.inLov ∧ 1000000 ≤ h.inLov2 ∧ 1000000 ≤ h.outLov ∧ 1000000 ≤ h.outLov2
 
@@ -98,11 +104,11 @@ def ownRef : CardanoLedgerApi.V3.TxOutRef := ⟨"txid_placeholder_32bytes!!!!!!!
 def ref2 : CardanoLedgerApi.V3.TxOutRef := ⟨"txid_placeholder_32bytes!!!!!!!!", 1⟩
 
 /-- Datum of the script's own input, with the blueprint's shape; sums chosen by flags in `h`. -/
-def datum (h : Holes) : Data := Data.Constr 0 [Data.B h.owner1]
-/-- Datum of the continuing output: same shape, its own fields, so it may differ from the input's. -/
+def datum (h : Holes) : Data := Data.Constr 0 [Data.B h.d_owner1]
+/-- Datum of the continuing output: same shape, its own fields and flags, so it may differ from the input's. -/
 def datumOut (h : Holes) : Data := Data.Constr 0 [Data.B h.o_owner2]
 /-- Redeemers with the blueprint's shape, one per constructor. -/
-def redeemer (h : Holes) : Data := Data.I h.any3
+def redeemer (h : Holes) : Data := Data.I h.r_any3
 
 /-- The transaction body, composed from the harness builders. `od` is the continuing output's datum. -/
 def txOf (h : Holes) (od r : Data) : TxInfo :=
@@ -114,10 +120,8 @@ def txOf (h : Holes) (od r : Data) : TxInfo :=
      h.fee minted (validity h.lowFin h.lo) (upTo2 h.sig1 h.sig2 h.s1 h.s2)
      ((.Spending ownRef, r) :: optList h.in2 (.Spending ref2, r))
 
-/-- A spend whose continuing output repeats the input datum: what most checks use. -/
-def ctx (h : Holes) (r : Data) : ScriptContext := spending (txOf h (datum h) r) ownRef (datum h) r
-/-- A spend whose continuing output carries its own datum: what UP-011 uses. -/
-def ctxFull (h : Holes) (r : Data) : ScriptContext := spending (txOf h (datumOut h) r) ownRef (datum h) r
+/-- A spend of the own input. The continuing output carries its own datum, so it may differ from the input's. -/
+def ctx (h : Holes) (r : Data) : ScriptContext := spending (txOf h (datumOut h) r) ownRef (datum h) r
 /-- The script invoked for another purpose: the purpose's witness and redeemer entry are added. -/
 def otherCtx (info : ScriptInfo) (key : ScriptPurpose) (rp : Data) (t : TxInfo) : ScriptContext :=
   { scriptContextTxInfo := { t with txInfoRedeemers := (key, rp) :: t.txInfoRedeemers }

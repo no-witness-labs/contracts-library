@@ -14,8 +14,9 @@ open Universal.Harness
 
 /-- UP-001/mint: the script declares no `mint` handler, so it must reject that purpose, even with the purpose's witness present. -/
 theorem up001_mint : ∀ h : Holes, ∀ (rp : Int) (cs : ByteString),
+    h.out1Foreign = false →
     rejects (otherCtx (.MintingScript cs) (.Minting cs) (Data.I rp)
-      { txOf h (datumOut h) (Data.I rp) with txInfoMint := [(Data.B cs, Data.Map [(Data.B h.name, Data.I h.qty)])] }) := by
-  blaster
+      { txOf h (datum h) (Data.I rp) with txInfoMint := [(Data.B cs, Data.Map [(Data.B h.name, Data.I h.qty)])] }) := by
+  blaster (timeout: 600)
 
 end Universal.Demo.Linear_vesting

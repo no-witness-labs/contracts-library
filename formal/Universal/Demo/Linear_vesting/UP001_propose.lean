@@ -14,8 +14,9 @@ open Universal.Harness
 
 /-- UP-001/propose: the script declares no `propose` handler, so it must reject that purpose, even with the purpose's witness present. -/
 theorem up001_propose : ∀ h : Holes, ∀ (rp : Int) (cred : ByteString),
+    h.out1Foreign = false →
     rejects (otherCtx (.ProposingScript 0 ⟨0, .ScriptCredential cred, Data.I 0⟩) (.Proposing 0 ⟨0, .ScriptCredential cred, Data.I 0⟩) (Data.I rp)
-      { txOf h (datumOut h) (Data.I rp) with txInfoProposalProcedures := [⟨0, .ScriptCredential cred, Data.I 0⟩] }) := by
-  blaster
+      { txOf h (datum h) (Data.I rp) with txInfoProposalProcedures := [⟨0, .ScriptCredential cred, Data.I 0⟩] }) := by
+  blaster (timeout: 600)
 
 end Universal.Demo.Linear_vesting

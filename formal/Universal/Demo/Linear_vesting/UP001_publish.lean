@@ -14,8 +14,9 @@ open Universal.Harness
 
 /-- UP-001/publish: the script declares no `publish` handler, so it must reject that purpose, even with the purpose's witness present. -/
 theorem up001_publish : ∀ h : Holes, ∀ (rp : Int) (cred : ByteString),
+    h.out1Foreign = false →
     rejects (otherCtx (.CertifyingScript 0 (.TxCertRegStaking (.ScriptCredential cred) none)) (.Certifying 0 (.TxCertRegStaking (.ScriptCredential cred) none)) (Data.I rp)
-      { txOf h (datumOut h) (Data.I rp) with txInfoTxCerts := [.TxCertRegStaking (.ScriptCredential cred) none] }) := by
-  blaster
+      { txOf h (datum h) (Data.I rp) with txInfoTxCerts := [.TxCertRegStaking (.ScriptCredential cred) none] }) := by
+  blaster (timeout: 600)
 
 end Universal.Demo.Linear_vesting

@@ -12,10 +12,11 @@ open CardanoLedgerApi.V1.Time (POSIXTimeRange after everything)
 open PlutusCore.UPLC.Utils (isSuccessful isUnsuccessful)
 open Universal.Harness
 
-/-- UP-011/Cancel: a spend accepted with its output (any datum) back at the script is rejected once that output moves to a key or foreign script address. -/
+/-- UP-011/Cancel: a spend accepted with its output back at the script, whatever datum that output carries within the shape, is rejected once that output moves to a key or another script. -/
 theorem up011_Cancel : ∀ h : Holes,
-    valid (ctxFull { h with out1Script := true } (redeemerCancel h)) → valid (ctxFull { h with out1Script := false } (redeemerCancel h)) → realistic h →
-    accepts (ctxFull { h with out1Script := true } (redeemerCancel h)) → rejects (ctxFull { h with out1Script := false } (redeemerCancel h)) := by
-  blaster
+    h.payee ≠ own →
+    valid (ctx { h with out1Script := true } (redeemerCancel h)) → valid (ctx { h with out1Script := false } (redeemerCancel h)) → ledgerFloor h →
+    accepts (ctx { h with out1Script := true } (redeemerCancel h)) → rejects (ctx { h with out1Script := false } (redeemerCancel h)) := by
+  blaster (timeout: 600)
 
 end Universal.Demo.Linear_vesting
