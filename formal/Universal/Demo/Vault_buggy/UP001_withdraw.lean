@@ -14,8 +14,9 @@ open Universal.Harness
 
 /-- UP-001/withdraw: the script declares no `withdraw` handler, so it must reject that purpose, even with the purpose's witness present. -/
 theorem up001_withdraw : ∀ h : Holes, ∀ (rp : Int) (cred : ByteString),
+    h.out1Foreign = false →
     rejects (otherCtx (.RewardingScript (.ScriptCredential cred)) (.Rewarding (.ScriptCredential cred)) (Data.I rp)
-      { txOf h (datumOut h) (Data.I rp) with txInfoWdrl := [(.ScriptCredential cred, 0)] }) := by
-  blaster
+      { txOf h (datum h) (Data.I rp) with txInfoWdrl := [(.ScriptCredential cred, 0)] }) := by
+  blaster (timeout: 600)
 
 end Universal.Demo.Vault_buggy

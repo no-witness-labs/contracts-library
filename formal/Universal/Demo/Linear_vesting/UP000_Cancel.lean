@@ -13,8 +13,12 @@ open PlutusCore.UPLC.Utils (isSuccessful isUnsuccessful)
 open Universal.Harness
 
 /-- UP-000/Cancel: is any realistic valid spend with this action accepted? Blaster must FALSIFY this. -/
-def alwaysRejectsCancel : Prop := ∀ h : Holes, h.out1Foreign = false →
-  valid (ctx h (redeemerCancel h)) → realistic h → rejects (ctx h (redeemerCancel h))
-#blaster (solve-result: 1) [alwaysRejectsCancel]
+def alwaysRejectsCancel : Prop := ∀ h : Holes,
+    h.out1Foreign = false →
+    valid (ctx h (redeemerCancel h)) → realistic h →
+    rejects (ctx h (redeemerCancel h))
+-- A solver timeout is a warning on this command; as an error it fails the build.
+set_option warningAsError true in
+#blaster (timeout: 600) (solve-result: 1) [alwaysRejectsCancel]
 
 end Universal.Demo.Linear_vesting

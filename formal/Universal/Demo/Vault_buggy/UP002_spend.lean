@@ -12,9 +12,11 @@ open CardanoLedgerApi.V1.Time (POSIXTimeRange after everything)
 open PlutusCore.UPLC.Utils (isSuccessful isUnsuccessful)
 open Universal.Harness
 
-/-- UP-002: a realistic valid spend with no signatories is rejected (waive it for permissionless scripts). -/
-theorem up002_spend : ∀ h : Holes, h.sig1 = false → h.sig2 = false → h.out1Foreign = false →
-    valid (ctx h (redeemer h)) → realistic h → rejects (ctx h (redeemer h)) := by
-  blaster
+/-- UP-002: a valid spend with no signatories is rejected (waive it for permissionless scripts). -/
+theorem up002_spend : ∀ h : Holes,
+    h.sig1 = false → h.sig2 = false → h.out1Foreign = false →
+    valid (ctx h (redeemer h)) → ledgerFloor h →
+    rejects (ctx h (redeemer h)) := by
+  blaster (timeout: 600)
 
 end Universal.Demo.Vault_buggy

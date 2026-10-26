@@ -8,7 +8,8 @@ import Universal.Demo.Linear_vesting.UP000_Cancel
 import Universal.Demo.Linear_vesting.UP004_Cancel
 import Universal.Demo.Linear_vesting.UP002_Cancel
 import Universal.Demo.Linear_vesting.UP011_Cancel
-import Universal.Demo.Linear_vesting.UP005
+import Universal.Demo.Linear_vesting.UP005_integer_redeemer
+import Universal.Demo.Linear_vesting.UP005_unknown_constructor
 import Universal.Demo.Linear_vesting.UP001_mint
 import Universal.Demo.Linear_vesting.UP001_withdraw
 import Universal.Demo.Linear_vesting.UP001_publish

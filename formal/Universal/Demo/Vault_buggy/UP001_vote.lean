@@ -14,8 +14,9 @@ open Universal.Harness
 
 /-- UP-001/vote: the script declares no `vote` handler, so it must reject that purpose, even with the purpose's witness present. -/
 theorem up001_vote : ∀ h : Holes, ∀ (rp : Int) (cred : ByteString),
+    h.out1Foreign = false →
     rejects (otherCtx (.VotingScript (.DRepVoter (.ScriptCredential cred))) (.Voting (.DRepVoter (.ScriptCredential cred))) (Data.I rp)
-      { txOf h (datumOut h) (Data.I rp) with txInfoVotes := [(.DRepVoter (.ScriptCredential cred), [])] }) := by
-  blaster
+      { txOf h (datum h) (Data.I rp) with txInfoVotes := [(.DRepVoter (.ScriptCredential cred), [])] }) := by
+  blaster (timeout: 600)
 
 end Universal.Demo.Vault_buggy

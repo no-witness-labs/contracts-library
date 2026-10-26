@@ -32,6 +32,7 @@
             pkgs.elan
             z3
             pkgs.gawk   # `just verify` pipes lake output through annotate-blaster-logs.awk
+            pkgs.python3   # `just universal` runs the universal-check generator, scripts/universal.py
           ];
 
           shellHook = ''
