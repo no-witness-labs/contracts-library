@@ -33,3 +33,10 @@ name = "Formal"
 [[lean_lib]]
 name = "Universal"
 globs = ["Universal.+"]
+
+# The universal-check generator: `lake exe universal --blueprint <plutus.json> <validator>...`
+# writes, builds and reports the modules under Universal/Demo/.
+[[lean_exe]]
+name = "universal"
+srcDir = "scripts"
+root = "GenUniversalChecks"
