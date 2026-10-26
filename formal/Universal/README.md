@@ -2,17 +2,17 @@
 
 A universal property is a security property that applies to any compiled validator, with nothing written by the validator's author. This folder holds a prototype. A generator reads a validator's blueprint (`plutus.json`) and writes the checks as Blaster theorems for that validator. It then runs them and prints a report, with a witness or counterexample for each verdict.
 
-The author only compiles. The same checks ran on the two demo vaults in [`Demo/aiken/`](Demo/aiken/) and on the catalogue's own [`linear_vesting`](../../onchain/validators/linear_vesting.ak). The generated modules are committed with the compiled code written into each validator's `Base.lean`, so `lake build Universal.Demo.Linear_vesting` reproduces the vesting result (quick mode) without Python or Aiken, and a new build of the contract changes `Base.lean`, so lake rebuilds every check. Lean reports every failed check and every solver timeout as an error, so that build ends in errors for any contract with a HOLE or a REVIEW item; vesting has two REVIEW items (UP-011). The script turns those errors into the labels below.
+The author only compiles. The same checks ran on the two demo vaults in [`Demo/aiken/`](Demo/aiken/) and on the catalogue's own [`linear_vesting`](../../onchain/validators/linear_vesting.ak). The generated modules are committed with the compiled code written into each validator's `Base.lean`, so `lake build Universal.Demo.Linear_vesting` reproduces the vesting result (quick mode) without the generator or Aiken, and a new build of the contract changes `Base.lean`, so lake rebuilds every check. Lean reports every failed check and every solver timeout as an error, so that build ends in errors for any contract with a HOLE or a REVIEW item; vesting has two REVIEW items (UP-011). The generator turns those errors into the labels below.
 
 This file is the short guide. The design notes, the prior art, why the shape is bounded, the review history, the limits and the candidate checks are in [`Notes.lean`](Notes.lean), so they build and ship with the modules; each generated module repeats the essentials in its header.
 
 ## Run it
 
-From `formal/`, inside the Nix shell (`nix develop`):
+From `formal/`, inside the Nix shell (`nix develop`). The generator is a Lean program, `scripts/GenUniversalChecks.lean`, that lake builds on first use:
 
 ```sh
-python3 scripts/universal.py --blueprint Universal/Demo/aiken/plutus.json vault vault_buggy
-python3 scripts/universal.py --blueprint ../onchain/plutus.json --quick linear_vesting
+lake exe universal --blueprint Universal/Demo/aiken/plutus.json vault vault_buggy
+lake exe universal --blueprint ../onchain/plutus.json --quick linear_vesting
 ```
 
 Full mode writes one module per check and per combination of the datum's constructors, so a vesting beneficiary is checked as a key and as a script in separate modules, with at most 16 modules per check (`--max-cases`); sums that do not fit stay open choices inside each module. `--quick` pins every sum type in the datum and redeemer to its first constructor instead: fewer modules, at the cost of the paths behind the other constructors. Leave it out for the run that counts. The modules sit under `Demo/<Validator>/` and build four at a time (`--jobs`), each with a time limit on the wall clock (`--timeout`, 600 seconds by default); a module that runs longer is stopped and reports UNDETERMINED. The exit code is 1 when a HOLE remains, 2 when a check has no verdict (UNDETERMINED, UNREACHED or UNKNOWN), 0 otherwise. The report for the buggy vault ends like this:

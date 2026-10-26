@@ -2,7 +2,8 @@
 # Universal checks: design notes
 
 These notes live next to the generated modules so `lake build Universal` carries them. The
-generator is `scripts/universal.py`; the user-facing summary is `Universal/README.md`.
+generator is `scripts/GenUniversalChecks.lean`, run as `lake exe universal`; the user-facing
+summary is `Universal/README.md`.
 
 ## The idea
 
@@ -173,8 +174,8 @@ the Lean way or a workaround.
   exit code ignored UNREACHED (now 2); the solver timeout did not bound the time
   (above); `#blaster (solve-result: 1)` reports a solver timeout only as a warning, so the build
   passed (now `warningAsError` on that command, so `lake build` fails on it).
-- Stopgaps, kept and named: `realistic` (Hypotheses); quick mode; Python, which the Nix shell now
-  pins (the lasting form is below).
+- Stopgaps, kept and named: `realistic` (Hypotheses); quick mode; the generator in Python, since
+  replaced by a Lean program (The generator, below).
 - Open: `lake build` is not yet the whole gate. A waived check, and a case that is unreachable by
   design (Cancel when the locker is a script), still fail the build; only the script's report
   applies `universal.json`. Making the build the gate needs the expected outcome of each module
@@ -199,13 +200,16 @@ UP-012 (one signer removed); UP-013 (unbounded validity range, off by default); 
 (datum tampering, output reordering, own-policy token duplication). UP-010 and UP-012 need a
 definition of payout and of required signer first.
 
-## Intended form
+## The generator
 
-The Python generator is a stopgap. The intended form is the same generator as a Lean program
-(`lean_exe`), the way IOG's `gen_conformance_tests` in PlutusCoreBlaster writes its test modules
-from templates. This replaces the earlier plan of a Lean command that reads the blueprint: IOG's
-own generator writes files, and a file per check is what lets lake build them in parallel and
-cache them. Tracked with the PRs on the fork.
+The generator is a Lean program (`lean_exe universal`, `scripts/GenUniversalChecks.lean`), the way
+IOG's `gen_conformance_tests` in PlutusCoreBlaster writes its test modules from templates, so the
+tooling is Lean and Lake only. It replaced a Python script on 2026-10-26. Before the switch, both
+generators wrote the same modules, byte for byte, and printed the same lines, on the three demo
+validators and on a made-up blueprint with an address, a three-way sum and a sum nested in a
+redeemer, in quick and full mode; the reports on the vaults matched too. An earlier plan, a Lean
+command that reads the blueprint, was dropped: IOG's own generator writes files, and a file per
+check is what lets lake build the checks in parallel and cache them.
 
 Proof harness experiment, 2026-10-23 (issue #38). UP-002 on the vault was restated by hand over
 one structure of holes (`Holes`, 23 fields), with the transaction composed from small builders
