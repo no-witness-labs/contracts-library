@@ -1,7 +1,8 @@
 # Keep the repository documentation tracked
 !docs/*
+*.swp
 .claude
-opencode.json
 .vscode
-
 node_modules/
+opencode.json
+__pycache__/

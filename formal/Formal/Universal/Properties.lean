@@ -1,0 +1,369 @@
+import PlutusCore.UPLC
+import CardanoLedgerApi
+
+/-!
+# Helpers for universal checks
+
+Hand-written once; used by the generated `Types.lean` and `Checks.lean` in each validator's
+`Blueprint/` folder (see docs/Universal/PROPERTIES.md).
+
+* `otherPurpose` and `malformedRedeemer` hold for every transaction: the builders `Every<Purpose>`
+  leave the whole `TxInfo`, and the purpose's own data, as variables.
+* The other checks start from a shape in `Tx.lean`, written by the validator's author, and change
+  one thing in it; the helpers below make those changes.
+-/
+
+open PlutusCore.Data (Data)
+open PlutusCore.ByteString (ByteString)
+open PlutusCore.UPLC.Term (Program Term Const)
+open PlutusCore.UPLC.CekMachine (State step initialState applyParams)
+open CardanoLedgerApi.V3
+
+namespace Formal.Universal.Properties
+
+/-! ## Building script contexts -/
+
+def mkCtx (txInfo : TxInfo) (red : Redeemer) (scInfo : ScriptInfo) : ScriptContext :=
+  { scriptContextTxInfo := txInfo
+    scriptContextRedeemer := red
+    scriptContextScriptInfo := scInfo }
+
+def keyAddr (h : PubKeyHash) : Address := ⟨.PubKeyCredential h, none⟩
+
+/-! ## Running the script -/
+
+/-- The step limit: far more than any transaction the ledger accepts can use. -/
+abbrev ledgerFuel : Nat := 1000000
+
+/-- `runSteps` without the conflation: `none` when the steps run out before `Halt` or `Error`. -/
+def runFor : State → Nat → Option State
+  | .Halt v, _ => some (.Halt v)
+  | .Error, _ => some .Error
+  | _, 0 => none
+  | s, n + 1 => runFor (step default s) n
+
+/-- The program, applied to `args`, fails within `fuel` steps: it reaches `Error`, or halts with a
+    value other than `()`. Running out of steps is not a failure. -/
+def rejectedWithin (p : Program) (args : List Term) (fuel : Nat) : Prop :=
+  match p with
+  | .Program _ body =>
+      match runFor (initialState (applyParams body args)) fuel with
+      | some .Error => True
+      | some (.Halt v) => v ≠ .VCon Const.Unit
+      | _ => False
+
+/-! ## Every transaction, per purpose -/
+
+structure EverySpend where
+  txInfo : TxInfo
+  ref : TxOutRef
+  datum : Option Datum
+
+def EverySpend.ctx (t : EverySpend) (r : Data) : ScriptContext :=
+  mkCtx t.txInfo r (.SpendingScript t.ref t.datum)
+
+/-- The same spend with the datum `d` passed to the script instead of `t.datum`. -/
+def EverySpend.ctxDatum (t : EverySpend) (d : Option Datum) (r : Data) : ScriptContext :=
+  mkCtx t.txInfo r (.SpendingScript t.ref d)
+
+structure EveryMint where
+  txInfo : TxInfo
+  policy : CurrencySymbol
+
+def EveryMint.ctx (t : EveryMint) (r : Data) : ScriptContext :=
+  mkCtx t.txInfo r (.MintingScript t.policy)
+
+structure EveryWithdraw where
+  txInfo : TxInfo
+  cred : Credential
+
+def EveryWithdraw.ctx (t : EveryWithdraw) (r : Data) : ScriptContext :=
+  mkCtx t.txInfo r (.RewardingScript t.cred)
+
+structure EveryPublish where
+  txInfo : TxInfo
+  idx : Int
+  cert : TxCert
+
+def EveryPublish.ctx (t : EveryPublish) (r : Data) : ScriptContext :=
+  mkCtx t.txInfo r (.CertifyingScript t.idx t.cert)
+
+structure EveryVote where
+  txInfo : TxInfo
+  voter : Voter
+
+def EveryVote.ctx (t : EveryVote) (r : Data) : ScriptContext :=
+  mkCtx t.txInfo r (.VotingScript t.voter)
+
+structure EveryPropose where
+  txInfo : TxInfo
+  idx : Int
+  proposal : ProposalProcedure
+
+def EveryPropose.ctx (t : EveryPropose) (r : Data) : ScriptContext :=
+  mkCtx t.txInfo r (.ProposingScript t.idx t.proposal)
+
+/-! ## Changes to an honest transaction -/
+
+def inputsOf (h : ScriptContext) : List TxInInfo := h.scriptContextTxInfo.txInfoInputs
+def outputsOf (h : ScriptContext) : List TxOut := h.scriptContextTxInfo.txInfoOutputs
+def signatoriesOf (h : ScriptContext) : List PubKeyHash := h.scriptContextTxInfo.txInfoSignatories
+def mintOf (h : ScriptContext) : MintValue := h.scriptContextTxInfo.txInfoMint
+
+/-- `xs` with the item at `i` replaced by `f` of it (unchanged when `i` is out of range). -/
+def modifyAt {α : Type} : List α → Nat → (α → α) → List α
+  | [], _, _ => []
+  | x :: xs, 0, f => f x :: xs
+  | x :: xs, n + 1, f => x :: modifyAt xs n f
+
+/-- The positions of the items satisfying `p`, counting from `n`. -/
+def positionsFrom {α : Type} (p : α → Bool) : List α → Nat → List Nat
+  | [], _ => []
+  | x :: xs, n => (if p x then [n] else []) ++ positionsFrom p xs (n + 1)
+
+def withSignatories (h : ScriptContext) (sigs : List PubKeyHash) : ScriptContext :=
+  { h with scriptContextTxInfo := { h.scriptContextTxInfo with txInfoSignatories := sigs } }
+
+def withOutputs (h : ScriptContext) (outs : List TxOut) : ScriptContext :=
+  { h with scriptContextTxInfo := { h.scriptContextTxInfo with txInfoOutputs := outs } }
+
+def withInputs (h : ScriptContext) (ins : List TxInInfo) : ScriptContext :=
+  { h with scriptContextTxInfo := { h.scriptContextTxInfo with txInfoInputs := ins } }
+
+def withRange (h : ScriptContext) (r : Data) : ScriptContext :=
+  { h with scriptContextTxInfo := { h.scriptContextTxInfo with txInfoValidRange := r } }
+
+def withMint (h : ScriptContext) (m : MintValue) : ScriptContext :=
+  { h with scriptContextTxInfo := { h.scriptContextTxInfo with txInfoMint := m } }
+
+def withRedeemer (h : ScriptContext) (r : Data) : ScriptContext :=
+  { h with scriptContextRedeemer := r }
+
+/-- `h` with the output at `i` replaced by `f` of it. -/
+def changeOutput (h : ScriptContext) (i : Nat) (f : TxOut → TxOut) : ScriptContext :=
+  withOutputs h (modifyAt h.scriptContextTxInfo.txInfoOutputs i f)
+
+/-- The input being spent, if the context is a spend and the input is in the transaction. -/
+def ownInput? (ctx : ScriptContext) : Option TxInInfo :=
+  match ctx.scriptContextScriptInfo with
+  | .SpendingScript ref _ => ctx.scriptContextTxInfo.txInfoInputs.find? (fun i => i.txInInfoOutRef == ref)
+  | _ => none
+
+/-- The positions of the outputs with the same payment credential as the input being spent. -/
+def continuingPositions (ctx : ScriptContext) : List Nat :=
+  match ownInput? ctx with
+  | some i =>
+      positionsFrom
+        (fun o => o.txOutAddress.addressCredential == i.txInInfoResolved.txOutAddress.addressCredential)
+        ctx.scriptContextTxInfo.txInfoOutputs 0
+  | none => []
+
+/-- `h` with a second input from the same output as the input being spent, under `ref`. -/
+def duplicateOwnInput (h : ScriptContext) (ref : TxOutRef) : ScriptContext :=
+  match ownInput? h with
+  | some i => withInputs h (List.append h.scriptContextTxInfo.txInfoInputs [⟨ref, i.txInInfoResolved⟩])
+  | none => h
+
+/-- `h`, a spend, with its datum replaced by `d`: both the datum passed to the script and the inline
+    datum on the input being spent. -/
+def withSpendDatum (h : ScriptContext) (d : Datum) : ScriptContext :=
+  match h.scriptContextScriptInfo with
+  | .SpendingScript ref _ =>
+      let ins := List.map (fun (i : TxInInfo) =>
+        if i.txInInfoOutRef == ref then
+          { i with txInInfoResolved := { i.txInInfoResolved with txOutDatum := .OutputDatum d } }
+        else i) h.scriptContextTxInfo.txInfoInputs
+      { withInputs h ins with scriptContextScriptInfo := .SpendingScript ref (some d) }
+  | _ => h
+
+/-- `h`, a spend, with no datum: none passed to the script, and none on the input being spent. -/
+def withoutSpendDatum (h : ScriptContext) : ScriptContext :=
+  match h.scriptContextScriptInfo with
+  | .SpendingScript ref _ =>
+      let ins := List.map (fun (i : TxInInfo) =>
+        if i.txInInfoOutRef == ref then
+          { i with txInInfoResolved := { i.txInInfoResolved with txOutDatum := .NoOutputDatum } }
+        else i) h.scriptContextTxInfo.txInfoInputs
+      { withInputs h ins with scriptContextScriptInfo := .SpendingScript ref none }
+  | _ => h
+
+/-- The value with 1 lovelace less. -/
+def lowerLovelace (v : Value) : Value :=
+  List.map (fun e => match e with
+    | (.B b, .Map [(.B n, .I q)]) =>
+        if b == "" && n == "" then (.B b, .Map [(.B n, .I (q - 1))]) else e
+    | _ => e) v
+
+/-- The value with one token of an unrelated policy added. -/
+def withJunkToken (v : Value) : Value :=
+  List.append v [(.B "6a756e6b", .Map [(.B "6a756e6b", .I 1)])]
+
+/-- The mint with every quantity negated: a mint becomes a burn, and the other way round. -/
+def negateMint (m : MintValue) : MintValue :=
+  List.map (fun e => match e with
+    | (p, .Map ts) => (p, .Map (List.map (fun t => match t with
+        | (n, .I q) => (n, .I (-q))
+        | _ => t) ts))
+    | _ => e) m
+
+/-- `h`, a mint, with one more token under its own policy. -/
+def mintOneMore (h : ScriptContext) : ScriptContext :=
+  match h.scriptContextScriptInfo with
+  | .MintingScript pol =>
+      withMint h (List.append h.scriptContextTxInfo.txInfoMint [(.B pol, .Map [(.B "65787472", .I 1)])])
+  | _ => h
+
+/-- An output unrelated to the script: 2 ada to a key address, no datum. -/
+def unrelatedOutput : TxOut :=
+  ⟨keyAddr ("756e72656c61746564" : ByteString), [(.B "", .Map [(.B "", .I 2000000)])], .NoOutputDatum, none⟩
+
+/-- The validity range (−∞, +∞), as ledger `Data`. -/
+def rangeAlways : Data :=
+  .Constr 0 [.Constr 0 [.Constr 0 [], .Constr 1 []], .Constr 0 [.Constr 2 [], .Constr 1 []]]
+
+/-! ## Changes to a shape
+
+Keys and policies are literals: a symbolic currency symbol stops Blaster inside
+`validScriptContext` (`docs/Universal/DEAD_ENDS.md` §17). -/
+
+/-- The key that receives redirected or pocketed value. -/
+def attackerKey : ByteString := "61747461636b6572"
+/-- The key of inputs and outputs unrelated to the script. -/
+def unrelatedKey : ByteString := "756e72656c61746564"
+/-- The policy and token name of junk and unrelated tokens. -/
+def junkPolicy : ByteString := "6a756e6b"
+
+/-- `h` with every output back to the script sent to `attackerKey` instead, without a datum.
+    "The member needs its continuations" is that this is rejected. -/
+def redirectContinuations (h : ScriptContext) : ScriptContext :=
+  match ownInput? h with
+  | some i =>
+      withOutputs h (List.map (fun (o : TxOut) =>
+        if o.txOutAddress.addressCredential == i.txInInfoResolved.txOutAddress.addressCredential then
+          { o with txOutAddress := keyAddr attackerKey, txOutDatum := .NoOutputDatum }
+        else o) h.scriptContextTxInfo.txInfoOutputs)
+  | none => h
+
+/-- `h` with every output sent to `attackerKey` instead, without a datum. In `doubleSatisfaction`, a run that still
+    accepts this does not rely on any output, so sharing the outputs gives it nothing. -/
+def redirectOutputs (h : ScriptContext) : ScriptContext :=
+  withOutputs h (List.map (fun (o : TxOut) =>
+    { o with txOutAddress := keyAddr attackerKey, txOutDatum := .NoOutputDatum })
+    h.scriptContextTxInfo.txInfoOutputs)
+
+/-- Whether `o` goes back to the script: it has the payment credential of the input being spent. -/
+def isContinuation (h : ScriptContext) (o : TxOut) : Bool :=
+  match ownInput? h with
+  | some i => o.txOutAddress.addressCredential == i.txInInfoResolved.txOutAddress.addressCredential
+  | none => false
+
+/-- `outs` with `f` applied to the first output satisfying `p`. -/
+def changeFirst (p : TxOut → Bool) (f : TxOut → TxOut) : List TxOut → List TxOut
+  | [] => []
+  | o :: os => if p o then f o :: os else o :: changeFirst p f os
+
+/-- `h` with `f` applied to its first output back to the script. With `reverseOutputs` and `rotateOutputs` checking that the
+    order of outputs does not matter, this stands for any output back to the script. -/
+def changeContinuation (h : ScriptContext) (f : TxOut → TxOut) : ScriptContext :=
+  withOutputs h (changeFirst (isContinuation h) f h.scriptContextTxInfo.txInfoOutputs)
+
+/-- The first output back to the script, if any. -/
+def firstContinuation? (h : ScriptContext) : Option TxOut :=
+  h.scriptContextTxInfo.txInfoOutputs.find? (isContinuation h)
+
+/-- `h` with its first output moved to the end. -/
+def rotateOutputs (h : ScriptContext) : ScriptContext :=
+  match h.scriptContextTxInfo.txInfoOutputs with
+  | [] => h
+  | o :: os => withOutputs h (List.append os [o])
+
+/-- A policy that sorts after the policies of real values, so that a junk token appended at the end
+    of a value keeps it sorted. -/
+def lastPolicy : ByteString := "zzzzjunk"
+
+/-- `h` with a new input `r` at `unrelatedKey` holding `a` lovelace and one junk token; the junk token
+    is appended to its first output back to the script, and the lovelace goes to a new output at
+    `unrelatedKey`. -/
+def addJunkFrom (h : ScriptContext) (r : TxOutRef) (a : Int) : ScriptContext :=
+  let junk : Data × Data := (.B lastPolicy, .Map [(.B lastPolicy, .I 1)])
+  let info := h.scriptContextTxInfo
+  let h' := { h with scriptContextTxInfo := { info with
+    txInfoInputs := List.append info.txInfoInputs
+      [⟨r, ⟨keyAddr unrelatedKey, [(.B "", .Map [(.B "", .I a)]), junk], .NoOutputDatum, none⟩⟩]
+    txInfoOutputs := List.append info.txInfoOutputs
+      [⟨keyAddr unrelatedKey, [(.B "", .Map [(.B "", .I a)])], .NoOutputDatum, none⟩] } }
+  changeContinuation h' (fun o => { o with txOutValue := List.append o.txOutValue [junk] })
+
+/-- `d` with its constructor index changed to `k`, keeping its fields; a value that is not a
+    constructor becomes the single field of constructor `k`. -/
+def reindex (k : Int) : Data → Data
+  | .Constr _ fs => .Constr k fs
+  | d => .Constr k [d]
+
+/-- An inline datum with its constructor index changed to `k`; other kinds of datum unchanged. -/
+def reindexOutputDatum (k : Int) : OutputDatum → OutputDatum
+  | .OutputDatum d => .OutputDatum (reindex k d)
+  | od => od
+
+/-- `h`, a spend, with the datum of the input being spent given the constructor index `k`. -/
+def reindexSpendDatum (h : ScriptContext) (k : Int) : ScriptContext :=
+  match h.scriptContextScriptInfo with
+  | .SpendingScript _ (some d) => withSpendDatum h (reindex k d)
+  | _ => h
+
+/-- `h` with the input that `g` spends added under `r`, with `g`'s redeemer recorded for it, and its
+    value sent to `attackerKey`: one set of outputs for two script inputs. -/
+def addSpendOf (h g : ScriptContext) (r : TxOutRef) : ScriptContext :=
+  match ownInput? g with
+  | some i =>
+      let info := h.scriptContextTxInfo
+      { h with scriptContextTxInfo := { info with
+          txInfoInputs := List.append info.txInfoInputs [⟨r, i.txInInfoResolved⟩]
+          txInfoOutputs := List.append info.txInfoOutputs
+            [⟨keyAddr attackerKey, i.txInInfoResolved.txOutValue, .NoOutputDatum, none⟩]
+          txInfoRedeemers := List.append info.txInfoRedeemers [(.Spending r, g.scriptContextRedeemer)] } }
+  | none => h
+
+/-- `h` as seen by the run of the script for the input `r`, which `g` spent with its datum and
+    redeemer. -/
+def asSpendOf (h g : ScriptContext) (r : TxOutRef) : ScriptContext :=
+  match g.scriptContextScriptInfo with
+  | .SpendingScript _ d => { h with scriptContextRedeemer := g.scriptContextRedeemer
+                                    scriptContextScriptInfo := .SpendingScript r d }
+  | _ => h
+
+/-- `h` with the redeemer `r`, both the one passed to the script and its entry in the redeemer map. -/
+def withOwnRedeemer (h : ScriptContext) (r : Data) : ScriptContext :=
+  let purpose := h.scriptContextScriptInfo.toScriptPurpose
+  { h with
+      scriptContextRedeemer := r
+      scriptContextTxInfo := { h.scriptContextTxInfo with
+        txInfoRedeemers := List.map (fun (e : ScriptPurpose × Redeemer) =>
+          if e.1 == purpose then (e.1, r) else e) h.scriptContextTxInfo.txInfoRedeemers } }
+
+/-- `h` with a new input `r` at `unrelatedKey` holding `a` lovelace, appended, and an output of the
+    same value to `unrelatedKey`. -/
+def addUnrelatedOutput (h : ScriptContext) (r : TxOutRef) (a : Int) : ScriptContext :=
+  let info := h.scriptContextTxInfo
+  { h with scriptContextTxInfo := { info with
+      txInfoInputs := List.append info.txInfoInputs [⟨r, ⟨keyAddr unrelatedKey, [(.B "", .Map [(.B "", .I a)])], .NoOutputDatum, none⟩⟩]
+      txInfoOutputs := List.append info.txInfoOutputs [⟨keyAddr unrelatedKey, [(.B "", .Map [(.B "", .I a)])], .NoOutputDatum, none⟩] } }
+
+/-- The same as `addUnrelatedOutput`, with the new input first, so that the script's own input is no
+    longer the first input. -/
+def addUnrelatedInputFirst (h : ScriptContext) (r : TxOutRef) (a : Int) : ScriptContext :=
+  let info := h.scriptContextTxInfo
+  { h with scriptContextTxInfo := { info with
+      txInfoInputs := ⟨r, ⟨keyAddr unrelatedKey, [(.B "", .Map [(.B "", .I a)])], .NoOutputDatum, none⟩⟩ :: info.txInfoInputs
+      txInfoOutputs := List.append info.txInfoOutputs [⟨keyAddr unrelatedKey, [(.B "", .Map [(.B "", .I a)])], .NoOutputDatum, none⟩] } }
+
+/-- `h` with one junk token minted, sent with `a` lovelace from a new input `r` to `unrelatedKey`. -/
+def addUnrelatedMint (h : ScriptContext) (r : TxOutRef) (a : Int) : ScriptContext :=
+  let info := h.scriptContextTxInfo
+  { h with scriptContextTxInfo := { info with
+      txInfoInputs := List.append info.txInfoInputs [⟨r, ⟨keyAddr unrelatedKey, [(.B "", .Map [(.B "", .I a)])], .NoOutputDatum, none⟩⟩]
+      txInfoOutputs := List.append info.txInfoOutputs
+        [⟨keyAddr unrelatedKey, [(.B "", .Map [(.B "", .I a)]), (.B junkPolicy, .Map [(.B junkPolicy, .I 1)])], .NoOutputDatum, none⟩]
+      txInfoMint := List.append info.txInfoMint [(.B junkPolicy, .Map [(.B junkPolicy, .I 1)])] } }
+
+end Formal.Universal.Properties

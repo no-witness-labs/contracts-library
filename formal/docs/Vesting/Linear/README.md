@@ -15,6 +15,10 @@ toolchain, build, and general `blaster` notes, see the
 - `Completeness.lean` — `spec ⇒ accepts` (§8).
 - `Soundness.lean` — `accepts ⇒ spec` (§9), plus the shared context builders.
 - `Robustness.lean` — rejection theorems (§9 R-clauses, §5.1).
+- `Blueprint/` — the universal checks, generated and run one group at a time by `just vesting <check>`, where `<check>` is the name of a check such as `doubleSatisfaction` (see [`PROPERTIES.md`](../../Universal/PROPERTIES.md)).
+  `Tx.lean` there holds the honest transactions for `Claim` and `Cancel`, and is never regenerated.
+  `lake build` does not check this folder.
+  See [`PROPERTIES.md`](../../Universal/PROPERTIES.md).
 
 ## Standard instance
 

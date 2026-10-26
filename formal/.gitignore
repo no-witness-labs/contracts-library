@@ -1,7 +1,12 @@
 /.lake/
 /lake-packages/
 /build/
-# Flat-encoded UPLC, generated from onchain/artifacts by `just flats`.
+# Compiled validator code, copied from ../onchain/plutus.json by `just cbor <validator>`.
 /Scripts/
+# The default folder of `scripts/process_blueprint.py` when no --out is given.
+/Formal/Blueprint/
 
 .direnv
+
+# Logs of the universal checks.
+/logs/
