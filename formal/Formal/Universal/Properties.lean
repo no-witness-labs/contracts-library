@@ -1,6 +1,7 @@
 import PlutusCore.UPLC
+import CardanoLedgerApi
 
-/-! Execution helpers shared by generated blueprint types.
+/-! Execution and script-context helpers used by generated blueprint checks.
 Extracted from fork PR #44 at 99a5734f0e036b6abfb4c3f121a298e35fa2eff6.
 -/
 
@@ -8,6 +9,8 @@ namespace Formal.Universal.Properties
 
 open PlutusCore.UPLC.Term (Program Term Const)
 open PlutusCore.UPLC.CekMachine (State step initialState applyParams)
+open PlutusCore.Data (Data)
+open CardanoLedgerApi.V3
 
 /-- CEK step bound used by generated checks; not a ledger CPU or memory budget. -/
 abbrev ledgerFuel : Nat := 1000000
@@ -27,5 +30,57 @@ def rejectedWithin (p : Program) (args : List Term) (fuel : Nat) : Prop :=
       | some .Error => True
       | some (.Halt v) => v ≠ .VCon Const.Unit
       | _ => False
+
+/-! Context builders leave the full transaction and purpose fields open. -/
+
+def mkCtx (txInfo : TxInfo) (red : Redeemer) (scInfo : ScriptInfo) : ScriptContext :=
+  { scriptContextTxInfo := txInfo
+    scriptContextRedeemer := red
+    scriptContextScriptInfo := scInfo }
+
+structure EverySpend where
+  txInfo : TxInfo
+  ref : TxOutRef
+  datum : Option Datum
+
+def EverySpend.ctx (t : EverySpend) (r : Data) : ScriptContext :=
+  mkCtx t.txInfo r (.SpendingScript t.ref t.datum)
+
+structure EveryMint where
+  txInfo : TxInfo
+  policy : CurrencySymbol
+
+def EveryMint.ctx (t : EveryMint) (r : Data) : ScriptContext :=
+  mkCtx t.txInfo r (.MintingScript t.policy)
+
+structure EveryWithdraw where
+  txInfo : TxInfo
+  cred : Credential
+
+def EveryWithdraw.ctx (t : EveryWithdraw) (r : Data) : ScriptContext :=
+  mkCtx t.txInfo r (.RewardingScript t.cred)
+
+structure EveryPublish where
+  txInfo : TxInfo
+  idx : Int
+  cert : TxCert
+
+def EveryPublish.ctx (t : EveryPublish) (r : Data) : ScriptContext :=
+  mkCtx t.txInfo r (.CertifyingScript t.idx t.cert)
+
+structure EveryVote where
+  txInfo : TxInfo
+  voter : Voter
+
+def EveryVote.ctx (t : EveryVote) (r : Data) : ScriptContext :=
+  mkCtx t.txInfo r (.VotingScript t.voter)
+
+structure EveryPropose where
+  txInfo : TxInfo
+  idx : Int
+  proposal : ProposalProcedure
+
+def EveryPropose.ctx (t : EveryPropose) (r : Data) : ScriptContext :=
+  mkCtx t.txInfo r (.ProposingScript t.idx t.proposal)
 
 end Formal.Universal.Properties
