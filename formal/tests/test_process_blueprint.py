@@ -170,5 +170,28 @@ class BlueprintFoundationTests(unittest.TestCase):
         self.assertIn("Schema form", result.stdout)
 
 
+    def check_source(self):
+        _, info = BLUEPRINT.generate(self.blueprint, "example", "Formal.Fixture.Blueprint", "Scripts")
+        return "\n".join(BLUEPRINT.malformed_redeemer_checks(info)) + "\n"
+
+    def test_unknown_tags_exclude_declared_tags(self):
+        constructors = self.blueprint["definitions"]["fixture/types/Redeemer"]["anyOf"]
+        constructors[1]["index"] = 2
+        source = self.check_source()
+        self.assertIn("malformedRedeemer_spend_unknownIndex1", source)
+        self.assertIn("malformedRedeemer_spend_unknownIndex3", source)
+        self.assertNotIn("malformedRedeemer_spend_unknownIndex2", source)
+        for tags in ((0,), (0, 1), (0, 2), (1, 3), (8, 13)):
+            with self.subTest(tags=tags):
+                ctors = [(f"R.C{i}", i, []) for i in tags]
+                cases = BLUEPRINT.malformed(BLUEPRINT.Translator({}), "constructors", ctors, 0)
+                indices = [int(name.removeprefix("unknownIndex"))
+                           for name, _, _, _ in cases if name.startswith("unknownIndex")]
+                self.assertEqual(len(set(indices)), 2)
+                self.assertFalse(set(indices).intersection(tags))
+                if list(tags) == list(range(len(tags))):
+                    self.assertEqual(indices, [len(tags), len(tags) + 1])
+
+
 if __name__ == "__main__":
     unittest.main()

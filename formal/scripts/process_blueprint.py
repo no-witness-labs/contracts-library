@@ -644,8 +644,9 @@ def malformed(tr, kind, ctors, first_var, fixed=False):
         text, v, ty, term = FORMS[form]
         out.append((f"wrongForm_{form}", f"{text} instead of the declared type", [f"({v} : {ty})"], f"({term})"))
     if kind == "constructors" and ctors:
-        k = len(ctors)
-        for idx in (k, k + 1):
+        declared = {index for _, index, _ in ctors}
+        unknown = [i for i in range(len(declared) + 2) if i not in declared][:2]
+        for idx in unknown:
             if fixed:
                 w = Terms(tr)
                 w.n = first_var
