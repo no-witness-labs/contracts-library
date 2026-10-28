@@ -1,8 +1,9 @@
 # Workflow design
 
-This document records the agreed design and open questions for issue #39 and
-draft PR #52. The component implementations have not moved into this directory.
-The [current usage guide](../docs/WORKFLOW.md) describes the existing prototype.
+This document records the design for issue #39 and draft PR #52. Input now has a
+Lean implementation and isolated tests. Generator, Executor, and Reporter still
+belong to the existing prototypes and need integration. The
+[current usage guide](../docs/WORKFLOW.md) describes the Python workflow.
 
 ## Agreed decisions
 
@@ -63,10 +64,12 @@ Keep the kind of target separate from the format used to supply it. A validator
 is the initial target kind. A blueprint or a separate script file is an input
 representation. See the [workflow glossary](CONTEXT.md).
 
-The proposed shared description identifies the target, its compiled artifact,
-and available interface metadata. Its exact fields and supported metadata still
-need review. Generator should consume this description rather than blueprint
-JSON fields.
+The shared `TargetDescription` in `Types.lean` contains the target identity,
+encoded compiled code, handler and parameter descriptions, and optional
+definitions and compiler metadata. Schema descriptions use the preserved schema
+JSON vocabulary of the first adapter. Source text and path remain separate in
+`InputResult`. Generator integration should consume this description rather
+than read the original blueprint document.
 
 Function targets remain a future extension. Their representation, arguments,
 result contract, and applicable checks need a separate decision. Starting with
@@ -99,15 +102,15 @@ metadata validation, source correspondence, and proof results distinct.
 
 | Question | Current proposal |
 | --- | --- |
-| Supported validator features | Specify blueprint compatibility and required metadata before implementation |
-| Shared target description | Agree the metadata representation and error contract |
+| Generator integration | Adapt the selected check to the shared target description while preserving its statements and explicit limits |
+| Remaining components | Define and implement scoped Executor and Reporter integrations |
 | Function support | Extend the target contract after agreeing a concrete function use case and its checks |
 
-The implementation does not yet provide these proposed input guarantees.
+The [Input component](Input/README.md) documents the implemented input profile,
+error contract, fixture harness, and remaining limits.
 
 ## Next work
 
-Review the Input contract and isolated fixtures first, then the remaining
-component contracts. Map existing prototype behavior to the agreed boundaries
-before extracting or translating code. Implementation requires separate
-confirmation after reviewing the concrete change and its checks.
+Review the Input implementation checkpoint, then connect Generator through the
+shared target description using UP-001 as the first example. Further component
+implementation requires a scoped proposal and confirmation.

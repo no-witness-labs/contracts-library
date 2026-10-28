@@ -1,122 +1,91 @@
-# Input contract
+# Input component
 
-Design status: the owner confirmed the initial target, input format, and Plutus
-version. The detailed interface, supported features, and implementation still
-need review.
+Input's Lean implementation selects one validator, validates its embedded
+compiled code, and preserves the metadata Generator needs. The
+[workflow decisions](../README.md) define its scope.
 
-## Agreed scope
+## Use and test
 
-The initial target is a Plutus V3 validator supplied through a blueprint
-containing its compiled code. Standalone CBOR plus metadata, other Plutus
-versions, and function targets remain later extensions. The
-[workflow decisions](../README.md) own these scope choices.
+With the repository's pinned Lean dependencies prepared, run from `formal/`:
 
-Input reads the artifact and returns a target description. Blueprint-format
-knowledge belongs here; downstream components use the common description.
-Input does not generate checks, apply property-specific assumptions, or run
-proofs.
+```sh
+lake build Workflow workflow_input_tests
+lake exe workflow_input_tests
+```
 
-The same Input component reads validators within the supported blueprint profile,
-independently of property selection. Validator-specific content changes its
-returned description. Choosing a different property for the same artifact and
-validator does not change that description.
+Import `Workflow.Input` to use:
 
-## Selection
+- `Workflow.Input.parse source selector`: read blueprint text and return an
+  `Except Error InputResult`.
+- `Workflow.Input.read path selector`: read a file and return the same result
+  in `IO`, preserving the input file.
 
-Each Input request selects exactly one validator and returns one target
-description. The caller can repeat requests to process several validators.
+`InputResult.target` is Generator's handoff. It contains the canonical name,
+explicit Plutus version, original encoded code, handler descriptions, ordered
+parameter descriptions, and optional schema definitions and compiler metadata.
+`sourceText` and `sourcePath` retain provenance separately. Input decodes the
+program internally for validation; it does not expose a decoded program field.
 
-The selection must identify a unique validator. A missing or ambiguous match
-produces an explicit error rather than silently selecting the first entry.
+## Supported blueprint profile
 
-## Parameters
+The first adapter supports the current Aiken-style Plutus V3 blueprint layout:
 
-Input reads validators with or without declared parameters. It preserves the
-parameter descriptions and their order without applying values or rewriting the
-compiled artifact.
+- The document contains a `preamble` object with explicit `plutusVersion: "v3"`
+  and a `validators` array.
+- Each entry has a `module.validator.handler` title. Module paths can contain
+  `/`. Select the full `module.validator` name or an unambiguous short name.
+- Entries for one validator share the exact encoded `compiledCode` and parameter
+  descriptions. Duplicate handlers and inconsistent entries produce errors.
+- Supported purposes are `spend`, `mint`, `withdraw`, `publish`, `vote`, and
+  `propose`. Input retains the `else` fallback separately from declared purposes.
+- A declared handler requires a redeemer description. Datum descriptions are
+  optional. Each supplied argument description contains a schema object.
+- Optional parameters remain absent or retain their declared order. Input does
+  not apply values. An explicit empty array remains distinct from absence.
+- Optional definitions and compiler metadata are objects when present.
+  Optional titles, descriptions, and declared hashes are strings when present.
 
-Generator determines how each selected check uses those parameters. A generator
-that cannot support the requested parameter handling must report that limitation
-explicitly. Successful input reading does not establish generator support.
+This profile does not cover every CIP-57 blueprint layout. Unsupported title
+profiles and selected handler purposes produce explicit errors. Input preserves
+schema JSON and definitions without translating types or validating the full
+schema vocabulary; Generator owns translation and reports unsupported schemas.
 
-## Missing metadata
+## Compiled-code validation
 
-Missing required metadata produces a clear input error. The first input profile
-requires an explicit Plutus V3 declaration; Input must not assume V3 when the
-version is absent.
-
-Missing optional metadata stays absent. Input must not fill it with guessed
-types, purposes, or other values. Keep absent metadata distinguishable from an
-explicit empty value. The complete required-field list remains part of the
-blueprint profile review.
-
-## Compiled-code decoding
-
-Input uses the existing Lean decoder to check that the embedded compiled code
-decodes into a Plutus program. The helper decodes hexadecimal and Concise Binary
-Object Representation (CBOR) before decoding the serialized program. Any
-decoding failure produces a clear input error. Input checks structure without
-executing the validator or invoking a solver.
-
-An Input request succeeds only after the embedded code decodes successfully.
-The decoding path uses ordinary Lean code and requires no AI agent or model
-call.
-
-The pinned PlutusCoreBlaster dependency provides the error-returning
+Input uses the pinned PlutusCoreBlaster dependency's error-returning
 [`singleCborEncodedScriptFromHex?` helper](https://github.com/input-output-hk/PlutusCoreBlaster/blob/4ef48606303c45225d3ed2e2a87fc50280a763b7/PlutusCore/UPLC/ScriptEncoding/Basic.lean#L67).
-Reuse that decoding path and preserve the supplied artifact. Supporting a
-standalone CBOR file remains a separate, deferred input extension.
+The helper decodes hexadecimal, Concise Binary Object Representation (CBOR), and
+the serialized Plutus program. Input also uses the existing CBOR decoder to
+reject bytes trailing after the encoded script.
 
-Source inspection established the reuse path. The new component integration
-still needs compilation and fixture checks. Confirm the accepted encoding
-profile, decoder behavior, and error mapping before implementation.
+Success requires successful decoding. Input neither executes the validator nor
+runs a solver. It preserves supplied code and declared hashes without applying
+parameters or checking correspondence to source code or metadata claims.
 
-## Proposed interface
+## Errors and metadata
 
-| Part | Proposal |
-| --- | --- |
-| Request | Existing blueprint and a selection identifying exactly one validator |
-| Success | Selected validator's identity, compiled artifact, available interface metadata, and source snapshot identity |
-| Error | Explicit missing, malformed, ambiguous, inconsistent, or unsupported input |
-| Source ownership | Preserve the supplied blueprint unchanged |
+Errors contain a category, field path, and explanation. Categories distinguish
+malformed JSON, missing fields, malformed fields, unsupported input, selection
+errors, inconsistent handlers, decoding errors, and file errors.
 
-The target description must distinguish supplied metadata from missing
-information. It must not infer a declared purpose or argument type merely from
-the presence of compiled bytes. The exact representation still needs review.
+Missing required fields produce an error. Optional fields remain absent without
+guessed values; an explicit null is not an omitted field. Schema content stays
+declarative. A successful read does not establish that a selected Generator can
+support every schema or parameter configuration.
 
-## Isolated test environment
+## Test boundary
 
-Use small blueprint fixtures with varied validator names and schemas. Tests
-exercise Input without a property generator, Aiken build, or proof tool.
+The native Lean fixture harness checks selection, multiple validators and
+purposes, module paths, parameter order, absent versus empty metadata, source
+preservation, file errors, and malformed inputs. It includes invalid hex,
+truncated CBOR, rejected programs, and trailing bytes. These tests use no Aiken
+build, property generator, or solver.
 
-Proposed acceptance examples:
+The fixture's compiled program is a small decoding example from the dependency's
+script-encoding tests. It is not evidence of a validator's behavior. Read-only
+smoke checks also succeeded on the repository blueprint's linear-vesting,
+settings, and DAO-proposal entries, including their parameter descriptions.
 
-- A valid selection returns the corresponding compiled artifact and metadata.
-- A blueprint with several validators still returns only the selected target.
-- Adding an unrelated validator does not change an existing selection.
-- Missing or ambiguous selections produce a clear error.
-- A blueprint without compiled code cannot satisfy the initial input contract.
-- Valid embedded code decodes through the reused Lean helper.
-- Invalid hex, malformed CBOR, and decoder-rejected programs produce clear input
-  errors.
-- Malformed content or inconsistent code across a selected validator's handlers
-  produces a clear error.
-- Unsupported formats or features produce an explicit result.
-- A blueprint declaring another Plutus version produces an unsupported result.
-- A blueprint without an explicit Plutus version produces a clear input error.
-- Missing optional metadata remains absent without invented values.
-- Parameterized fixtures retain their parameter descriptions in the declared
-  order, without applying values.
-- Choosing another property for the same input leaves its target description
-  unchanged.
-- Reading an artifact preserves its source bytes.
-
-## Still to decide
-
-- The supported blueprint feature profile and complete required-field list.
-- The representation of parameter descriptions and missing parameter metadata.
-- The accepted compiled-code encoding profile and decoder error mapping.
-- The common metadata representation and error types.
-
-These examples and interface details remain proposals. No component
-implementation or test suite accompanies this document yet.
+Standalone CBOR files, function targets, other Plutus versions, and additional
+blueprint profiles remain later extensions. Generator, Executor, and Reporter
+integration follows this Input checkpoint.

@@ -28,3 +28,11 @@ rev = "main"
 
 [[lean_lib]]
 name = "Formal"
+
+# Independent workflow components, built separately from validator proofs.
+[[lean_lib]]
+name = "Workflow"
+
+[[lean_exe]]
+name = "workflow_input_tests"
+root = "Workflow.Input.Tests"
