@@ -2,7 +2,7 @@
 -- transaction with a fixed structure whose leaves are the fields of a structure. Written once by
 -- process_blueprint.py as a stub; it is never replaced, so edit it freely.
 import CardanoLedgerApi
-import Formal.Universal.TxBuilder
+import Formal.Universal.Properties
 import Formal.Vesting.Linear.Blueprint.Types
 
 namespace Formal.Vesting.Linear.Blueprint
