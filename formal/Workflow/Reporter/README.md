@@ -41,7 +41,7 @@ diagnostics and generated sources remain in Executor's evidence directory.
 With the pinned dependencies and tools prepared, run from `formal/`:
 
 ```sh
-lake exe universal /path/to/plutus.json module.validator --check UP-001 --timeout-ms 10000
+lake exe universal /path/to/plutus.json module.validator --check UP-001 --timeout-ms 120000
 ```
 
 The thin `Workflow.Main` entry point connects Input, Generator, Executor, and
@@ -79,4 +79,6 @@ and both saved formats. It needs no Input, Generator, Executor runtime, or solve
 Real Lean/Blaster arithmetic controls verify passing and failing reports. The
 four-component vesting command also ran with a 5,000 ms execution budget. All
 five jobs remained INCONCLUSIVE, and the process returned exit code 2. That
-supplies no passing result for vesting.
+short run supplies no passing result for vesting. The later unchanged
+[120-second run](../VALIDATION.md) completed all five checks in 82.1 seconds and
+returned zero with matching results, within the same check scope and trust limits.

@@ -6,7 +6,7 @@ connects them for the first unparameterized UP-001 example:
 
 ```sh
 cd formal
-lake exe universal /path/to/plutus.json module.validator --check UP-001 --timeout-ms 10000
+lake exe universal /path/to/plutus.json module.validator --check UP-001 --timeout-ms 120000
 ```
 
 Use a prepared checkout with the pinned dependencies and tools. The
@@ -123,12 +123,14 @@ error contract, fixture harness, and remaining limits. The
 [Generator component](Generator/README.md) documents plan generation, the first
 provider, and the distinction between type-checking and proof execution. The
 [Executor component](Executor/README.md) documents process budgets, raw
-observations, retained evidence, and the inconclusive vesting execution. The
+observations, and retained evidence. The
 [Reporter component](Reporter/README.md) documents the simple report, exit codes,
 and full prototype command.
 
 ## Next work
 
-Review the four-component prototype and its evidence before selecting the next
-extension. The real vesting run remains inconclusive; reporting does not change
-that outcome. Further implementation requires a scoped proposal and confirmation.
+Review the [validation baseline](VALIDATION.md) before selecting the next
+extension. The unchanged vesting workflow completed all five UP-001 checks in
+82.1 seconds under a 120-second budget. The result retains the stated model,
+CEK bound, and Blaster trust boundary. Further implementation requires a scoped
+proposal and confirmation.

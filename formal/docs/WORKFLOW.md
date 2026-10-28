@@ -5,7 +5,7 @@
 From `formal/`, with the pinned dependencies and tools prepared:
 
 ```sh
-lake exe universal /path/to/plutus.json module.validator --check UP-001 --timeout-ms 10000
+lake exe universal /path/to/plutus.json module.validator --check UP-001 --timeout-ms 120000
 ```
 
 The four-component prototype writes a plain-text summary and JSON report and

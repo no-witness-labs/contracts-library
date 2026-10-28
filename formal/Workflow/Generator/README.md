@@ -82,4 +82,7 @@ Both fixture and vesting type-checking runs passed. These results establish
 generation and type-checking, not proof validity. The actual generated `Checks`
 module retains `by blaster` and inherits the candidate's proof trust boundary.
 The shared command now connects [Executor](../Executor/README.md) and
-[Reporter](../Reporter/README.md); its bounded vesting run remains inconclusive.
+[Reporter](../Reporter/README.md). The later unchanged
+[validation run](../VALIDATION.md) completed all five checks under a 120-second
+execution budget. Generation/type-checking and solver results remain separate
+forms of evidence.
