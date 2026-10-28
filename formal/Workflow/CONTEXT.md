@@ -31,3 +31,11 @@ This term identifies an encoding concern, rather than an additional target kind.
 **Check job**:
 A generated obligation with its declared expectation and scope, together with
 the information needed to execute it and interpret the observations.
+
+**Check provider**:
+An ordinary Lean function supplying property-specific generation through the
+common Generator contract.
+
+**Generation plan**:
+The generated modules, check jobs, and scope notes for a selected target. A plan
+without obligations records that state explicitly and carries no passing verdict.

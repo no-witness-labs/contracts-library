@@ -1,8 +1,8 @@
 # Workflow design
 
-This document records the design for issue #39 and draft PR #52. Input now has a
-Lean implementation and isolated tests. Generator, Executor, and Reporter still
-belong to the existing prototypes and need integration. The
+This document records the design for issue #39 and draft PR #52. Input and
+Generator now have Lean implementations and isolated tests, with a bounded
+UP-001 integration example. Executor and Reporter still need integration. The
 [current usage guide](../docs/WORKFLOW.md) describes the Python workflow.
 
 ## Agreed decisions
@@ -69,7 +69,9 @@ encoded compiled code, handler and parameter descriptions, and optional
 definitions and compiler metadata. Schema descriptions use the preserved schema
 JSON vocabulary of the first adapter. Source text and path remain separate in
 `InputResult`. Generator integration should consume this description rather
-than read the original blueprint document.
+than read the original blueprint document. The first UP-001 provider now uses
+that handoff. `Jobs.lean` defines generated modules, check jobs, expected solver
+results, and the generation-plan status for downstream components.
 
 Function targets remain a future extension. Their representation, arguments,
 result contract, and applicable checks need a separate decision. Starting with
@@ -102,15 +104,16 @@ metadata validation, source correspondence, and proof results distinct.
 
 | Question | Current proposal |
 | --- | --- |
-| Generator integration | Adapt the selected check to the shared target description while preserving its statements and explicit limits |
+| Generator extensions | Port typed parameter handling and additional checks while preserving each candidate's statements and explicit limits |
 | Remaining components | Define and implement scoped Executor and Reporter integrations |
 | Function support | Extend the target contract after agreeing a concrete function use case and its checks |
 
 The [Input component](Input/README.md) documents the implemented input profile,
-error contract, fixture harness, and remaining limits.
+error contract, fixture harness, and remaining limits. The
+[Generator component](Generator/README.md) documents plan generation, the first
+provider, and the distinction between type-checking and proof execution.
 
 ## Next work
 
-Review the Input implementation checkpoint, then connect Generator through the
-shared target description using UP-001 as the first example. Further component
-implementation requires a scoped proposal and confirmation.
+Review the Generator checkpoint, then connect Executor to its modules and jobs.
+Further component implementation requires a scoped proposal and confirmation.

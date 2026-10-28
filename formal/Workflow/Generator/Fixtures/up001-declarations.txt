@@ -1,0 +1,19 @@
+theorem otherPurpose_mint :
+    ∀ (r : Data) (t : EveryMint),
+      ¬ accepts ledgerFuel (EveryMint.ctx t r) := by blaster
+
+theorem otherPurpose_withdraw :
+    ∀ (r : Data) (t : EveryWithdraw),
+      ¬ accepts ledgerFuel (EveryWithdraw.ctx t r) := by blaster
+
+theorem otherPurpose_publish :
+    ∀ (r : Data) (t : EveryPublish),
+      ¬ accepts ledgerFuel (EveryPublish.ctx t r) := by blaster
+
+theorem otherPurpose_vote :
+    ∀ (r : Data) (t : EveryVote),
+      ¬ accepts ledgerFuel (EveryVote.ctx t r) := by blaster
+
+theorem otherPurpose_propose :
+    ∀ (r : Data) (t : EveryPropose),
+      ¬ accepts ledgerFuel (EveryPropose.ctx t r) := by blaster

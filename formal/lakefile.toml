@@ -36,3 +36,11 @@ name = "Workflow"
 [[lean_exe]]
 name = "workflow_input_tests"
 root = "Workflow.Input.Tests"
+
+[[lean_exe]]
+name = "workflow_generator_tests"
+root = "Workflow.Generator.Tests"
+
+[[lean_exe]]
+name = "workflow_generator_integration"
+root = "Workflow.Generator.Integration"

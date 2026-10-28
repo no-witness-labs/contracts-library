@@ -1,0 +1,81 @@
+import Workflow.Generator
+
+open Lean Workflow
+
+namespace Workflow.Generator.Tests
+
+private def check (label : String) (condition : Bool) : IO Unit := do
+  unless condition do throw (IO.userError s!"FAIL: {label}")
+
+private def target (purposes : Array Purpose := #[.spend]) : TargetDescription :=
+  { name := "fixture.target", plutusVersion := "v3", compiledCode := "480100002221200101"
+    handlers := purposes.map fun p =>
+      { name := s!"fixture.target.{p.name}", purpose := some p,
+        datum := none, redeemer := none, declaredHash := none }
+    parameters := none, definitions := none, compiler := none }
+
+private def accepted (input : TargetDescription) (modulePrefix := "Generated.Positive") :
+    IO GenerationPlan := do
+  match generate OtherPurpose.provider input modulePrefix with
+  | .ok plan => return plan
+  | .error error => throw (IO.userError s!"unexpected generator error: {error}")
+
+def run : IO Unit := do
+  let plan ← accepted target
+  check "target identity retained" (plan.targetName == target.name)
+  check "generation ready" (plan.status == .ready)
+  check "support and check modules" (plan.modules.size == 2)
+  check "five undeclared purposes" (plan.jobs.size == 5)
+  check "declared spend excluded" (plan.jobs.all (·.name != "otherPurpose_spend"))
+  check "expectation belongs to jobs" (plan.jobs.all (·.expected == .valid))
+  check "scope records fuel semantics" (plan.jobs.all (·.scope == plan.notes[0]!))
+  let golden ← IO.FS.readFile "Workflow/Generator/Fixtures/up001-declarations.txt"
+  let declarations := String.intercalate "\n" (plan.jobs.toList.map fun job =>
+    s!"theorem {job.name} :\n{job.statement} := by blaster\n")
+  check "candidate declarations preserved verbatim" (declarations.trim == golden.trim)
+  let some types := plan.modules[0]? | throw (IO.userError "missing types module")
+  let some checks := plan.modules[1]? | throw (IO.userError "missing checks module")
+  check "encoded artifact embedded" ((types.source.splitOn target.compiledCode).length == 2)
+  check "jobs and rendered checks agree" (plan.jobs.all fun job =>
+    (checks.source.splitOn s!"theorem {job.name} :\n{job.statement} := by blaster").length == 2)
+  check "no statement fixture proof bypass" ((checks.source.splitOn "sorry").length == 1)
+
+  let noneDeclared ← accepted (target #[])
+  check "all six purposes can be checked" (noneDeclared.jobs.size == 6)
+  let allDeclared ← accepted (target #[.spend, .mint, .withdraw, .publish, .vote, .propose])
+  check "empty is explicit, not success" (allDeclared.status == .noObligations &&
+    allDeclared.jobs.isEmpty && allDeclared.modules.isEmpty && !allDeclared.notes.isEmpty)
+  let emptyParams ← accepted { target with parameters := some #[] }
+  check "explicit empty parameter list is supported" (emptyParams.jobs.size == 5)
+  let parameter : ArgumentDescription :=
+    { schema := Json.mkObj [("dataType", .str "integer")], title := none, description := none }
+  match generate OtherPurpose.provider { target with parameters := some #[parameter] } "Generated.Params" with
+  | .error error => check "parameters are explicitly unsupported" (error.kind == .unsupported)
+  | .ok _ => throw (IO.userError "parameterized target silently changed scope")
+  match generate OtherPurpose.provider { target with plutusVersion := "v2" } "Generated.Version" with
+  | .error error => check "unsupported version is explicit" (error.kind == .unsupported)
+  | .ok _ => throw (IO.userError "unsupported version accepted")
+  for invalid in ["", ".Broken", "lower.Case", "Generated.Type", "Generated.X;#eval"] do
+    match generate OtherPurpose.provider target invalid with
+    | .error error => check "unsafe module prefix rejected" (error.kind == .invalidNamespace)
+    | .ok _ => throw (IO.userError s!"unsafe module prefix accepted: {invalid}")
+
+  let sampleProvider : Provider := {
+    id := "fixture-witness"
+    generate := fun input modulePrefix => .ok {
+      targetName := input.name
+      modules := #[⟨s!"{modulePrefix}.Checks", "-- fixture source\n"⟩]
+      jobs := #[{ propertyId := "fixture-witness", name := "witness",
+                  moduleName := s!"{modulePrefix}.Checks", statement := "False",
+                  expected := .falsified, scope := "fixture only" }] } }
+  match generate sampleProvider target "Generated.Other" with
+  | .ok result =>
+    let some job := result.jobs[0]? | throw (IO.userError "missing sample job")
+    check "engine accepts another provider and expectation"
+      (result.status == .ready && job.propertyId == "fixture-witness" && job.expected == .falsified)
+  | .error error => throw (IO.userError (toString error))
+  IO.println "Generator fixture checks passed."
+
+end Workflow.Generator.Tests
+
+def main : IO Unit := Workflow.Generator.Tests.run
