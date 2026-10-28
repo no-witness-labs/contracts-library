@@ -39,3 +39,11 @@ common Generator contract.
 **Generation plan**:
 The generated modules, check jobs, and scope notes for a selected target. A plan
 without obligations records that state explicitly and carries no passing verdict.
+
+**Job observation**:
+The solver result and diagnostics attributed to one generated job. An observed
+result and its declared expectation remain separate until reporting.
+
+**Execution evidence**:
+The retained sources, compiler logs, process metadata, and job observations for
+one execution attempt.

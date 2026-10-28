@@ -44,3 +44,11 @@ root = "Workflow.Generator.Tests"
 [[lean_exe]]
 name = "workflow_generator_integration"
 root = "Workflow.Generator.Integration"
+
+[[lean_exe]]
+name = "workflow_executor_tests"
+root = "Workflow.Executor.Tests"
+
+[[lean_exe]]
+name = "workflow_executor_integration"
+root = "Workflow.Executor.Integration"

@@ -1,5 +1,20 @@
 namespace Workflow
 
+private def asciiLetter (c : Char) : Bool :=
+  ('A' ≤ c && c ≤ 'Z') || ('a' ≤ c && c ≤ 'z')
+
+private def moduleSegment (segment : String) : Bool :=
+  match segment.data with
+  | [] => false
+  | first :: rest =>
+    'A' ≤ first && first ≤ 'Z' &&
+      rest.all (fun c => asciiLetter c || c.isDigit || c == '_') &&
+      !["Type", "Prop", "Sort"].contains segment
+
+/-- Module names accepted by generation and isolated artifact writing. -/
+def validModuleName (name : String) : Bool :=
+  (name.splitOn ".").all moduleSegment
+
 inductive ExpectedResult where
   | valid | falsified
   deriving BEq, Repr

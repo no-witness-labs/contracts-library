@@ -1,8 +1,8 @@
 # Workflow design
 
-This document records the design for issue #39 and draft PR #52. Input and
-Generator now have Lean implementations and isolated tests, with a bounded
-UP-001 integration example. Executor and Reporter still need integration. The
+This document records the design for issue #39 and draft PR #52. Input,
+Generator, and Executor now have Lean implementations and isolated tests, with
+a bounded UP-001 execution example. Reporter still needs integration. The
 [current usage guide](../docs/WORKFLOW.md) describes the Python workflow.
 
 ## Agreed decisions
@@ -105,15 +105,18 @@ metadata validation, source correspondence, and proof results distinct.
 | Question | Current proposal |
 | --- | --- |
 | Generator extensions | Port typed parameter handling and additional checks while preserving each candidate's statements and explicit limits |
-| Remaining components | Define and implement scoped Executor and Reporter integrations |
+| Reporter integration | Compare declared expectations with observed results, preserving incomplete-run and review-exception rules |
 | Function support | Extend the target contract after agreeing a concrete function use case and its checks |
 
 The [Input component](Input/README.md) documents the implemented input profile,
 error contract, fixture harness, and remaining limits. The
 [Generator component](Generator/README.md) documents plan generation, the first
-provider, and the distinction between type-checking and proof execution.
+provider, and the distinction between type-checking and proof execution. The
+[Executor component](Executor/README.md) documents process budgets, raw
+observations, retained evidence, and the inconclusive vesting execution.
 
 ## Next work
 
-Review the Generator checkpoint, then connect Executor to its modules and jobs.
-Further component implementation requires a scoped proposal and confirmation.
+Review the Executor checkpoint, then connect Reporter to its observations and
+the jobs' declared expectations. Further component implementation requires a
+scoped proposal and confirmation.
