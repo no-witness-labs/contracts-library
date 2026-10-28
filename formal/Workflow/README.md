@@ -15,6 +15,7 @@ The [current usage guide](../docs/WORKFLOW.md) describes the existing prototype.
 | Initial target | Start with validators; defer function targets to a later contract extension | Establish a useful first scope without settling every future target kind |
 | Initial input | Accept a blueprint containing the selected validator's compiled code; defer standalone CBOR plus metadata | Obtain the compiled artifact and its interface description from one input |
 | Plutus version | Support Plutus V3 first; defer other versions | Match the existing runner and execution context |
+| Parameters | Input preserves parameter descriptions and their order without applying values; Generator determines how a selected check uses them | Separate reading a validator description from constructing a check |
 | Language | Prefer Lean throughout; use experiments to justify any temporary Python implementation | Reuse working code while establishing the cost of integration |
 | Integration example | Use UP-001 for the first bounded integration example | Exercise the interfaces with an existing check |
 | Delivery | Keep issue #39, branch `feat/39-developer-workflow`, and draft PR #52 as the workflow task | Consolidate the relevant work from PR #47 in one delivery |
@@ -33,6 +34,24 @@ Input reads supported artifacts and produces a target description. Generator
 produces check jobs from that description and selected property definitions.
 Executor runs the jobs and retains observations. Reporter combines observations,
 declared expectations, and reviewed exceptions into a report and exit code.
+
+## What stays shared
+
+| Component | Shared behavior | What varies between requests |
+| --- | --- | --- |
+| Input | Read the supported blueprint profile independently of property selection | The selected validator's compiled artifact and interface metadata |
+| Generator | Construct jobs through the common generation contract | Property definitions, model configuration, and the validator information they use |
+| Executor | Invoke the supported proof tools and retain observations | Generated jobs, execution limits, and observed outcomes |
+| Reporter | Interpret observations using declared expectations and reviewed exceptions | Check-specific expectations, results, and applicable review configuration |
+
+For the same artifact and selected validator, Input returns the same description
+whether the caller later requests UP-001 or another property. Generator produces
+different jobs from that description. Executor and Reporter use the common job
+and observation contracts, without hardcoded property IDs.
+
+Additional input formats or proof backends may require their own adapters.
+Those differences belong to format and tool support, rather than to the choice
+of property.
 
 ## Targets and input formats
 
@@ -77,7 +96,7 @@ metadata validation, source correspondence, and proof results distinct.
 | Question | Current proposal |
 | --- | --- |
 | Selection | Return one selected validator per Input request; allow orchestration to repeat requests later |
-| Supported validator features | Specify parameter handling, blueprint compatibility, and required metadata before implementation |
+| Supported validator features | Specify blueprint compatibility and required metadata before implementation |
 | Shared target description | Agree the metadata representation, missing-information behavior, and error contract |
 | Function support | Extend the target contract after agreeing a concrete function use case and its checks |
 

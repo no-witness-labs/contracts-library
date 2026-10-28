@@ -12,6 +12,10 @@ validator; other kinds require an explicit extension of the contract.
 The common description of a check target, its compiled artifact, and the
 interface metadata available for generating checks.
 
+**Parameter description**:
+The declared interface metadata for a validator's configuration arguments,
+including their order. It describes the arguments without applying values.
+
 **Input artifact**:
 The supplied document or serialized program that describes a target. An input
 format and a target kind are separate concepts.

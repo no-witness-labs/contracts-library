@@ -16,6 +16,21 @@ knowledge belongs here; downstream components use the common description.
 Input does not generate checks, apply property-specific assumptions, or run
 proofs.
 
+The same Input component reads validators within the supported blueprint profile,
+independently of property selection. Validator-specific content changes its
+returned description. Choosing a different property for the same artifact and
+validator does not change that description.
+
+## Parameters
+
+Input reads validators with or without declared parameters. It preserves the
+parameter descriptions and their order without applying values or rewriting the
+compiled artifact.
+
+Generator determines how each selected check uses those parameters. A generator
+that cannot support the requested parameter handling must report that limitation
+explicitly. Successful input reading does not establish generator support.
+
 ## Proposed interface
 
 | Part | Proposal |
@@ -44,12 +59,16 @@ Proposed acceptance examples:
   produces a clear error.
 - Unsupported formats or features produce an explicit result.
 - A blueprint declaring another Plutus version produces an unsupported result.
+- Parameterized fixtures retain their parameter descriptions in the declared
+  order, without applying values.
+- Choosing another property for the same input leaves its target description
+  unchanged.
 - Reading an artifact preserves its source bytes.
 
 ## Still to decide
 
 - The supported blueprint feature profile and missing-version behavior.
-- Parameter handling and the distinction between descriptions and applied code.
+- The representation of parameter descriptions and missing parameter metadata.
 - Whether each request selects exactly one validator.
 - Compiled-code decoding and validation requirements.
 - The common metadata representation and error types.
