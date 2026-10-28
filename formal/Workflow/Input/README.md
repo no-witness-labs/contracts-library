@@ -39,6 +39,17 @@ Generator determines how each selected check uses those parameters. A generator
 that cannot support the requested parameter handling must report that limitation
 explicitly. Successful input reading does not establish generator support.
 
+## Missing metadata
+
+Missing required metadata produces a clear input error. The first input profile
+requires an explicit Plutus V3 declaration; Input must not assume V3 when the
+version is absent.
+
+Missing optional metadata stays absent. Input must not fill it with guessed
+types, purposes, or other values. Keep absent metadata distinguishable from an
+explicit empty value. The complete required-field list remains part of the
+blueprint profile review.
+
 ## Proposed interface
 
 | Part | Proposal |
@@ -68,6 +79,8 @@ Proposed acceptance examples:
   produces a clear error.
 - Unsupported formats or features produce an explicit result.
 - A blueprint declaring another Plutus version produces an unsupported result.
+- A blueprint without an explicit Plutus version produces a clear input error.
+- Missing optional metadata remains absent without invented values.
 - Parameterized fixtures retain their parameter descriptions in the declared
   order, without applying values.
 - Choosing another property for the same input leaves its target description
@@ -76,7 +89,7 @@ Proposed acceptance examples:
 
 ## Still to decide
 
-- The supported blueprint feature profile and missing-version behavior.
+- The supported blueprint feature profile and complete required-field list.
 - The representation of parameter descriptions and missing parameter metadata.
 - Compiled-code decoding and validation requirements.
 - The common metadata representation and error types.

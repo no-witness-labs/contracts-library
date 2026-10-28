@@ -17,6 +17,7 @@ The [current usage guide](../docs/WORKFLOW.md) describes the existing prototype.
 | Plutus version | Support Plutus V3 first; defer other versions | Match the existing runner and execution context |
 | Parameters | Input preserves parameter descriptions and their order without applying values; Generator determines how a selected check uses them | Separate reading a validator description from constructing a check |
 | Selection | Return one selected validator per Input request; orchestration can repeat requests for several validators | Keep the component contract small and make each result unambiguous |
+| Missing metadata | Return a clear error for missing required metadata, including an explicit Plutus version; preserve missing optional metadata without guessed values | Avoid interpreting incomplete input under unsupported assumptions |
 | Language | Prefer Lean throughout; use experiments to justify any temporary Python implementation | Reuse working code while establishing the cost of integration |
 | Integration example | Use UP-001 for the first bounded integration example | Exercise the interfaces with an existing check |
 | Delivery | Keep issue #39, branch `feat/39-developer-workflow`, and draft PR #52 as the workflow task | Consolidate the relevant work from PR #47 in one delivery |
@@ -97,7 +98,7 @@ metadata validation, source correspondence, and proof results distinct.
 | Question | Current proposal |
 | --- | --- |
 | Supported validator features | Specify blueprint compatibility and required metadata before implementation |
-| Shared target description | Agree the metadata representation, missing-information behavior, and error contract |
+| Shared target description | Agree the metadata representation and error contract |
 | Function support | Extend the target contract after agreeing a concrete function use case and its checks |
 
 The implementation does not yet provide these proposed input guarantees.
