@@ -28,8 +28,3 @@ rev = "main"
 
 [[lean_lib]]
 name = "Formal"
-
-# Universal-property demo: generated obligations, built on their own.
-[[lean_lib]]
-name = "Universal"
-globs = ["Universal.+"]

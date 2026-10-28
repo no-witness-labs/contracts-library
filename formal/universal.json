@@ -1,5 +1,0 @@
-{
-  "vault_buggy": {
-    "UP-002": { "state": "waived", "reason": "demo waiver: pretend this vault is permissionless by design" }
-  }
-}
