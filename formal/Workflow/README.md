@@ -16,6 +16,7 @@ The [current usage guide](../docs/WORKFLOW.md) describes the existing prototype.
 | Initial input | Accept a blueprint containing the selected validator's compiled code; defer standalone CBOR plus metadata | Obtain the compiled artifact and its interface description from one input |
 | Plutus version | Support Plutus V3 first; defer other versions | Match the existing runner and execution context |
 | Parameters | Input preserves parameter descriptions and their order without applying values; Generator determines how a selected check uses them | Separate reading a validator description from constructing a check |
+| Selection | Return one selected validator per Input request; orchestration can repeat requests for several validators | Keep the component contract small and make each result unambiguous |
 | Language | Prefer Lean throughout; use experiments to justify any temporary Python implementation | Reuse working code while establishing the cost of integration |
 | Integration example | Use UP-001 for the first bounded integration example | Exercise the interfaces with an existing check |
 | Delivery | Keep issue #39, branch `feat/39-developer-workflow`, and draft PR #52 as the workflow task | Consolidate the relevant work from PR #47 in one delivery |
@@ -95,7 +96,6 @@ metadata validation, source correspondence, and proof results distinct.
 
 | Question | Current proposal |
 | --- | --- |
-| Selection | Return one selected validator per Input request; allow orchestration to repeat requests later |
 | Supported validator features | Specify blueprint compatibility and required metadata before implementation |
 | Shared target description | Agree the metadata representation, missing-information behavior, and error contract |
 | Function support | Extend the target contract after agreeing a concrete function use case and its checks |

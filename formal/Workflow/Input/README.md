@@ -21,6 +21,14 @@ independently of property selection. Validator-specific content changes its
 returned description. Choosing a different property for the same artifact and
 validator does not change that description.
 
+## Selection
+
+Each Input request selects exactly one validator and returns one target
+description. The caller can repeat requests to process several validators.
+
+The selection must identify a unique validator. A missing or ambiguous match
+produces an explicit error rather than silently selecting the first entry.
+
 ## Parameters
 
 Input reads validators with or without declared parameters. It preserves the
@@ -35,7 +43,7 @@ explicitly. Successful input reading does not establish generator support.
 
 | Part | Proposal |
 | --- | --- |
-| Request | Existing blueprint and a validator selection |
+| Request | Existing blueprint and a selection identifying exactly one validator |
 | Success | Selected validator's identity, compiled artifact, available interface metadata, and source snapshot identity |
 | Error | Explicit missing, malformed, ambiguous, inconsistent, or unsupported input |
 | Source ownership | Preserve the supplied blueprint unchanged |
@@ -52,6 +60,7 @@ exercise Input without a property generator, Aiken build, or proof tool.
 Proposed acceptance examples:
 
 - A valid selection returns the corresponding compiled artifact and metadata.
+- A blueprint with several validators still returns only the selected target.
 - Adding an unrelated validator does not change an existing selection.
 - Missing or ambiguous selections produce a clear error.
 - A blueprint without compiled code cannot satisfy the initial input contract.
@@ -69,7 +78,6 @@ Proposed acceptance examples:
 
 - The supported blueprint feature profile and missing-version behavior.
 - The representation of parameter descriptions and missing parameter metadata.
-- Whether each request selects exactly one validator.
 - Compiled-code decoding and validation requirements.
 - The common metadata representation and error types.
 
