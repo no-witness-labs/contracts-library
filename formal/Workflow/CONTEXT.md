@@ -47,3 +47,7 @@ result and its declared expectation remain separate until reporting.
 **Execution evidence**:
 The retained sources, compiler logs, process metadata, and job observations for
 one execution attempt.
+
+**Check report**:
+The comparison of requested jobs' expectations with their execution
+observations, preserving each check's scope and incomplete outcomes.

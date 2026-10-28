@@ -13,6 +13,7 @@ Import `Workflow.Generator` and call
 The first provider is `Workflow.Generator.OtherPurpose.provider`. It generates
 the UP-001 candidate. The common entry point accepts other provider functions;
 property-specific definitions stay outside the generic generation code.
+The thin command selects registered providers through `Catalogue.lean`.
 
 `GenerationPlan` contains generated module names and source, check jobs, target
 identity, and scope notes. Each job declares its property ID, theorem name,
@@ -77,7 +78,8 @@ To include the repository's vesting blueprint:
 lake exe workflow_generator_integration ../onchain/plutus.json linear_vesting.linear_vesting
 ```
 
-Both fixture and vesting runs passed. These results establish generation and
-type-checking, not proof validity or successful Executor/Reporter integration.
-The actual generated `Checks` module retains `by blaster` for a later execution
-checkpoint and inherits the candidate's proof trust boundary.
+Both fixture and vesting type-checking runs passed. These results establish
+generation and type-checking, not proof validity. The actual generated `Checks`
+module retains `by blaster` and inherits the candidate's proof trust boundary.
+The shared command now connects [Executor](../Executor/README.md) and
+[Reporter](../Reporter/README.md); its bounded vesting run remains inconclusive.

@@ -52,3 +52,15 @@ root = "Workflow.Executor.Tests"
 [[lean_exe]]
 name = "workflow_executor_integration"
 root = "Workflow.Executor.Integration"
+
+[[lean_exe]]
+name = "workflow_reporter_tests"
+root = "Workflow.Reporter.Tests"
+
+[[lean_exe]]
+name = "workflow_reporter_integration"
+root = "Workflow.Reporter.Integration"
+
+[[lean_exe]]
+name = "universal"
+root = "Workflow.Main"

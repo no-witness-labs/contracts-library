@@ -2,8 +2,8 @@
 
 Executor consumes a `GenerationPlan`, materializes its modules in a fresh
 directory, and runs Lean under one shared time budget. It records observed
-solver results and diagnostics. Reporter owns expectation comparison, waivers,
-and final acceptance.
+solver results and diagnostics. Reporter owns expectation comparison and the
+summary; waiver handling remains a later extension.
 
 ## API and environment
 

@@ -1,7 +1,20 @@
 # Run candidate checks
 
-For the agreed component layout and open input-contract decisions, see the
-[workflow design](../Workflow/README.md).
+## Modular prototype
+
+From `formal/`, with the pinned dependencies and tools prepared:
+
+```sh
+lake exe universal /path/to/plutus.json module.validator --check UP-001 --timeout-ms 10000
+```
+
+The four-component prototype writes a plain-text summary and JSON report and
+returns 0 for PASS, 1 for FAIL, or 2 for INCONCLUSIVE. Its first provider supports
+unparameterized UP-001 targets. It does not apply waivers yet. See the
+[Reporter guide](../Workflow/Reporter/README.md) for the command, evidence, and
+limits, and the [workflow design](../Workflow/README.md) for component boundaries.
+
+## Python reference prototype
 
 Use a pinned checkout with the selected candidate generator integrated, the
 repository's Lean/Z3 versions installed, and clean dependency checkouts at the

@@ -1,9 +1,17 @@
 # Workflow design
 
-This document records the design for issue #39 and draft PR #52. Input,
-Generator, and Executor now have Lean implementations and isolated tests, with
-a bounded UP-001 execution example. Reporter still needs integration. The
-[current usage guide](../docs/WORKFLOW.md) describes the Python workflow.
+This document records the design for issue #39 and draft PR #52. All four
+components now have Lean implementations and isolated tests. A thin command
+connects them for the first unparameterized UP-001 example:
+
+```sh
+cd formal
+lake exe universal /path/to/plutus.json module.validator --check UP-001 --timeout-ms 10000
+```
+
+Use a prepared checkout with the pinned dependencies and tools. The
+[Reporter guide](Reporter/README.md) describes output and exit codes; the
+[reference usage guide](../docs/WORKFLOW.md) also retains the Python prototype.
 
 ## Agreed decisions
 
@@ -14,6 +22,7 @@ a bounded UP-001 execution example. Reporter still needs integration. The
 | Testing | Give each component its own tests and fixtures; test the assembled workflow separately | Verify components without requiring the full pipeline |
 | Independence | Coordinate components through explicit interfaces, without hardcoded property IDs, validator names, or blueprint fields in the entry point | Support different checks and inputs through the same workflow |
 | Runtime | Implement the workflow as ordinary code and configured proof-tool processes, without AI agents or model calls | Keep component behavior and tests independent of AI services |
+| Reporting | Start with a plain summary and JSON output; defer branding and expanded content | Focus on correct, inspectable outcomes |
 | Initial target | Start with validators; defer function targets to a later contract extension | Establish a useful first scope without settling every future target kind |
 | Initial input | Accept a blueprint containing the selected validator's compiled code; defer standalone CBOR plus metadata | Obtain the compiled artifact and its interface description from one input |
 | Plutus version | Support Plutus V3 first; defer other versions | Match the existing runner and execution context |
@@ -37,8 +46,9 @@ formal/Workflow/
 
 Input reads supported artifacts and produces a target description. Generator
 produces check jobs from that description and selected property definitions.
-Executor runs the jobs and retains observations. Reporter combines observations,
-declared expectations, and reviewed exceptions into a report and exit code.
+Executor runs the jobs and retains observations. Reporter compares observations
+with declared expectations and produces a report and exit code. Reviewed
+exception handling remains a later extension.
 
 ## What stays shared
 
@@ -47,7 +57,7 @@ declared expectations, and reviewed exceptions into a report and exit code.
 | Input | Read the supported blueprint profile independently of property selection | The selected validator's compiled artifact and interface metadata |
 | Generator | Construct jobs through the common generation contract | Property definitions, model configuration, and the validator information they use |
 | Executor | Invoke the supported proof tools and retain observations | Generated jobs, execution limits, and observed outcomes |
-| Reporter | Interpret observations using declared expectations and reviewed exceptions | Check-specific expectations, results, and applicable review configuration |
+| Reporter | Compare observations with declared expectations | Check-specific expectations and results; reviewed exceptions remain future work |
 
 For the same artifact and selected validator, Input returns the same description
 whether the caller later requests UP-001 or another property. Generator produces
@@ -105,7 +115,7 @@ metadata validation, source correspondence, and proof results distinct.
 | Question | Current proposal |
 | --- | --- |
 | Generator extensions | Port typed parameter handling and additional checks while preserving each candidate's statements and explicit limits |
-| Reporter integration | Compare declared expectations with observed results, preserving incomplete-run and review-exception rules |
+| Reporting extensions | Add reviewed exceptions, branding, and expanded content without weakening incomplete-run handling |
 | Function support | Extend the target contract after agreeing a concrete function use case and its checks |
 
 The [Input component](Input/README.md) documents the implemented input profile,
@@ -113,10 +123,12 @@ error contract, fixture harness, and remaining limits. The
 [Generator component](Generator/README.md) documents plan generation, the first
 provider, and the distinction between type-checking and proof execution. The
 [Executor component](Executor/README.md) documents process budgets, raw
-observations, retained evidence, and the inconclusive vesting execution.
+observations, retained evidence, and the inconclusive vesting execution. The
+[Reporter component](Reporter/README.md) documents the simple report, exit codes,
+and full prototype command.
 
 ## Next work
 
-Review the Executor checkpoint, then connect Reporter to its observations and
-the jobs' declared expectations. Further component implementation requires a
-scoped proposal and confirmation.
+Review the four-component prototype and its evidence before selecting the next
+extension. The real vesting run remains inconclusive; reporting does not change
+that outcome. Further implementation requires a scoped proposal and confirmation.

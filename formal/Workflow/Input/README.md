@@ -87,5 +87,6 @@ smoke checks also succeeded on the repository blueprint's linear-vesting,
 settings, and DAO-proposal entries, including their parameter descriptions.
 
 Standalone CBOR files, function targets, other Plutus versions, and additional
-blueprint profiles remain later extensions. Generator, Executor, and Reporter
-integration follows this Input checkpoint.
+blueprint profiles remain later extensions. The shared command now connects
+Input with [Generator](../Generator/README.md), [Executor](../Executor/README.md),
+and [Reporter](../Reporter/README.md).
