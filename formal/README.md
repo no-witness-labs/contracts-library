@@ -117,3 +117,12 @@ These apply to any contract:
 
 - **vesting/linear** — see [`Formal/Vesting/Linear/README.md`](Formal/Vesting/Linear/README.md)
   for its coverage tables and open targets.
+
+## Candidate checks
+
+| Candidate | Validator/action | Lean file |
+| --- | --- | --- |
+| UP-002 | Linear vesting / Claim | [NoSignatureClaim.lean](Universal/Demo/Linear_vesting/NoSignatureClaim.lean) |
+| UP-002 | Linear vesting / Cancel | [NoSignatureCancel.lean](Universal/Demo/Linear_vesting/NoSignatureCancel.lean) |
+| UP-002 | Vault / Spend | [NoSignatureSpend.lean](Universal/Demo/Vault/NoSignatureSpend.lean) |
+| UP-002 | Buggy vault / Spend (negative example) | [NoSignatureSpend.lean](Universal/Demo/Vault_buggy/NoSignatureSpend.lean) |
