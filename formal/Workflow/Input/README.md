@@ -58,6 +58,10 @@ Object Representation (CBOR) before decoding the serialized program. Any
 decoding failure produces a clear input error. Input checks structure without
 executing the validator or invoking a solver.
 
+An Input request succeeds only after the embedded code decodes successfully.
+The decoding path uses ordinary Lean code and requires no AI agent or model
+call.
+
 The pinned PlutusCoreBlaster dependency provides the error-returning
 [`singleCborEncodedScriptFromHex?` helper](https://github.com/input-output-hk/PlutusCoreBlaster/blob/4ef48606303c45225d3ed2e2a87fc50280a763b7/PlutusCore/UPLC/ScriptEncoding/Basic.lean#L67).
 Reuse that decoding path and preserve the supplied artifact. Supporting a

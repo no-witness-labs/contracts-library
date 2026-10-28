@@ -12,6 +12,7 @@ The [current usage guide](../docs/WORKFLOW.md) describes the existing prototype.
 | Location | Keep all four under `formal/Workflow/`, with shared interfaces and a thin entry point at the root | Keep the workflow together in one Lean project |
 | Testing | Give each component its own tests and fixtures; test the assembled workflow separately | Verify components without requiring the full pipeline |
 | Independence | Coordinate components through explicit interfaces, without hardcoded property IDs, validator names, or blueprint fields in the entry point | Support different checks and inputs through the same workflow |
+| Runtime | Implement the workflow as ordinary code and configured proof-tool processes, without AI agents or model calls | Keep component behavior and tests independent of AI services |
 | Initial target | Start with validators; defer function targets to a later contract extension | Establish a useful first scope without settling every future target kind |
 | Initial input | Accept a blueprint containing the selected validator's compiled code; defer standalone CBOR plus metadata | Obtain the compiled artifact and its interface description from one input |
 | Plutus version | Support Plutus V3 first; defer other versions | Match the existing runner and execution context |
