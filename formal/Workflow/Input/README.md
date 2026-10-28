@@ -50,6 +50,23 @@ types, purposes, or other values. Keep absent metadata distinguishable from an
 explicit empty value. The complete required-field list remains part of the
 blueprint profile review.
 
+## Compiled-code decoding
+
+Input uses the existing Lean decoder to check that the embedded compiled code
+decodes into a Plutus program. The helper decodes hexadecimal and Concise Binary
+Object Representation (CBOR) before decoding the serialized program. Any
+decoding failure produces a clear input error. Input checks structure without
+executing the validator or invoking a solver.
+
+The pinned PlutusCoreBlaster dependency provides the error-returning
+[`singleCborEncodedScriptFromHex?` helper](https://github.com/input-output-hk/PlutusCoreBlaster/blob/4ef48606303c45225d3ed2e2a87fc50280a763b7/PlutusCore/UPLC/ScriptEncoding/Basic.lean#L67).
+Reuse that decoding path and preserve the supplied artifact. Supporting a
+standalone CBOR file remains a separate, deferred input extension.
+
+Source inspection established the reuse path. The new component integration
+still needs compilation and fixture checks. Confirm the accepted encoding
+profile, decoder behavior, and error mapping before implementation.
+
 ## Proposed interface
 
 | Part | Proposal |
@@ -75,6 +92,9 @@ Proposed acceptance examples:
 - Adding an unrelated validator does not change an existing selection.
 - Missing or ambiguous selections produce a clear error.
 - A blueprint without compiled code cannot satisfy the initial input contract.
+- Valid embedded code decodes through the reused Lean helper.
+- Invalid hex, malformed CBOR, and decoder-rejected programs produce clear input
+  errors.
 - Malformed content or inconsistent code across a selected validator's handlers
   produces a clear error.
 - Unsupported formats or features produce an explicit result.
@@ -91,7 +111,7 @@ Proposed acceptance examples:
 
 - The supported blueprint feature profile and complete required-field list.
 - The representation of parameter descriptions and missing parameter metadata.
-- Compiled-code decoding and validation requirements.
+- The accepted compiled-code encoding profile and decoder error mapping.
 - The common metadata representation and error types.
 
 These examples and interface details remain proposals. No component
