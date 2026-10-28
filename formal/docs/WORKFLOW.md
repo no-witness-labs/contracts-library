@@ -1,5 +1,8 @@
 # Run candidate checks
 
+For the agreed component layout and open input-contract decisions, see the
+[workflow design](../Workflow/README.md).
+
 Use a pinned checkout with the selected candidate generator integrated, the
 repository's Lean/Z3 versions installed, and clean dependency checkouts at the
 revisions in `lake-manifest.json`. A missing generator or dependency gives exit 2.
