@@ -28,6 +28,20 @@ and their interfaces, with optional compiled script content.
 The serialized compiled Plutus code carried by a supported input representation.
 This term identifies an encoding concern, rather than an additional target kind.
 
+**Property**:
+A statement about a target's behavior.
+
+**Candidate property**:
+A proposed property whose definition and intended use remain under review.
+
+**Transaction model**:
+The transaction contexts, variable values, and constraints covered by a check.
+A model can support several properties, and a property can use several models.
+
+**Check variant**:
+A particular version of a property definition paired with a transaction model
+and its stated assumptions and limitations.
+
 **Check job**:
 A generated obligation with its declared expectation and scope, together with
 the information needed to execute it and interpret the observations.
@@ -45,7 +59,8 @@ Named references to maintained candidate check definitions and their supporting
 models.
 
 **Run selection**:
-The candidate checks requested for one execution of the workflow.
+The checks included in one workflow execution by its configured defaults or
+optional enable/disable choices.
 
 **Workflow test scenario**:
 A prepared combination of candidate references, target inputs, scenario models,

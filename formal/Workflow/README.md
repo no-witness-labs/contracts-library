@@ -85,7 +85,7 @@ Additional input formats or proof backends may require their own adapters.
 Those differences belong to format and tool support, rather than to the choice
 of property.
 
-## Candidate composition and planned selection modes
+## Candidate composition and report direction
 
 [`Candidates/Catalogue.lean`](../Candidates/Catalogue.lean) is the current thin
 composition index. It references `Candidates.UP001` and the experimental
@@ -101,17 +101,33 @@ its interfaces. It does not own the candidate list or a particular validator's
 test setup. Adding a candidate should require providing its implementation and
 catalogue reference rather than editing the engine.
 
-The owner proposed three selection modes for later CLI review:
+The agreed product direction is to run maintained property checks and report
+each attempted check with its description, assumptions, limitations, and result.
+Clients review which results matter to their protocol afterward. Choosing
+properties in advance is optional; enable/disable controls remain a later feature.
 
-- Explicit selection of one or more candidates.
-- An all-candidates mode, potentially the default.
-- A client-provided configuration selecting checks for a run.
+The project maintains reusable property definitions and transaction models.
+Each check uses the supplied validator as an input; supporting a new validator
+must not require a bespoke transaction model for it. Known validators supply
+workflow test fixtures. The current UP-012 vesting profile is an experimental
+integration example, not the required setup process for client validators.
 
-The final catalogue format, configuration schema, flags such as `-a`, default behavior,
-which entries all mode includes, and unsupported-check handling remain open.
-The run configuration should refer to catalogue entries without duplicating
-property implementations. The existing `--check` behavior and UP-001 default remain unchanged during this
-structural refactor. New selection modes await that later review.
+A property may have several definition versions and run against several models.
+Models may also support several properties. Each reported check must identify
+the definition version and model it used, preserving their scope and limitations.
+Solver validity concerns the formal statement; whether that statement is a
+requirement of the client's protocol is a separate assessment.
+
+These are design requirements, not additional implemented CLI capabilities.
+The current command still resolves one provider and defaults to UP-001. Catalogue
+format, version/model identifiers, default run contents, configuration, and
+enable/disable syntax remain open. An all-candidates mode, explicit lists, and
+client configuration remain possible controls.
+
+UP-012's signer-removal definition remains a workflow integration test.
+Improving its meaning, generic coverage, and security value belongs in a separate
+property PR, outside issue #39 and this workflow PR. Its passing test results
+establish only the current bounded example.
 
 ## Targets and input formats
 

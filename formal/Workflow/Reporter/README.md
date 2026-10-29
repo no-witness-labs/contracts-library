@@ -25,6 +25,18 @@ scope, issues, and a reference to Executor's detailed evidence.
 
 ## Approved policies, pending implementation
 
+The report will cover all attempted checks and explain each property's meaning,
+definition version, transaction model, assumptions, limitations, and result.
+Clients can review the results for relevance to their protocol without selecting
+properties beforehand. Optional enable/disable controls belong to later run
+configuration work. Reporting several versions or models must preserve which
+variant produced each result; the metadata format remains undecided.
+
+A Valid solver observation concerns the formal statement within its stated
+model and execution semantics. It does not establish that the statement is an intended
+requirement of the protocol. Likewise, the applicability obligations below
+establish the existence of modeled scenarios, not their business relevance.
+
 Generator will identify applicability obligations and link them to the property
 obligations they qualify. When applicability is disproved within the supplied
 model, the linked property reports INCONCLUSIVE with the reason

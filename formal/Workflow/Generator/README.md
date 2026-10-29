@@ -51,6 +51,17 @@ vesting model and artifact guard belong to the
 [UP-012 scenario](../Tests/UP012/README.md). Candidate definitions have one source;
 scenario tests reference them.
 
+The agreed direction is to supply reusable models with property definitions and
+accept the validator as an input. Definitions may have several versions and run
+with different models; models may serve several properties. The catalogue and
+report must distinguish those check variants. Identifier formats and job metadata
+changes remain design work.
+
+The fixed UP-012 vesting profile supplies an integration test. Generalizing or
+correcting its signer-removal property belongs in a separate property PR, outside
+the workflow implementation. Client-specific model authoring is not a prerequisite
+of the intended workflow.
+
 ## Tests
 
 From `formal/`:
