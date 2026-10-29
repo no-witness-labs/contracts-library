@@ -43,6 +43,10 @@ checks, the input snapshot, generated sources, logs, and `execution.json`.
 Input errors can produce report files without execution artifacts. Copy the
 printed directory to a permanent location if you need to retain the evidence.
 
+For supporting definitions such as `EveryMint` and `EveryWithdraw`, use the
+[check file map](CHECK-FILES.md). Those definitions live in shared repository
+code that the generated checks import.
+
 ## Check the other outcomes
 
 The deliberately failing validator uses the same blueprint:
