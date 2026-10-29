@@ -16,6 +16,14 @@ Claim applicability, Cancel signer removal, and Cancel applicability. It also
 checks explicit rejection of an unsupported artifact. Generated files and
 reports stay under `formal/output/`.
 
+The [negative control](NegativeControl.lean) runs the four component APIs with
+the same validator and model, but retains the signer in the generated checks.
+The solver must report Falsified/FAIL for both removal obligations and Valid/PASS
+for both applicability obligations. The control report must say FAIL/1. These intentional
+failures make the enclosing test suite succeed; a timeout or inconclusive result
+fails the suite. The control has its own test-only label and is not a CLI candidate.
+It leaves the actual candidate, artifact guard, and model unchanged.
+
 ## Scope and fixtures
 
 The profile remains restricted to the original unparameterized vesting artifact.
@@ -23,6 +31,12 @@ Its supplied Claim and Cancel shapes each have one signer; the operation removes
 the first key. The original bound is 1,000,000 steps, and `rejectedWithin` requires
 an error or non-unit halt within the bound. Exhaustion does not establish rejection.
 Both applicability statements remain separate required jobs.
+
+The transaction model emitted as `Tx.lean` constructs the Claim and Cancel
+contexts used by these propositions, including their inputs, outputs, and signer.
+Blueprint schemas describe datum and redeemer encoding; they do not determine
+those transaction contexts. This model belongs to this test profile. Other
+providers can supply different models or use generic contexts, as UP-001 does.
 
 `Inputs/plutus.json` is a self-contained selection of the vesting entries and
 supporting schemas from the repository's `onchain/plutus.json`. It preserves the

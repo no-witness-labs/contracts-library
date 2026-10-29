@@ -1,5 +1,6 @@
 import Workflow.Tests.Support
 import Workflow.Tests.UP012.Tests
+import Workflow.Tests.UP012.NegativeControl
 
 open Workflow.Tests.Support
 
@@ -20,4 +21,5 @@ def main : IO Unit := do
   check "unsupported profile has no proof observations" ((← rows unsupported.report).isEmpty)
   expectProblem "UP012 rejects unsupported profile" unsupported "original unparameterized"
   check "UP012 attempts have separate output directories" (passing.directory != unsupported.directory)
+  Workflow.Tests.UP012.NegativeControl.run
   IO.println "UP012 whole-workflow checks passed."

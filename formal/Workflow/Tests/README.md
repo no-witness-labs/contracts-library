@@ -14,7 +14,7 @@ lake exe workflow_up012_tests
 | Scenario | Coverage | Definition/model source |
 | --- | --- | --- |
 | [UP001](UP001/README.md) | Passing and failing vaults, invalid input, and timeout | `Candidates.UP001` and fixed demo inputs |
-| [UP012](UP012/README.md) | Four original vesting propositions and unsupported-profile handling | `Candidates.UP012` plus the test-owned vesting profile |
+| [UP012](UP012/README.md) | Four original vesting propositions, unsupported-profile handling, and a semantic negative control | `Candidates.UP012` plus the test-owned vesting profile |
 
 [Unit checks](Unit/README.md) cover Input, generic Generator contracts, Executor,
 and Reporter. The legacy executable names remain available for these checks and
