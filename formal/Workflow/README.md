@@ -129,8 +129,11 @@ and full prototype command.
 
 ## Next work
 
-Review the [validation baseline](VALIDATION.md) before selecting the next
-extension. The unchanged vesting workflow completed all five UP-001 checks in
-82.1 seconds under a 120-second budget. The result retains the stated model,
-CEK bound, and Blaster trust boundary. Further implementation requires a scoped
-proposal and confirmation.
+The [PR #47 reconciliation](RECONCILIATION.md) records retained behavior,
+deferred features, and semantic differences. The next proposed checkpoint is a
+focused review of the two UP-001 claims before selecting further implementation.
+
+The [validation baseline](VALIDATION.md) records all five current UP-001 checks
+completing in 82.1 seconds under a 120-second budget. The result retains the
+stated model, CEK bound, and Blaster trust boundary; it does not establish parity
+with PR #47. Further implementation requires a scoped proposal and confirmation.
