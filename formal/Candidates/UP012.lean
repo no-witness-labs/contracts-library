@@ -93,10 +93,24 @@ def checks (modulePrefix : String) : GeneratedModule :=
 /-- Describe the original property and applicability jobs without changing their expectations. -/
 def jobs (modulePrefix : String) : Array CheckJob :=
   names.map fun name =>
-    { propertyId := "UP-012", name, moduleName := s!"{modulePrefix}.Checks",
-      statement := statement name, expected := .valid, scope : CheckJob }
+    let moduleName := s!"{modulePrefix}.Checks"
+    let job : CheckJob :=
+      { propertyId := "UP-012", name, moduleName,
+        statement := statement name, expected := .valid, scope }
+    match name with
+    | "dropSigner_claim" =>
+      { job with
+        role := .property
+        applicability := some { moduleName, name := "dropSigner_claim_applies" } }
+    | "dropSigner_cancel" =>
+      { job with
+        role := .property
+        applicability := some { moduleName, name := "dropSigner_cancel_applies" } }
+    | "dropSigner_claim_applies" | "dropSigner_cancel_applies" =>
+      { job with role := .applicability, applicability := none }
+    | _ => job
 
 def notes : Array String :=
-  #[scope, "All four jobs, including both applicability statements, must match their declared expectations."]
+  #[scope, "Each action's applicability obligation qualifies only its linked property obligation; all jobs retain their declared Valid expectation."]
 
 end Candidates.UP012

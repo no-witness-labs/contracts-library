@@ -9,47 +9,62 @@ handling.
 
 | Status | Meaning | Exit code |
 | --- | --- | --- |
-| PASS | Every requested job has a conclusive result matching its expectation | 0 |
-| FAIL | A conclusive result differs from its expectation, with no incomplete result | 1 |
-| INCONCLUSIVE | Execution was incomplete, evidence was missing or inconsistent, or no jobs ran | 2 |
+| PASS | All jobs have trustworthy results, required applicability holds, and expectations match | 0 |
+| FAIL | At least one trustworthy, qualified property result differs from its expectation | 1 |
+| INCONCLUSIVE | No qualified failure exists, but a result or prerequisite is incomplete, or no jobs ran | 2 |
 
-An expected Falsified result can produce PASS. Reporter uses job metadata rather
-than property-specific rules. Inconclusive results take precedence over failures.
-Incomplete runs make every row inconclusive, while JSON preserves the original
-observations. Missing, duplicate, unrequested, or changed job observations
-cannot produce a passing report.
+An expected Falsified property result can produce PASS. Reporter uses explicit
+job roles and applicability references rather than property-specific rules.
+Qualified failures take precedence over incomplete results in the overall
+status. Each incomplete row and its reason remain visible. Summary counts include
+all obligation rows, including applicability; they are not a property coverage count.
 
 Statuses apply to the stated check scope. A report does not establish general
 validator safety. The JSON retains each job's expected and observed result,
 scope, issues, and a reference to Executor's detailed evidence.
 
-## Approved policies, pending implementation
-
-The report will cover all attempted checks and explain each property's meaning,
-definition version, transaction model, assumptions, limitations, and result.
-Clients can review the results for relevance to their protocol without selecting
-properties beforehand. Optional enable/disable controls belong to later run
-configuration work. Reporting several versions or models must preserve which
-variant produced each result; the metadata format remains undecided.
+## Qualification and partial results
 
 A Valid solver observation concerns the formal statement within its stated
 model and execution semantics. It does not establish that the statement is an intended
 requirement of the protocol. Likewise, the applicability obligations below
 establish the existence of modeled scenarios, not their business relevance.
 
-Generator will identify applicability obligations and link them to the property
-obligations they qualify. When applicability is disproved within the supplied
-model, the linked property reports INCONCLUSIVE with the reason
-"no applicable scenario in this model". Retain the raw applicability result and
-its diagnostics separately. It does not constitute a property counterexample.
+Each property job can reference one applicability obligation by module and name.
+The reference must resolve to a unique applicability job for the same property,
+with a Valid expectation and no prerequisite of its own. An ordinary property
+without a reference needs no applicability obligation.
 
-Independently completed, trustworthy property results retain their PASS/FAIL
-status when an unrelated check times out, provided their own applicability
-requirements are satisfied. Unfinished checks remain INCONCLUSIVE.
+| Applicability observation | Applicability row | Linked property |
+| --- | --- | --- |
+| Trustworthy Valid | PASS | Compare its trustworthy result with its expectation |
+| Trustworthy Falsified | INCONCLUSIVE: no applicable scenario in this model | INCONCLUSIVE |
+| Unknown, missing, interrupted, or untrustworthy | INCONCLUSIVE: applicability not established | INCONCLUSIVE |
 
-These contracts await implementation. The current flat-job implementation above
-does not yet apply these relationships or preserve completed rows in an incomplete
-run. Overall run status and exit-code precedence remain under review.
+Keep raw property and applicability observations even when qualification fails.
+A property proof can therefore retain raw Valid or Falsified while its reported
+status is INCONCLUSIVE. An invalid reference also leaves its property inconclusive.
+The workflow validates the declared links; the definition author remains
+responsible for their mathematical relevance.
+
+Executor marks an observation `evidenceComplete` only after its process finishes
+without module-wide diagnostic or protocol problems. Exit 1 can still carry a
+trustworthy Falsified observation. Reporter also requires a unique observation,
+matching metadata, no local issues, and a conclusive result.
+
+Independent trustworthy results retain PASS/FAIL when another check times out
+or fails. Partial output from a stopped process remains INCONCLUSIVE. Global
+plan or attribution corruption invalidates the affected run conservatively.
+The completion marker relies on the existing independent generated-obligation
+discipline; it does not certify arbitrary dependencies between proof declarations.
+
+## Planned metadata and run configuration
+
+The report will identify definition/model versions and explain their descriptions,
+assumptions, and limitations. [Issue #65](https://github.com/no-witness-labs/contracts-library/issues/65)
+will define that metadata contract.
+Clients can review protocol relevance afterward. Multiple variants and optional
+enable/disable controls remain later work; current reports retain all job rows.
 
 ## API
 
@@ -110,13 +125,16 @@ lake exe workflow_reporter_tests
 lake exe workflow_reporter_integration
 ```
 
-The isolated unit harness constructs plans and observations directly. It checks
-matching results, expected counterexamples, mismatches, incomplete runs, changed
-metadata, missing and duplicate jobs, precedence, the plain summary fixture,
-and both saved formats. It needs no Input, Generator, Executor runtime, or solver.
+The isolated unit harness checks explicit applicability references, separate
+action groups, incomplete evidence, metadata mismatches, and failure precedence.
+It also covers missing/duplicate jobs, corrupted plans, expected counterexamples,
+raw-result retention, per-row explanations, the successful summary fixture, and
+both saved formats. It needs no Input, Generator, Executor runtime, or solver.
 
-Real Lean/Blaster arithmetic controls verify passing and failing reports. The
-four-component vesting command also ran with a 5,000 ms execution budget. All
+Real Lean/Blaster arithmetic controls verify passing and failing reports. A
+further control proves that a Falsified applicability result leaves both the
+support row and a linked Valid property INCONCLUSIVE, retaining their raw results.
+The four-component vesting command also ran with a 5,000 ms execution budget. All
 five jobs remained INCONCLUSIVE, and the process returned exit code 2. That
 short run supplies no passing result for vesting. The original 1,000,000-step
 [120-second run](../VALIDATION.md) completed all five checks in 82.1 seconds and

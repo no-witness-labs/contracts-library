@@ -36,6 +36,9 @@ private def observedText : ObservedResult → String
   | .falsified => "falsified"
   | .inconclusive => "inconclusive"
 
+private def jobRefJson (reference : JobRef) : Json :=
+  Json.mkObj [("module", .str reference.moduleName), ("name", .str reference.name)]
+
 private def manifest (plan : GenerationPlan) (options : Options) (result : Result) : Json :=
   let modules := result.modules.map fun item => Json.mkObj [
     ("name", .str item.name), ("path", .str item.path.toString),
@@ -50,8 +53,11 @@ private def manifest (plan : GenerationPlan) (options : Options) (result : Resul
     Json.mkObj [
       ("property", .str item.job.propertyId), ("name", .str item.job.name),
       ("module", .str item.job.moduleName), ("scope", .str item.job.scope),
+      ("role", .str item.job.role.label),
+      ("applicability", item.job.applicability.map jobRefJson |>.getD .null),
       ("expected", .str (if item.job.expected == .valid then "valid" else "falsified")),
-      ("observed", .str (observedText item.observed)), ("issues", toJson item.issues),
+      ("observed", .str (observedText item.observed)), ("evidenceComplete", .bool item.evidenceComplete),
+      ("issues", toJson item.issues),
       ("diagnostics", .arr diagnostics)]
   Json.mkObj [
     ("target", .str plan.targetName), ("state", .str (runStateText result.state)),

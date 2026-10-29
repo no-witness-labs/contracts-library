@@ -90,6 +90,7 @@ def observe (source : GeneratedModule) (path : System.FilePath) (jobs : Array Ch
   else
     problems := problems.push (if process.state == .timedOut then "execution time budget exhausted"
       else s!"could not launch compiler: {process.stderr}")
+  let evidenceComplete := process.state == .finished && problems.isEmpty
   let mut observations := #[]
   for job in jobs do
     let range := declared.find? (·.name == job.name)
@@ -107,7 +108,7 @@ def observe (source : GeneratedModule) (path : System.FilePath) (jobs : Array Ch
     if !sawValid && !sawFalsified then issues := issues.push "no scoped solver result"
     let observed := if process.state != .finished || !problems.isEmpty || !issues.isEmpty then
       ObservedResult.inconclusive else if sawValid then .valid else .falsified
-    observations := observations.push { job, observed, diagnostics := relevant, issues }
+    observations := observations.push { job, observed, evidenceComplete, diagnostics := relevant, issues }
   return (observations, problems)
 
 end Workflow.Executor.Diagnostics

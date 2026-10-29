@@ -27,4 +27,26 @@ def main : IO Unit := do
     report.write directory
     IO.print report.text
     IO.println s!"Report: {directory / "report.json"}"
+  let qualifiedPlan : GenerationPlan := {
+    targetName := "applicability-controls", modules := #[⟨"Controls.Applicability", source⟩]
+    jobs := #[
+      { propertyId := "fixture", name := "good", moduleName := "Controls.Applicability",
+        statement := "∀ x : Int, x = x", expected := .valid, scope := "arithmetic qualification fixture only"
+        applicability := some { moduleName := "Controls.Applicability", name := "bad" } },
+      { propertyId := "fixture", name := "bad", moduleName := "Controls.Applicability",
+        statement := "∀ x : Int, x = 0", expected := .valid, scope := "arithmetic qualification fixture only"
+        role := .applicability }] }
+  let result ← match ← Executor.run qualifiedPlan { leanPath := environment.stdout.trim, budgetMs := 15000 } with
+    | .ok value => pure value
+    | .error message => throw (IO.userError message)
+  let report := Reporter.build qualifiedPlan result
+  unless report.exitCode == 2 && report.rows.size == 2 &&
+      report.rows.all (·.status == .inconclusive) &&
+      report.rows.any (fun row => row.job.name == "good" && row.observed == some .valid) &&
+      report.rows.any (fun row => row.job.name == "bad" && row.observed == some .falsified) do
+    throw (IO.userError s!"false applicability did not qualify the report correctly: {report.text}")
+  let some directory := result.directory | throw (IO.userError "missing qualification evidence")
+  report.write directory
+  IO.print report.text
+  IO.println s!"Report: {directory / "report.json"}"
   IO.println "Reporter real-solver integration passed."

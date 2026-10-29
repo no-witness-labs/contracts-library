@@ -18,6 +18,7 @@ structure Row where
   observed : Option Executor.ObservedResult
   status : Status
   issues : Array String
+  evidenceComplete : Bool := false
 
 structure Report where
   target : String
@@ -38,41 +39,91 @@ private def sameIdentity (left right : CheckJob) : Bool :=
 
 private def sameMetadata (left right : CheckJob) : Bool :=
   sameIdentity left right && left.propertyId == right.propertyId &&
-    left.expected == right.expected && left.statement == right.statement && left.scope == right.scope
+    left.expected == right.expected && left.statement == right.statement && left.scope == right.scope &&
+    left.role == right.role && left.applicability == right.applicability
 
-/-- Compare only declared expectations; property IDs and backend messages need no special cases. -/
+private def matchesRef (reference : JobRef) (job : CheckJob) : Bool :=
+  reference.moduleName == job.moduleName && reference.name == job.name
+
+private structure CheckedObservation where
+  row : Row
+  trustworthy : Bool
+
+private def observe (execution : Executor.Result)
+    (integrityBroken : Bool) (job : CheckJob) : CheckedObservation := Id.run do
+  let found := execution.jobs.filter (fun result => sameIdentity result.job job)
+  let mut issues : Array String := #[]
+  let mut observed := none
+  let mut evidenceComplete := false
+  if integrityBroken then issues := issues.push "run attribution or generation plan is inconsistent"
+  match found.toList with
+  | [result] =>
+    observed := some result.observed
+    evidenceComplete := result.evidenceComplete
+    issues := issues ++ result.issues
+    unless sameMetadata job result.job do issues := issues.push "job metadata changed during execution"
+    unless evidenceComplete do issues := issues.push "execution evidence is incomplete for this obligation"
+  | [] => issues := issues.push "missing job observation"
+  | _ => issues := issues.push "duplicate job observations"
+  if job.role == .applicability then
+    unless job.expected == .valid do issues := issues.push "applicability must expect Valid"
+    unless job.applicability.isNone do issues := issues.push "applicability obligations cannot require another applicability obligation"
+  let trustworthy := issues.isEmpty && evidenceComplete &&
+    (observed == some .valid || observed == some .falsified)
+  let mut status := Status.inconclusive
+  if trustworthy then
+    if job.role == .applicability then
+      if observed == some .valid then status := .pass
+      else issues := issues.push "no applicable scenario in this model"
+    else
+      status := match observed with
+        | some .valid => if job.expected == .valid then .pass else .fail
+        | some .falsified => if job.expected == .falsified then .pass else .fail
+        | _ => .inconclusive
+  else if issues.isEmpty then
+    issues := issues.push (if job.role == .applicability then "applicability was not established"
+      else "no conclusive property observation")
+  return { row := { job, observed, status, issues, evidenceComplete }, trustworthy }
+
+/-- Qualify properties using their explicit applicability links, then aggregate results. -/
 def build (plan : GenerationPlan) (execution : Executor.Result) : Report := Id.run do
   let mut problems := execution.problems
   unless execution.state == .completed do
     problems := problems.push s!"execution did not complete: {reprStr execution.state}"
   if plan.jobs.isEmpty then problems := problems.push "no obligations were executed"
+  let mut integrityProblems : Array String := #[]
   if plan.jobs.isEmpty != (plan.status == .noObligations) then
-    problems := problems.push "generation status and job count disagree"
+    integrityProblems := integrityProblems.push "generation status and job count disagree"
+  if execution.state == .noObligations && !plan.jobs.isEmpty then
+    integrityProblems := integrityProblems.push "execution reports no obligations for a nonempty plan"
+  if plan.jobs.any (fun job => (plan.jobs.filter (sameIdentity job)).size != 1) then
+    integrityProblems := integrityProblems.push "duplicate requested job"
   if execution.jobs.any (fun result => !plan.jobs.any (sameIdentity result.job)) then
-    problems := problems.push "execution contains observations for unrequested jobs"
-  let incomplete := !problems.isEmpty
+    integrityProblems := integrityProblems.push "execution contains observations for unrequested jobs"
+  problems := problems ++ integrityProblems
+  let observations := plan.jobs.map (observe execution (!integrityProblems.isEmpty))
   let mut rows := #[]
-  for job in plan.jobs do
-    let found := execution.jobs.filter (fun result => sameIdentity result.job job)
-    let mut issues : Array String := #[]
-    let mut observed := none
-    if (plan.jobs.filter (sameIdentity job)).size != 1 then
-      issues := issues.push "duplicate requested job"
-    match found.toList with
-    | [result] =>
-      observed := some result.observed
-      issues := issues ++ result.issues
-      unless sameMetadata job result.job do issues := issues.push "job metadata changed during execution"
-    | [] => issues := issues.push "missing job observation"
-    | _ => issues := issues.push "duplicate job observations"
-    let status := if incomplete || !issues.isEmpty then Status.inconclusive else
-      match observed with
-      | some .valid => if job.expected == .valid then .pass else .fail
-      | some .falsified => if job.expected == .falsified then .pass else .fail
-      | _ => .inconclusive
-    rows := rows.push { job, observed, status, issues }
-  let status := if incomplete || rows.any (·.status == .inconclusive) then Status.inconclusive
-    else if rows.any (·.status == .fail) then .fail else .pass
+  for observation in observations do
+    let mut row := observation.row
+    if row.job.role == .property then
+      if let some reference := row.job.applicability then
+        let supports := observations.filter (fun support => matchesRef reference support.row.job)
+        let reason := match supports.toList with
+          | [support] =>
+            if support.row.job.role != .applicability ||
+                support.row.job.propertyId != row.job.propertyId then
+              some "invalid applicability reference: expected an applicability obligation for this property"
+            else if support.trustworthy && support.row.observed == some .valid then none
+            else if support.trustworthy && support.row.observed == some .falsified then
+              some "no applicable scenario in this model"
+            else some "applicability was not established"
+          | _ => some "invalid applicability reference: missing or ambiguous obligation"
+        if let some reason := reason then
+          row := { row with status := .inconclusive, issues := row.issues.push reason }
+    rows := rows.push row
+  let status := if rows.any (·.status == .fail) then Status.fail
+    else if !problems.isEmpty || rows.isEmpty || rows.any (·.status == .inconclusive) then .inconclusive
+    else .pass
   return { target := plan.targetName, status, rows, problems, notes := plan.notes
            evidenceDirectory := execution.directory }
 
@@ -92,6 +143,10 @@ def Report.toJson (report : Report) : Json :=
   let rows := report.rows.map fun row => Json.mkObj [
     ("property", .str row.job.propertyId), ("name", .str row.job.name),
     ("module", .str row.job.moduleName), ("scope", .str row.job.scope),
+    ("role", .str row.job.role.label),
+    ("applicability", row.job.applicability.map (fun reference => Json.mkObj [
+      ("module", .str reference.moduleName), ("name", .str reference.name)]) |>.getD .null),
+    ("evidenceComplete", .bool row.evidenceComplete),
     ("expected", .str (expectedText row.job.expected)),
     ("observed", row.observed.map (fun value => Json.str (observedText value)) |>.getD .null),
     ("status", .str row.status.label), ("issues", Lean.toJson row.issues)]
@@ -108,6 +163,8 @@ def Report.text (report : Report) : String := Id.run do
   let mut lines := #[s!"Target: {oneLine report.target}"]
   for row in report.rows do
     lines := lines.push s!"{row.status.label} {oneLine row.job.propertyId} {oneLine row.job.name}"
+    if let some issue := row.issues[0]? then
+      lines := lines.push s!"  Reason: {oneLine issue}"
   let count := fun status => (report.rows.filter (·.status == status)).size
   lines := lines.push s!"Summary: {count .pass} PASS, {count .fail} FAIL, {count .inconclusive} INCONCLUSIVE"
   lines := lines.push s!"Overall: {report.status.label} (exit {report.exitCode})"

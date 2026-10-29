@@ -28,6 +28,8 @@ inductive ObservedResult where
 structure JobObservation where
   job : CheckJob
   observed : ObservedResult := .inconclusive
+  /-- The module finished with intact evidence; local job issues remain separate. -/
+  evidenceComplete : Bool := false
   diagnostics : Array Diagnostic := #[]
   issues : Array String := #[]
 

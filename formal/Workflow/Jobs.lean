@@ -23,6 +23,20 @@ structure GeneratedModule where
   name : String
   source : String
 
+inductive JobRole where
+  | property | applicability
+  deriving BEq, Repr
+
+def JobRole.label : JobRole → String
+  | .property => "property"
+  | .applicability => "applicability"
+
+/-- A reference to one obligation in the current generation plan. -/
+structure JobRef where
+  moduleName : String
+  name : String
+  deriving BEq, Repr
+
 /-- A job declares its expectation; downstream code need not interpret property IDs. -/
 structure CheckJob where
   propertyId : String
@@ -31,6 +45,8 @@ structure CheckJob where
   statement : String
   expected : ExpectedResult
   scope : String
+  role : JobRole := .property
+  applicability : Option JobRef := none
 
 inductive GenerationStatus where
   | ready | noObligations

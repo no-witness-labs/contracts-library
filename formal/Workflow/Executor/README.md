@@ -61,7 +61,12 @@ that as an observed Falsified result, rather than a tool-launch failure.
 Run states distinguish `completed`, `timedOut`, `error`, and `noObligations`.
 `completed` describes execution, not a passing property. Job observations are
 `valid`, `falsified`, or `inconclusive`; each retains the job's declared
-expectation and scope. The SMT observations inherit Blaster's `blasterProven`
+expectation, role, applicability reference, and scope. `evidenceComplete` records
+that the process finished without module-wide diagnostic or protocol problems;
+local job issues remain separate. Stopped, unrun, and exception-path jobs cannot
+claim complete evidence. Reporter can preserve earlier trustworthy observations
+when a later module fails, without promoting partial output from that module.
+The SMT observations inherit Blaster's `blasterProven`
 trust boundary and do not assert reconstructed kernel proof terms.
 
 ## Evidence

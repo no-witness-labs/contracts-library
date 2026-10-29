@@ -17,7 +17,7 @@ lake exe workflow_reporter_integration
 | `Input/Tests.lean` | Selection, metadata preservation, code decoding, and malformed inputs |
 | `Generator/Tests.lean` | Generic contracts with stub providers, namespace validation, and empty plans |
 | `Executor/Tests.lean` | Controlled compiler diagnostics, deadlines, output isolation, and process cleanup |
-| `Reporter/Tests.lean` | Expectation comparison, missing/duplicate observations, statuses, and report files |
+| `Reporter/Tests.lean` | Applicability qualification, trusted partial results, failure precedence, metadata integrity, and report files |
 | `Runner/Tests.lean` | Build failure blocks stale binaries, later suites continue after a failure, logs persist, and expected negative text can pass |
 
 `workflow_generator_tests` runs only the generic Generator contract checks.

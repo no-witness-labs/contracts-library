@@ -62,7 +62,7 @@ formal/Workflow/
 The reusable components and orchestration do not import candidate or test
 implementations. `Candidates/` contains candidate code, and the UP-012 test
 profile owns its pinned artifact and transaction model. Explicit applicability
-relationships remain an approved design change for a separate checkpoint.
+references qualify each property's result without hardcoded property IDs in the core.
 
 Input reads supported artifacts and produces a target description. Generator
 produces check jobs from that description and selected property definitions.
@@ -212,14 +212,14 @@ proposal and confirmation.
   executables after a build failure. Continue independent suites after a test
   failure. Return success only when every required suite ran and passed. This is light engineering;
   keep real solver runs sequential and omit redundant optional integration probes.
-- [ ] **Finish the result-policy decisions.** Review false, unknown, missing,
+- [x] **Finish the result-policy decisions.** Review false, unknown, missing,
   and interrupted applicability; trustworthy completed results beside unrelated
   failures; and overall status/exit codes for mixed FAIL/INCONCLUSIVE runs. Use
   a small outcome table and Astra review. Preserve the approved rules: disproved
   applicability makes its linked property INCONCLUSIVE, and independent completed
   results remain visible. Do not treat partial output from a killed compiler as
   a completed proof.
-- [ ] **Implement the agreed applicability and partial-result rules.** Link each
+- [x] **Implement the agreed applicability and partial-result rules.** Link each
   supporting obligation to the exact property obligation it qualifies. Preserve
   raw observations and reasons, and distinguish local failures from failures that
   undermine the evidence for other results. Verify the policy with controlled

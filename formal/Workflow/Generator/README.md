@@ -33,9 +33,10 @@ and scope notes. A plan without jobs has status `noObligations`; it provides no
 passing verdict. Module prefixes must use safe Lean module-name segments.
 
 Provider definitions own their applicability restrictions, model assumptions,
-and expected results. The approved design will add explicit applicability
-relationships in a later checkpoint; the structural refactor preserves the
-current job contract and outcome behavior.
+and expected results. Each job declares a property or applicability role. A
+property can reference one applicability job by module and name; applicability
+jobs expect Valid and have no prerequisite themselves. The provider supplies
+these links explicitly, without relying on naming conventions in the engine.
 
 ## Candidate composition
 

@@ -237,3 +237,22 @@ missing inputs, and legacy help. The candidate definitions, UP012 profile,
 Input, Executor, and Reporter outcome logic were unchanged. Documentation and
 shell syntax checks passed. Test output stays under ignored `formal/output/`;
 the measured suite run retained `test.OaDTtfhF/summary.json` and per-suite logs.
+
+## Applicability qualification and partial results
+
+The reporting checkpoint adds explicit job roles and applicability references,
+completed-evidence markers, scoped qualification, and qualified FAIL precedence.
+Raw observations remain visible when applicability is false or unavailable.
+
+`./formal/plutus-upv test` passed all ten suites in 330,971 ms including build.
+Controlled tests cover false, unknown, missing, duplicated, and invalid support;
+separate action links; metadata corruption; completed observations beside later
+timeouts; and mixed FAIL/INCONCLUSIVE aggregation. A real Lean/Blaster arithmetic
+control retained raw Valid and Falsified while reporting both rows INCONCLUSIVE
+because the applicability obligation was false.
+
+The full UP001 and UP012 scenarios retained their expected outcomes, including
+the signer-identity negative control. The emitted Types/Checks for UP001 and
+Types/Tx/Checks for UP012 matched the previous CLI checkpoint byte for byte.
+Property propositions, transaction models, and CEK bounds did not change.
+The aggregate run retained `output/test.AsIZxSM3/summary.json` and per-suite logs.

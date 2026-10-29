@@ -26,8 +26,21 @@ def run : IO Unit := do
     | .ok value => pure value
     | .error error => throw (IO.userError (toString error))
   check "UP-012 has support, shapes, and checks" (signerPlan.modules.size == 3 && signerPlan.jobs.size == 4)
-  check "UP-012 keeps applicability jobs" ((signerPlan.jobs.filter (·.name.endsWith "_applies")).size == 2)
+  check "UP-012 keeps applicability jobs" ((signerPlan.jobs.filter (·.role == .applicability)).size == 2)
   check "UP-012 uses declared Valid expectations" (signerPlan.jobs.all (·.expected == .valid))
+  for (propertyName, applicabilityName) in [
+      ("dropSigner_claim", "dropSigner_claim_applies"),
+      ("dropSigner_cancel", "dropSigner_cancel_applies")] do
+    let some propertyJob := signerPlan.jobs.find? (·.name == propertyName)
+      | throw (IO.userError s!"missing property obligation: {propertyName}")
+    let some applicabilityJob := signerPlan.jobs.find? (·.name == applicabilityName)
+      | throw (IO.userError s!"missing applicability obligation: {applicabilityName}")
+    let reference : JobRef := { moduleName := "Generated.Signers.Checks", name := applicabilityName }
+    check s!"{propertyName}: explicit property role and action-specific qualification"
+      (propertyJob.role == .property && propertyJob.applicability == some reference)
+    check s!"{applicabilityName}: explicit applicability role without another dependency"
+      (applicabilityJob.role == .applicability && applicabilityJob.applicability.isNone &&
+       applicabilityJob.expected == .valid)
   let signerGolden ← IO.FS.readFile "Workflow/Tests/UP012/Expected/declarations.lean.txt"
   let signerDeclarations := String.intercalate "\n" (signerPlan.jobs.toList.map fun job =>
     s!"theorem {job.name} :\n{job.statement} := by blaster\n")

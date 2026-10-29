@@ -38,6 +38,10 @@ def compiler (args : List String) : IO UInt32 := do
     emit path.toString "Tactic `blaster` failed: Goal was falsified (see counterexample above)\n\n⊢ False" "error"
     return 1
   | "unexpected-valid" => emit path.toString "❌ Unexpected Valid" "error"; return 1
+  | "evidence-write-error" =>
+    IO.FS.createDir (path.withExtension "stderr.log")
+    emit path.toString "✅ Valid"
+    return 0
   | "foreign" => emit "/foreign.lean" "✅ Valid"; return 0
   | "off-range" => emit path.toString "✅ Valid" "information" 99; return 0
   | "malformed-json" =>
@@ -104,6 +108,7 @@ def run : IO Unit := do
     withResult (plan mode) options fun result => do
       let job ← firstJob result
       check s!"{mode}: execution completed" (result.state == .completed)
+      check s!"{mode}: module evidence is complete" job.evidenceComplete
       check s!"{mode}: observed solver outcome" (job.observed ==
         if mode == "falsified" then .falsified else .valid)
       check s!"{mode}: expectation preserved" (job.job.expected == .valid)
@@ -111,21 +116,39 @@ def run : IO Unit := do
       check "manifest retained" (← (directory / "execution.json").pathExists)
       check "source retained" (← (directory / "Fixture/Checks.lean").pathExists)
       check "raw diagnostics retained" (← (directory / "Fixture/Checks.stdout.log").pathExists)
+      let manifest ← IO.ofExcept (Json.parse (← IO.FS.readFile (directory / "execution.json")))
+      let savedJobs ← IO.ofExcept ((← IO.ofExcept (manifest.getObjVal? "jobs")).getArr?)
+      let some savedJob := savedJobs[0]? | throw (IO.userError "missing saved observation")
+      check "manifest preserves evidence completeness"
+        ((savedJob.getObjVal? "evidenceComplete").toOption == some (.bool true))
+      check "manifest preserves the default property role"
+        ((savedJob.getObjVal? "role").toOption == some (.str "property") &&
+         (savedJob.getObjVal? "applicability").toOption == some .null)
   for mode in ["silent", "foreign", "off-range", "malformed-json", "foreign-error", "error-after", "zero-error", "conflict",
       "wrong-detail-position", "wrong-indented-detail-position", "orphan-detail", "sorry", "undetermined", "exit-one"] do
     withResult (plan mode) options fun result => do
       let job ← firstJob result
       check s!"{mode}: no false conclusive outcome"
         (result.state == .error && job.observed == .inconclusive && !result.problems.isEmpty)
+      let complete := !["malformed-json", "foreign-error", "zero-error", "exit-one"].contains mode
+      check s!"{mode}: module completeness remains independent of local issues"
+        (job.evidenceComplete == complete)
   withResult (plan "valid") { options with leanCommand := "/missing/lean" } fun result => do
-    check "missing compiler is an execution problem" (result.state == .error)
+    let job ← firstJob result
+    check "missing compiler is an execution problem" (result.state == .error && !job.evidenceComplete)
   withResult (plan "valid") { options with timeoutCommand := "/missing/timeout" } fun result => do
-    check "missing supervisor is an execution problem" (result.state == .error)
+    let job ← firstJob result
+    check "missing supervisor is an execution problem" (result.state == .error && !job.evidenceComplete)
+  withResult (plan "evidence-write-error") options fun result => do
+    let job ← firstJob result
+    check "execution exceptions do not certify module evidence"
+      (result.state == .error && job.observed == .inconclusive && !job.evidenceComplete)
   for mode in ["timeout", "partial"] do
     withResult (plan mode) { options with budgetMs := 700 } fun result => do
       let job ← firstJob result
       check s!"{mode}: bounded and inconclusive"
-        (result.state == .timedOut && job.observed == .inconclusive && result.elapsedMs < 3000)
+        (result.state == .timedOut && job.observed == .inconclusive &&
+         !job.evidenceComplete && result.elapsedMs < 3000)
       if mode == "partial" then
         check "partial positive evidence retained" (job.diagnostics.any (·.message == "✅ Valid"))
       else
@@ -140,6 +163,41 @@ def run : IO Unit := do
     #[⟨"Fixture.Support", "-- delay\n"⟩] ++ (plan "late-valid").modules }
   withResult shared { options with budgetMs := 700 } fun result => do
     check "budget is shared across modules" (result.state == .timedOut && result.modules.size == 2)
+  let some baseJob := (plan "valid").jobs[0]? | throw (IO.userError "missing control job")
+  let completedThenTimedOut : GenerationPlan := {
+    targetName := "partial-module-controls"
+    modules := #[
+      ⟨"Fixture.First", "-- valid\n\ntheorem first : True := by trivial\n"⟩,
+      ⟨"Fixture.Second", "-- partial\n\ntheorem second : True := by trivial\n"⟩,
+      ⟨"Fixture.Third", "-- valid\n\ntheorem third : True := by trivial\n"⟩]
+    jobs := #[
+      { baseJob with name := "first", moduleName := "Fixture.First", role := .applicability },
+      { baseJob with
+        name := "second", moduleName := "Fixture.Second"
+        applicability := some { moduleName := "Fixture.First", name := "first" } },
+      { baseJob with name := "third", moduleName := "Fixture.Third" }] }
+  withResult completedThenTimedOut { options with budgetMs := 700 } fun result => do
+    check "later timeout retains the completed earlier module"
+      (result.state == .timedOut && result.modules.size == 2 && result.jobs.size == 3)
+    let some first := result.jobs[0]? | throw (IO.userError "missing completed observation")
+    let some second := result.jobs[1]? | throw (IO.userError "missing timed-out observation")
+    let some third := result.jobs[2]? | throw (IO.userError "missing unrun observation")
+    check "completed module retains conclusive complete evidence"
+      (first.observed == .valid && first.evidenceComplete && first.issues.isEmpty)
+    check "timed-out module is incomplete despite its positive marker"
+      (second.observed == .inconclusive && !second.evidenceComplete &&
+       second.diagnostics.any (·.message == "✅ Valid"))
+    check "unrun module remains incomplete" (third.observed == .inconclusive && !third.evidenceComplete)
+    let some directory := result.directory | throw (IO.userError "missing partial-run evidence")
+    let manifest ← IO.ofExcept (Json.parse (← IO.FS.readFile (directory / "execution.json")))
+    let jobs ← IO.ofExcept ((← IO.ofExcept (manifest.getObjVal? "jobs")).getArr?)
+    let some savedFirst := jobs[0]? | throw (IO.userError "missing saved applicability")
+    let some savedSecond := jobs[1]? | throw (IO.userError "missing saved property")
+    check "manifest preserves the applicability role"
+      ((savedFirst.getObjVal? "role").toOption == some (.str "applicability"))
+    check "manifest preserves the linked prerequisite"
+      ((savedSecond.getObjVal? "applicability").toOption ==
+        some (Json.mkObj [("module", .str "Fixture.First"), ("name", .str "first")]))
   IO.FS.withTempDir fun parent => do
     let root := parent / "shared output"
     let retained := { options with outputRoot := some root }
