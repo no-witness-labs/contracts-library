@@ -28,3 +28,59 @@ rev = "main"
 
 [[lean_lib]]
 name = "Formal"
+
+# Independent workflow components, built separately from validator proofs.
+[[lean_lib]]
+name = "Workflow"
+
+# Candidate definitions and composition references, outside the reusable engine.
+[[lean_lib]]
+name = "Candidates"
+
+[[lean_exe]]
+name = "workflow_input_tests"
+root = "Workflow.Tests.Unit.Input.Tests"
+
+[[lean_exe]]
+name = "workflow_generator_tests"
+root = "Workflow.Tests.Unit.Generator.Tests"
+
+[[lean_exe]]
+name = "workflow_generator_integration"
+root = "Workflow.Tests.UP001.Integration"
+
+[[lean_exe]]
+name = "workflow_executor_tests"
+root = "Workflow.Tests.Unit.Executor.Tests"
+
+[[lean_exe]]
+name = "workflow_executor_integration"
+root = "Workflow.Tests.UP001.ExecutorIntegration"
+
+[[lean_exe]]
+name = "workflow_reporter_tests"
+root = "Workflow.Tests.Unit.Reporter.Tests"
+
+[[lean_exe]]
+name = "workflow_reporter_integration"
+root = "Workflow.Tests.Unit.Reporter.Integration"
+
+[[lean_exe]]
+name = "workflow_runner_tests"
+root = "Workflow.Tests.Unit.Runner.Tests"
+
+[[lean_exe]]
+name = "universal"
+root = "Workflow.CLI"
+
+[[lean_exe]]
+name = "plutus-upv"
+root = "Workflow.ProductCLI"
+
+[[lean_exe]]
+name = "workflow_up001_tests"
+root = "Workflow.Tests.UP001.Main"
+
+[[lean_exe]]
+name = "workflow_up012_tests"
+root = "Workflow.Tests.UP012.Main"

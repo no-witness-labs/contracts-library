@@ -1,5 +1,7 @@
 # Blueprint type and CBOR extraction
 
+For bounded candidate runs and result reporting, see [Run candidate checks](WORKFLOW.md).
+
 This foundation extracts the type-generation pass from
 [sayyadirfanali's work in PR #44](https://github.com/no-witness-labs/contracts-library/pull/44)
 at `99a5734f0e036b6abfb4c3f121a298e35fa2eff6`.

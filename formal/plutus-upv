@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+upv_root=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
+if [[ ${1:-} == run && $# -ge 3 && $2 != /* ]]; then
+  upv_blueprint="$PWD/$2"
+  set -- run "$upv_blueprint" "${@:3}"
+fi
+cd -- "$upv_root"
+exec lake exe plutus-upv "$@"
