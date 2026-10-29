@@ -190,12 +190,71 @@ and full prototype command.
 
 ## Next work
 
-The [PR #47 reconciliation](RECONCILIATION.md) records retained behavior,
-deferred features, and the completed UP-001 semantic review. The provider now
-uses the approved 5,000,000-step bound. Review the remaining feature exclusions
-and the supported workflow with Irfan before closing the consolidation task.
-
-The [validation history](VALIDATION.md) separates the original 1,000,000-step
-baseline from the current checkpoint. Results retain the stated model, CEK
-bound, and Blaster trust boundary. Further implementation requires a scoped
+The prototype already connects all four Lean components and retains local
+sources, logs, and reports. The UP001 and UP012 workflow scenarios cover passing,
+failing, unsupported, malformed-input, and timeout cases. The next checkpoints
+below are a proposed work order; code changes require a bounded implementation
 proposal and confirmation.
+
+- [ ] **Choose the product name and add one verbose test command.** The name must
+  communicate formal verification of universal properties and connect to
+  Plutus/Cardano. Choose the name and launcher before implementation. The intended
+  interface is `<name> test` alongside `<name> run ...`. Cover all four
+  component unit suites, all three integration suites, and UP001/UP012. Run each
+  suite once, sequentially, including its existing candidate checks. Show suite
+  and case names, commands, progress, stdout/stderr, elapsed time, expected
+  negative outcomes, and a final summary. Make verbose logging the default and
+  retain detailed logs under ignored local output. Print start messages before
+  buffered solver calls. Build explicit workflow targets; do not run stale
+  executables after a build failure. Continue independent suites after a test
+  failure. Return success only when every required suite ran and passed. This is light engineering;
+  keep real solver runs sequential and omit redundant optional integration probes.
+- [ ] **Finish the result-policy decisions.** Review false, unknown, missing,
+  and interrupted applicability; trustworthy completed results beside unrelated
+  failures; and overall status/exit codes for mixed FAIL/INCONCLUSIVE runs. Use
+  a small outcome table and Astra review. Preserve the approved rules: disproved
+  applicability makes its linked property INCONCLUSIVE, and independent completed
+  results remain visible. Do not treat partial output from a killed compiler as
+  a completed proof.
+- [ ] **Implement the agreed applicability and partial-result rules.** Link each
+  supporting obligation to the exact property obligation it qualifies. Preserve
+  raw observations and reasons, and distinguish local failures from failures that
+  undermine the evidence for other results. Verify the policy with controlled
+  cases, including separate Claim/Cancel links and mixed outcomes. This is an
+  engineering checkpoint after policy approval; it needs no new property proofs.
+- [ ] **Agree and carry the minimum check metadata.** Use
+  [issue #65](https://github.com/no-witness-labs/contracts-library/issues/65) for
+  the field decisions, including independent definition/model versions and clear
+  descriptions and limitations. Then carry the agreed identity and target binding
+  unchanged through Generator, Executor, and Reporter. Demonstrate one definition
+  with different models and model versions without confusing their observations.
+  Metadata discussion can proceed alongside the test-command work; implementation
+  follows the reviewed contract.
+- [ ] **Complete the evidence for failed attempts.** Retain readable input even
+  when parsing or decoding fails, plus the invocation, options, and failure phase.
+  Record the actual executed commands and their context. Unreadable inputs need
+  an explicit reason instead of an invented snapshot. Verify malformed input,
+  preparation failures, and timed-out runs with small controlled cases. This is
+  light engineering; full dependency hashing can remain a follow-up.
+- [ ] **Run multiple maintained check variants for one validator.** Decide the
+  initial run contents and time-budget policy. Reuse separate generation/execution
+  plans so one unsupported or failed variant does not erase other attempts.
+  Retain a distinct result and evidence reference for every attempted variant,
+  including variants that could not run. Validate the boundary with two variants
+  sharing declaration names and with mixed successful, failing, and incomplete
+  attempts. Start with sequential orchestration rather than a scheduler framework.
+- [ ] **Complete the regression and delivery review.** Run focused tests during
+  each checkpoint and finish with the aggregate test command. Verify the
+  documented CLI from a prepared checkout. Keep reports and evidence attributable
+  to the exact run. Reconcile remaining [PR #47 exclusions](RECONCILIATION.md), update
+  the supported-scope documentation, and prepare the draft PR for owner review.
+
+Property-definition improvements, including UP-012 signer removal, remain in
+separate property work. Enable/disable syntax, richer report branding, additional
+input formats, typed parameter application, hosted CI, and broader packaging
+remain follow-ups. The test-command naming and minimal launcher decision above
+do not require a general installation framework.
+
+The [validation history](VALIDATION.md) preserves the existing model and CEK
+bounds and the Blaster trust boundary. Input needs no redesign for these
+checkpoints; extend it only when an agreed input contract requires it.
