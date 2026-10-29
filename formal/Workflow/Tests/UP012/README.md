@@ -30,6 +30,8 @@ compiled code and selected handler metadata. `Inputs/compiled-code.txt` and
 `Expected/declarations.lean.txt` are the unchanged independent regression oracles.
 `Inputs/unsupported.json` exercises the profile guard.
 
-The source templates retain original comments for provenance. Runtime generation
-uses the Lean profile and candidate module. General required-signer semantics
+Generated headers identify the current Lean emitter and the original PR/SHA
+provenance. Runtime generation uses the profile and candidate module. Edit the
+profile model and rerun to change the generated scenario sources.
+General required-signer semantics
 remain outside this experimental scenario, as tracked in issue #33.

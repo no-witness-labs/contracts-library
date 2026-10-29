@@ -50,10 +50,10 @@ lake exe workflow_generator_tests
 lake exe workflow_generator_integration
 ```
 
-The first command runs generic contract checks with stub providers, then the
-candidate-specific declaration/profile checks owned by UP001 and UP012. The
-second preserves the Input-to-Generator type-checking check. It compiles support
-and proposition definitions without proving them.
+The first command runs only generic contract checks with stub providers. The
+UP001 and UP012 workflow suites own their candidate-specific declaration/profile
+checks. The second command preserves the Input-to-Generator type-checking check;
+it compiles support and proposition definitions without proving them.
 
 The [test index](../Tests/README.md) lists the two complete workflow scenarios
 and component checks. The [validation history](../VALIDATION.md) keeps generation,

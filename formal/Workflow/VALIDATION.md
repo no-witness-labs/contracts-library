@@ -1,5 +1,20 @@
 # Validation history
 
+## Generated comments and independent unit checks
+
+Generated headers now identify their current Lean emitters while retaining the
+original PR/SHA provenance. The UP-012 transaction-model instructions direct
+edits to the profile source followed by another run. Only line comments changed
+in generated Lean; all definitions, propositions, bounds, and artifact guards
+remain identical to the pre-cleanup sources after removing those comments.
+
+`workflow_generator_tests` now runs only generic Generator unit checks. The
+scenario contract checks remain in each complete workflow suite. This cleanup
+removes the extra aggregator. The independent unit command, both scenario contract
+checks, and scoped builds pass. Generated support modules and all nine proposition
+definitions type-check without invoking the solver. Full solver-suite evidence
+remains that of the preceding structural checkpoint.
+
 ## Core and test separation
 
 The structural refactor preserves twelve fixed input/oracle payloads byte-for-byte

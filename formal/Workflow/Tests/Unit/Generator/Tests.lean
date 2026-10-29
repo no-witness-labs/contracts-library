@@ -44,3 +44,5 @@ def run : IO Unit := do
   IO.println "Generic Generator checks passed."
 
 end Workflow.Tests.Unit.Generator
+
+def main : IO Unit := Workflow.Tests.Unit.Generator.run
