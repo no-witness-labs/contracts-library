@@ -45,6 +45,8 @@ Executor reads Lean's JSON diagnostics and attributes them by source file and
 declaration range. It recognizes the pinned Blaster's explicit Valid and
 Falsified messages, plus its scoped `blasterProven` warning. Counterexample
 details accompany a Falsified marker only at the same source position.
+The parser accepts indentation on counterexample value lines while preserving
+their original text in the evidence.
 
 Silence, foreign-file success, conflicting results, unexpected compiler errors,
 unexpected `sorry` warnings, undetermined results, and stopped commands cannot

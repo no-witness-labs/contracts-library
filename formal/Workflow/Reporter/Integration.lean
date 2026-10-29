@@ -15,7 +15,7 @@ def main : IO Unit := do
         { propertyId := "fixture", name := "good", moduleName := "Controls.Report",
           statement := "∀ x : Int, x = x", expected := .valid, scope := "arithmetic fixture only" },
         { propertyId := "fixture", name := "bad", moduleName := "Controls.Report",
-          statement := "(1 : Int) = 2", expected := expectedBad, scope := "arithmetic fixture only" }] }
+          statement := "∀ x : Int, x = 0", expected := expectedBad, scope := "arithmetic fixture only" }] }
     let result ← match ← Executor.run plan { leanPath := environment.stdout.trim, budgetMs := 15000 } with
       | .ok value => pure value
       | .error message => throw (IO.userError message)

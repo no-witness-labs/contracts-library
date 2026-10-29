@@ -60,7 +60,7 @@ private def counterexampleDetail (diagnostic : Diagnostic) (others : Array Diagn
   let samePosition := others.any fun other =>
     falsified other.message && other.line == diagnostic.line && other.column == diagnostic.column
   samePosition && (diagnostic.message == "Counterexample:" ||
-    diagnostic.message.startsWith "- " || diagnostic.message.startsWith
+    diagnostic.message.trim.startsWith "- " || diagnostic.message.startsWith
       "Tactic `blaster` failed: Goal was falsified (see counterexample above)")
 
 private def sameFile (name : String) (path : System.FilePath) : Bool :=

@@ -32,6 +32,8 @@ def compiler (args : List String) : IO UInt32 := do
   | "falsified" =>
     emit path.toString "❌ Falsified" "error"
     emit path.toString "Counterexample:" "error"
+    emit path.toString "- x: 1" "error"
+    emit path.toString " - r: (Data.B\n  (ByteString.mk \"value\"))" "error"
     emit path.toString "Tactic `blaster` failed: Goal was falsified (see counterexample above)\n\n⊢ False" "error"
     return 1
   | "unexpected-valid" => emit path.toString "❌ Unexpected Valid" "error"; return 1
@@ -56,6 +58,14 @@ def compiler (args : List String) : IO UInt32 := do
   | "wrong-detail-position" =>
     emit path.toString "❌ Falsified" "error"
     emit path.toString "Counterexample:" "error" 3 8
+    return 1
+  | "wrong-indented-detail-position" =>
+    emit path.toString "❌ Falsified" "error"
+    emit path.toString " - r: 1" "error" 3 8
+    return 1
+  | "orphan-detail" =>
+    emit path.toString "✅ Valid"
+    emit path.toString " - r: 1" "error"
     return 1
   | "sorry" | "undetermined" =>
     emit path.toString "✅ Valid"
@@ -101,7 +111,7 @@ def run : IO Unit := do
       check "source retained" (← (directory / "Fixture/Checks.lean").pathExists)
       check "raw diagnostics retained" (← (directory / "Fixture/Checks.stdout.log").pathExists)
   for mode in ["silent", "foreign", "off-range", "malformed-json", "foreign-error", "error-after", "zero-error", "conflict",
-      "wrong-detail-position", "sorry", "undetermined", "exit-one"] do
+      "wrong-detail-position", "wrong-indented-detail-position", "orphan-detail", "sorry", "undetermined", "exit-one"] do
     withResult (plan mode) options fun result => do
       let job ← firstJob result
       check s!"{mode}: no false conclusive outcome"

@@ -23,7 +23,7 @@ def run (args : List String) : IO Unit := do
       { propertyId := "fixture-valid", name := "good", moduleName := "Controls.Outcomes",
         statement := "∀ x : Int, x = x", expected := .valid, scope := "fixture only" },
       { propertyId := "fixture-falsified", name := "bad", moduleName := "Controls.Outcomes",
-        statement := "(1 : Int) = 2", expected := .falsified, scope := "fixture only" }] }
+        statement := "∀ x : Int, x = 0", expected := .falsified, scope := "fixture only" }] }
   let controlResult ← execute controls leanPath 15000
   unless controlResult.state == .completed && controlResult.jobs.size == 2 &&
       controlResult.jobs.any (fun item => item.job.name == "good" && item.observed == .valid) &&
