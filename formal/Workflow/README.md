@@ -42,7 +42,7 @@ Use a prepared checkout with the pinned dependencies and tools. The
 | Applicability | Generator explicitly identifies applicability obligations and links them to the property obligations they qualify | Let downstream components distinguish an unusable scenario from a property counterexample |
 | Candidate catalogue | Reference maintained candidate implementations and supporting models through a catalogue | Add candidates without embedding their identities or example validators in the core components |
 
-The approved refactor target is:
+The workflow and test folders are:
 
 ```text
 formal/Workflow/
@@ -56,9 +56,10 @@ formal/Workflow/
     └── Unit/
 ```
 
-This separation and the explicit applicability relationships remain pending
-implementation. The current prototype still imports built-in providers from
-Generator and includes the fixed UP-012 vesting setup there.
+The reusable components and orchestration do not import candidate or test
+implementations. `Candidates/` contains candidate code, and the UP-012 test
+profile owns its pinned artifact and transaction model. Explicit applicability
+relationships remain an approved design change for a separate checkpoint.
 
 Input reads supported artifacts and produces a target description. Generator
 produces check jobs from that description and selected property definitions.
@@ -84,15 +85,18 @@ Additional input formats or proof backends may require their own adapters.
 Those differences belong to format and tool support, rather than to the choice
 of property.
 
-## Planned candidate catalogue and run selection
+## Candidate composition and planned selection modes
 
-The catalogue is a small index of references to candidate implementations and
-their supporting models. Candidate code stays at its maintained location.
+[`Candidates/Catalogue.lean`](../Candidates/Catalogue.lean) is the current thin
+composition index. It references `Candidates.UP001` and the experimental
+`Workflow.Tests.UP012.Profile`, which binds the original candidate propositions
+to its vesting scenario. `Workflow/CLI.lean` supplies that resolver to the generic
+`Workflow.Main.run` entry point. Candidate code stays outside the engine.
 Workflow tests reference that code and supply example targets, scenario-specific
 models or harnesses, and expected outcomes. Fixed fixtures support these tests;
 normal runs supply their own required inputs.
 
-The reusable engine receives the selected check definitions and target through
+The reusable engine receives its candidate resolver and selected target through
 its interfaces. It does not own the candidate list or a particular validator's
 test setup. Adding a candidate should require providing its implementation and
 catalogue reference rather than editing the engine.
@@ -103,10 +107,11 @@ The owner proposed three selection modes for later CLI review:
 - An all-candidates mode, potentially the default.
 - A client-provided configuration selecting checks for a run.
 
-Catalogue format, configuration schema, flags such as `-a`, default behavior,
+The final catalogue format, configuration schema, flags such as `-a`, default behavior,
 which entries all mode includes, and unsupported-check handling remain open.
 The run configuration should refer to catalogue entries without duplicating
-property implementations. CLI selection implementation awaits that later review.
+property implementations. The existing `--check` behavior and UP-001 default remain unchanged during this
+structural refactor. New selection modes await that later review.
 
 ## Targets and input formats
 

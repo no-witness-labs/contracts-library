@@ -77,6 +77,11 @@ copies its input blueprint into the evidence directory.
 
 ## Tests
 
+Component checks and shared arithmetic controls live under
+`Workflow/Tests/Unit/`. The optional UP-001 execution wrapper belongs to its
+[scenario](../Tests/UP001/README.md).
+
+
 From `formal/`, with the pinned dependencies and tools prepared:
 
 ```sh

@@ -1,8 +1,10 @@
 import Workflow.Generator
+import Candidates.UP001
 
 open Lean Workflow
+open Workflow.Generator
 
-namespace Workflow.Generator.Tests
+namespace Workflow.Tests.UP001.Tests
 
 private def check (label : String) (condition : Bool) : IO Unit := do
   unless condition do throw (IO.userError s!"FAIL: {label}")
@@ -16,7 +18,7 @@ private def target (purposes : Array Purpose := #[.spend]) : TargetDescription :
 
 private def accepted (input : TargetDescription) (modulePrefix := "Generated.Positive") :
     IO GenerationPlan := do
-  match generate OtherPurpose.provider input modulePrefix with
+  match generate Candidates.UP001.provider input modulePrefix with
   | .ok plan => return plan
   | .error error => throw (IO.userError s!"unexpected generator error: {error}")
 
@@ -30,7 +32,7 @@ def run : IO Unit := do
   check "expectation belongs to jobs" (plan.jobs.all (·.expected == .valid))
   check "scope records fuel semantics" (plan.jobs.all (·.scope == plan.notes[0]!))
   check "scope reports the reviewed bound" ((plan.notes[0]!.splitOn "5,000,000 CEK steps").length == 2)
-  let golden ← IO.FS.readFile "Workflow/Generator/Fixtures/up001-declarations.txt"
+  let golden ← IO.FS.readFile "Workflow/Tests/UP001/Expected/declarations.lean.txt"
   let declarations := String.intercalate "\n" (plan.jobs.toList.map fun job =>
     s!"theorem {job.name} :\n{job.statement} := by blaster\n")
   check "reviewed declarations preserved verbatim" (declarations.trim == golden.trim)
@@ -50,54 +52,17 @@ def run : IO Unit := do
   check "explicit empty parameter list is supported" (emptyParams.jobs.size == 5)
   let parameter : ArgumentDescription :=
     { schema := Json.mkObj [("dataType", .str "integer")], title := none, description := none }
-  match generate OtherPurpose.provider { target with parameters := some #[parameter] } "Generated.Params" with
+  match generate Candidates.UP001.provider { target with parameters := some #[parameter] } "Generated.Params" with
   | .error error => check "parameters are explicitly unsupported" (error.kind == .unsupported)
   | .ok _ => throw (IO.userError "parameterized target silently changed scope")
-  match generate OtherPurpose.provider { target with plutusVersion := "v2" } "Generated.Version" with
+  match generate Candidates.UP001.provider { target with plutusVersion := "v2" } "Generated.Version" with
   | .error error => check "unsupported version is explicit" (error.kind == .unsupported)
   | .ok _ => throw (IO.userError "unsupported version accepted")
   for invalid in ["", ".Broken", "lower.Case", "Generated.Type", "Generated.X;#eval"] do
-    match generate OtherPurpose.provider target invalid with
+    match generate Candidates.UP001.provider target invalid with
     | .error error => check "unsafe module prefix rejected" (error.kind == .invalidNamespace)
     | .ok _ => throw (IO.userError s!"unsafe module prefix accepted: {invalid}")
 
-  let sampleProvider : Provider := {
-    id := "fixture-witness"
-    generate := fun input modulePrefix => .ok {
-      targetName := input.name
-      modules := #[⟨s!"{modulePrefix}.Checks", "-- fixture source\n"⟩]
-      jobs := #[{ propertyId := "fixture-witness", name := "witness",
-                  moduleName := s!"{modulePrefix}.Checks", statement := "False",
-                  expected := .falsified, scope := "fixture only" }] } }
-  match generate sampleProvider target "Generated.Other" with
-  | .ok result =>
-    let some job := result.jobs[0]? | throw (IO.userError "missing sample job")
-    check "engine accepts another provider and expectation"
-      (result.status == .ready && job.propertyId == "fixture-witness" && job.expected == .falsified)
-  | .error error => throw (IO.userError (toString error))
-  let referenceCode ← IO.FS.readFile "Workflow/Generator/Fixtures/up012-compiled-code.txt"
-  let vesting := { target with compiledCode := referenceCode.trim }
-  let signerPlan ← match generate RequiredSigners.provider vesting "Generated.Signers" with
-    | .ok value => pure value
-    | .error error => throw (IO.userError (toString error))
-  check "UP-012 has support, shapes, and checks" (signerPlan.modules.size == 3 && signerPlan.jobs.size == 4)
-  check "UP-012 keeps applicability jobs" ((signerPlan.jobs.filter (·.name.endsWith "_applies")).size == 2)
-  check "UP-012 uses declared Valid expectations" (signerPlan.jobs.all (·.expected == .valid))
-  let signerGolden ← IO.FS.readFile "Workflow/Generator/Fixtures/up012-declarations.txt"
-  let signerDeclarations := String.intercalate "\n" (signerPlan.jobs.toList.map fun job =>
-    s!"theorem {job.name} :\n{job.statement} := by blaster\n")
-  check "UP-012 preserves the candidate propositions" (signerDeclarations.trim == signerGolden.trim)
-  check "UP-012 embeds code instead of reading Scripts"
-    (signerPlan.modules.all fun source => (source.source.splitOn "#import_uplc").length == 1)
-  check "UP-001 remains the default provider" ((selectProvider none).toOption.map (·.id) == some "UP-001")
-  check "UP-012 is selectable" ((selectProvider (some "UP-012")).toOption.map (·.id) == some "UP-012")
-  for unsupported in [target, { vesting with parameters := some #[parameter] },
-      { vesting with plutusVersion := "v2" }, { vesting with handlers := #[] }] do
-    match generate RequiredSigners.provider unsupported "Generated.Unsupported" with
-    | .error error => check "UP-012 profile restrictions are explicit" (error.kind == .unsupported)
-    | .ok _ => throw (IO.userError "UP-012 accepted an unsupported profile")
-  IO.println "Generator fixture checks passed."
+  IO.println "UP-001 generator checks passed."
 
-end Workflow.Generator.Tests
-
-def main : IO Unit := Workflow.Generator.Tests.run
+end Workflow.Tests.UP001.Tests

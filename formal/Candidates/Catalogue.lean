@@ -1,10 +1,12 @@
-import Workflow.Generator.OtherPurpose
-import Workflow.Generator.RequiredSigners
+import Candidates.UP001
+import Workflow.Tests.UP012.Profile
 
-namespace Workflow.Generator
+namespace Candidates.Catalogue
 
-/-- Register ordinary Lean providers here; the command entry point stays property-independent. -/
-def providers : Array Provider := #[OtherPurpose.provider, RequiredSigners.provider]
+open Workflow.Generator
+
+/-- Compose the currently runnable candidate implementations and experimental profiles. -/
+def providers : Array Provider := #[Candidates.UP001.provider, Workflow.Tests.UP012.Profile.provider]
 
 def selectProvider (id : Option String) : Except String Provider :=
   match id with
@@ -17,4 +19,4 @@ def selectProvider (id : Option String) : Except String Provider :=
     | some provider => .ok provider
     | none => .error s!"unsupported check provider: {name}"
 
-end Workflow.Generator
+end Candidates.Catalogue

@@ -1,5 +1,27 @@
 # Validation history
 
+## Core and test separation
+
+The structural refactor preserves twelve fixed input/oracle payloads byte-for-byte
+and moves test code under `Workflow/Tests/`. Candidate definitions live under
+`Candidates/`; the UP-012 model and pinned artifact guard belong to its scenario.
+The core components and generic orchestration have no imports from candidate
+definitions, test code, or the project's property models.
+
+A clean project build, reusing only copied pinned dependency caches, built
+`Workflow` and `Workflow.Main` without producing candidate, test, or project-model
+modules. The subsequent CLI/test build prepared its own model dependencies and
+passed support/proposition type-checking. No old project build artifacts were
+copied into that validation workspace.
+
+All component checks and real Valid/Falsified controls passed after the moves.
+The UP001 workflow suite retained PASS/0, FAIL/1, input-error/2, and timeout/2.
+The UP012 suite retained four `PASS` observations and unsupported-profile/2.
+For both passing scenarios, every generated Lean source file matched the saved
+pre-refactor baseline byte-for-byte. Propositions, bounds, expected results,
+selection defaults, and local output behavior remain unchanged. Applicability
+relationships and additional CLI selection modes remain separate design work.
+
 ## Experimental UP-012 vesting suite
 
 The existing suite from PR #55 at `f5cbda7df624f2496dd2e6fe354a0cd15365b923`
@@ -34,7 +56,7 @@ distinct runs, retained source files, and a parent path that is a file.
 
 The [quickstart](QUICKSTART.md) uses the compiled vault fixtures from PR #47 at
 `0dde8ae76e3f8a239bf06685f72327aed4a7c3ef`, with their source and dependency
-metadata preserved under `Workflow/Fixtures/`. The blueprint SHA-256 is
+metadata now preserved under `Workflow/Tests/UP001/Inputs/`. The blueprint SHA-256 is
 `afd375487a56be74f83f60e7c94fc2008f6e79b418a7bde3f1575bb4c6c9b426`.
 
 The existing `lake exe universal` command produced these outcomes on the

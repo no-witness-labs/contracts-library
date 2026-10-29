@@ -31,7 +31,7 @@ The command creates `formal/output/run.XXXXXXXX/` and prints its exact path as
 | `Generated/Workflow/Types.lean` | `program`, `args`, and `accepts`: the compiled validator, context conversion, and bounded execution predicate |
 | `Generated/Workflow/Checks.lean` | The generated `otherPurpose_*` theorems, which use the shared `Every*` contexts |
 
-[`Generator/OtherPurpose.lean`](Generator/OtherPurpose.lean) produces these files
+[`Candidates/UP001.lean`](../Candidates/UP001.lean) produces these files
 and selects a context type for each undeclared purpose. Current UP-001 statements
 pass literal `5000000` to `accepts`. The shared helper file also defines
 `ledgerFuel`, `runFor`, and `rejectedWithin`; these are not the predicate or bound
@@ -55,8 +55,9 @@ checks and find their generated sources and logs.
 
 ## UP-012 vesting profile
 
-[`Generator/RequiredSigners.lean`](Generator/RequiredSigners.lean) retains the
-original typed data, transaction shapes, and propositions from PR #55. Each
+[`Candidates/UP012.lean`](../Candidates/UP012.lean) holds the original four
+propositions from PR #55. [`Tests/UP012/Profile.lean`](Tests/UP012/Profile.lean)
+supplies the typed data, transaction shapes, and pinned artifact guard. Each
 output folder has three generated Lean files:
 
 | File | Definitions |
@@ -77,3 +78,11 @@ Shared support comes from the same repository helper file:
 These shapes have one signatory and remove the first key. The provider is an
 experimental test of the pinned vesting artifact, with applicability checks;
 it does not generate general required-signer checks for arbitrary validators.
+
+## Catalogue and entry point
+
+[`Candidates/Catalogue.lean`](../Candidates/Catalogue.lean) references the current
+implementations. [`CLI.lean`](CLI.lean) wires that index into
+[`Main.lean`](Main.lean). The four reusable components do not import candidates
+or scenario fixtures. Catalogue format and additional CLI selection modes remain
+separate design decisions.

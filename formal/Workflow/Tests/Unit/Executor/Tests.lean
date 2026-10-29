@@ -1,8 +1,9 @@
 import Workflow.Executor
 
 open Lean Workflow
+open Workflow.Executor
 
-namespace Workflow.Executor.Tests
+namespace Workflow.Tests.Unit.Executor
 
 private def check (label : String) (condition : Bool) : IO Unit := do
   unless condition do throw (IO.userError s!"FAIL: {label}")
@@ -84,8 +85,8 @@ def compiler (args : List String) : IO UInt32 := do
     return 0
   | _ => return 0
 
-private def withResult (input : GenerationPlan) (options : Options) (f : Result → IO Unit) : IO Unit := do
-  match ← Executor.run input options with
+private def withResult (input : GenerationPlan) (options : Workflow.Executor.Options) (f : Result → IO Unit) : IO Unit := do
+  match ← Workflow.Executor.run input options with
   | .error message => throw (IO.userError message)
   | .ok result =>
     try f result
@@ -98,7 +99,7 @@ private def firstJob (result : Result) : IO JobObservation :=
   | none => throw (IO.userError "missing job observation")
 
 def run : IO Unit := do
-  let options : Options := { leanPath := ".", leanCommand := (← IO.appPath).toString, budgetMs := 5000 }
+  let options : Workflow.Executor.Options := { leanPath := ".", leanCommand := (← IO.appPath).toString, budgetMs := 5000 }
   for mode in ["valid", "warning", "falsified", "unexpected-valid"] do
     withResult (plan mode) options fun result => do
       let job ← firstJob result
@@ -163,7 +164,7 @@ def run : IO Unit := do
             some (.str (secondDirectory / "Fixture/Checks.lean").toString))
     let blocked := parent / "blocked"
     IO.FS.writeFile blocked "not a directory"
-    match ← Executor.run (plan "valid") { options with outputRoot := some blocked } with
+    match ← Workflow.Executor.run (plan "valid") { options with outputRoot := some blocked } with
     | .error _ => pure ()
     | .ok _ => throw (IO.userError "file accepted as output root")
   let empty : GenerationPlan := { targetName := "fixture", modules := #[], jobs := #[], status := .noObligations }
@@ -175,15 +176,15 @@ def run : IO Unit := do
       { plan "valid" with status := .noObligations },
       { plan "valid" with jobs := (plan "valid").jobs ++ (plan "valid").jobs },
       { plan "valid" with modules := #[⟨"Fixture.Checks", "def different := 1\n"⟩] }] do
-    match ← Executor.run invalid options with
+    match ← Workflow.Executor.run invalid options with
     | .error _ => pure ()
     | .ok _ => throw (IO.userError "invalid plan accepted")
-  match ← Executor.run (plan "valid") { options with budgetMs := 0 } with
+  match ← Workflow.Executor.run (plan "valid") { options with budgetMs := 0 } with
   | .error _ => pure ()
   | .ok _ => throw (IO.userError "zero budget accepted")
   IO.println "Executor fixture checks passed."
 
-end Workflow.Executor.Tests
+end Workflow.Tests.Unit.Executor
 
 def main (args : List String) : IO UInt32 := do
   match args with
@@ -192,5 +193,5 @@ def main (args : List String) : IO UInt32 := do
     IO.sleep 60000
     return 0
   | _ =>
-    if args.contains "--json" then Workflow.Executor.Tests.compiler args
-    else Workflow.Executor.Tests.run *> pure 0
+    if args.contains "--json" then Workflow.Tests.Unit.Executor.compiler args
+    else Workflow.Tests.Unit.Executor.run *> pure 0

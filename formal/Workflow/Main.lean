@@ -1,5 +1,4 @@
 import Workflow
-import Formal.Universal.Properties
 
 namespace Workflow.Main
 
@@ -38,11 +37,12 @@ private def finish (report : Reporter.Report) (source : Option String := none) :
     IO.eprintln s!"INCONCLUSIVE: could not save the report: {error}"
     return 2
 
-private def runRequest (request : Request) : IO UInt32 := do
+private def runRequest (resolveProvider : Option String → Except String Generator.Provider)
+    (request : Request) : IO UInt32 := do
   let input ← match ← Input.read request.path request.selector with
     | .ok value => pure value
     | .error error => return ← finish (Reporter.failure request.selector (toString error))
-  let provider ← match Generator.selectProvider request.checkId with
+  let provider ← match resolveProvider request.checkId with
     | .ok value => pure value
     | .error message => return ← finish (Reporter.failure input.target.name message) (some input.sourceText)
   let plan ← match Generator.generate provider input.target "Generated.Workflow" with
@@ -55,15 +55,14 @@ private def runRequest (request : Request) : IO UInt32 := do
     | .error message => return ← finish (Reporter.failure input.target.name message) (some input.sourceText)
   finish (Reporter.build plan result) (some input.sourceText)
 
-def run (args : List String) : IO UInt32 := do
+def run (resolveProvider : Option String → Except String Generator.Provider)
+    (args : List String) : IO UInt32 := do
   match args with
   | ["--help"] => IO.println usage; return 0
   | path :: selector :: rest =>
     match parseOptions rest { path, selector } with
     | .error message => finish (Reporter.failure selector message)
-    | .ok request => runRequest request
+    | .ok request => runRequest resolveProvider request
   | _ => finish (Reporter.failure "unselected" usage)
 
 end Workflow.Main
-
-def main (args : List String) : IO UInt32 := Workflow.Main.run args

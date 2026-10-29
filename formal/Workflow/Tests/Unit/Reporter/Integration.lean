@@ -7,7 +7,7 @@ open Workflow
 def main : IO Unit := do
   let environment ← IO.Process.output { cmd := "lake", args := #["env", "printenv", "LEAN_PATH"] }
   unless environment.exitCode == 0 do throw (IO.userError environment.stderr)
-  let source ← IO.FS.readFile "Workflow/Executor/Fixtures/outcomes.lean.txt"
+  let source ← IO.FS.readFile "Workflow/Tests/Unit/Fixtures/outcomes.lean.txt"
   for expectedBad in [ExpectedResult.falsified, .valid] do
     let plan : GenerationPlan := {
       targetName := "reporter-controls", modules := #[⟨"Controls.Report", source⟩]

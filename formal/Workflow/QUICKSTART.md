@@ -26,7 +26,7 @@ intentional dependency upgrade. `lake exe` also builds the command when needed.
 ## Run the passing example
 
 ```sh
-lake exe universal Workflow/Fixtures/plutus.json vault.vault --check UP-001 --timeout-ms 120000
+lake exe universal Workflow/Tests/UP001/Inputs/plutus.json vault.vault --check UP-001 --timeout-ms 120000
 ```
 
 The command reads and validates the blueprint, generates five checks for
@@ -67,19 +67,19 @@ code that the generated checks import.
 The deliberately failing validator uses the same blueprint:
 
 ```sh
-lake exe universal Workflow/Fixtures/plutus.json vault_buggy.vault_buggy --check UP-001 --timeout-ms 120000
+lake exe universal Workflow/Tests/UP001/Inputs/plutus.json vault_buggy.vault_buggy --check UP-001 --timeout-ms 120000
 ```
 
 An invalid compiled artifact exercises input rejection:
 
 ```sh
-lake exe universal Workflow/Fixtures/invalid-code.json invalid.invalid --check UP-001 --timeout-ms 120000
+lake exe universal Workflow/Tests/UP001/Inputs/invalid-code.json invalid.invalid --check UP-001 --timeout-ms 120000
 ```
 
 A one-millisecond execution budget exercises timeout handling:
 
 ```sh
-lake exe universal Workflow/Fixtures/plutus.json vault.vault --check UP-001 --timeout-ms 1
+lake exe universal Workflow/Tests/UP001/Inputs/plutus.json vault.vault --check UP-001 --timeout-ms 1
 ```
 
 | Example | Expected summary | Exit code |
@@ -116,11 +116,23 @@ See the [validation history](VALIDATION.md) for measured runs and limits, or
 For the existing vesting suite:
 
 ```sh
-lake exe universal ../onchain/plutus.json linear_vesting.linear_vesting --check UP-012 --timeout-ms 300000
+lake exe universal Workflow/Tests/UP012/Inputs/plutus.json linear_vesting.linear_vesting --check UP-012 --timeout-ms 300000
 ```
 
 This experimental profile runs four original checks: signer removal for Claim
 and Cancel, plus an applicability check for each. It uses the candidate's
 1,000,000-step bound and supplied one-signer shapes. The command accepts only
 the pinned vesting artifact; other validators return INCONCLUSIVE/2. The
-[provider guide](Generator/README.md) describes its scope and restrictions.
+[UP-012 test guide](Tests/UP012/README.md) describes its scope and restrictions.
+
+## Run the workflow test suites
+
+```sh
+lake exe workflow_up001_tests
+lake exe workflow_up012_tests
+```
+
+The first suite checks passing, failing, input-error, and timeout outcomes. The
+second runs the four pinned vesting obligations and rejects an unsupported
+artifact. Each suite uses the same CLI as a normal run. See the
+[test index](Tests/README.md) for component checks and retained fixtures.

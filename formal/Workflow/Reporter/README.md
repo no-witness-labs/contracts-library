@@ -45,8 +45,8 @@ lake exe universal /path/to/plutus.json module.validator --check UP-001 --timeou
 ```
 
 The thin `Workflow.Main` entry point connects Input, Generator, Executor, and
-Reporter. Providers live in Generator's ordinary Lean catalogue; the default is
-its first registered provider. The first provider supports unparameterized
+Reporter. The application supplies the candidate resolver through its composition index;
+the default remains UP-001. The first provider supports unparameterized
 UP-001 targets. The command requires the prepared `LEAN_PATH` supplied by
 `lake exe` and performs no dependency installation.
 `--check UP-012` selects the experimental pinned vesting suite, including its
@@ -69,6 +69,10 @@ properties, typed parameter generation, and portable packaging remain later
 work.
 
 ## Tests
+
+The component harnesses live under `Workflow/Tests/Unit/Reporter/` and share
+the arithmetic controls in `Workflow/Tests/Unit/Fixtures/`.
+
 
 From `formal/`:
 

@@ -1,6 +1,9 @@
 import Workflow.Generator.Basic
+import Formal.Universal.Properties
 
-namespace Workflow.Generator.OtherPurpose
+namespace Candidates.UP001
+
+open Workflow Workflow.Generator
 
 private def allPurposes : Array Purpose :=
   #[.spend, .mint, .withdraw, .publish, .vote, .propose]
@@ -78,4 +81,4 @@ private def build (target : TargetDescription) (modulePrefix : String) : Except 
 /-- Reuse the candidate's domains and predicate with the reviewed 5,000,000-step bound. -/
 def provider : Provider := { id := "UP-001", generate := build }
 
-end Workflow.Generator.OtherPurpose
+end Candidates.UP001

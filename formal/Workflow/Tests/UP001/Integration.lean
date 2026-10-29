@@ -1,10 +1,11 @@
 import Workflow.Input
 import Workflow.Generator
+import Candidates.UP001
 import Formal.Universal.Properties
 
 open Workflow
 
-namespace Workflow.Generator.Integration
+namespace Workflow.Tests.UP001.Integration
 
 private def compileModule (directory : System.FilePath) (leanPath : String)
     (source : GeneratedModule) : IO Unit := do
@@ -34,7 +35,7 @@ private def exercise (directory : System.FilePath) (leanPath : String)
   let input ← match ← Input.read path selector with
     | .ok value => pure value
     | .error error => throw (IO.userError (toString error))
-  let plan ← match generate OtherPurpose.provider input.target modulePrefix with
+  let plan ← match Workflow.Generator.generate Candidates.UP001.provider input.target modulePrefix with
     | .ok value => pure value
     | .error error => throw (IO.userError (toString error))
   unless plan.status == .ready && plan.jobs.size == 5 do
@@ -50,7 +51,7 @@ def run (args : List String) : IO Unit := do
   let environment ← IO.Process.output { cmd := "lake", args := #["env", "printenv", "LEAN_PATH"] }
   unless environment.exitCode == 0 do throw (IO.userError environment.stderr)
   IO.FS.withTempDir fun directory => do
-    exercise directory environment.stdout.trim "Workflow/Input/Fixtures/blueprint.json"
+    exercise directory environment.stdout.trim "Workflow/Tests/Unit/Input/Fixtures/blueprint.json"
       "other.beta" "Generated.Fixture"
     match args with
     | [] => pure ()
@@ -59,6 +60,6 @@ def run (args : List String) : IO Unit := do
     | _ => throw (IO.userError "usage: workflow_generator_integration [BLUEPRINT VALIDATOR]")
   IO.println "Input-to-Generator integration passed; no solver proofs ran."
 
-end Workflow.Generator.Integration
+end Workflow.Tests.UP001.Integration
 
-def main (args : List String) : IO Unit := Workflow.Generator.Integration.run args
+def main (args : List String) : IO Unit := Workflow.Tests.UP001.Integration.run args

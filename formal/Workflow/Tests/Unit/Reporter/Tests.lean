@@ -1,8 +1,9 @@
 import Workflow.Reporter
 
 open Lean Workflow
+open Workflow.Reporter
 
-namespace Workflow.Reporter.Tests
+namespace Workflow.Tests.Unit.Reporter
 
 private def check (label : String) (condition : Bool) : IO Unit := do
   unless condition do throw (IO.userError s!"FAIL: {label}")
@@ -79,7 +80,7 @@ def run : IO Unit := do
     ((good.text.splitOn "PASS fixture proof").length == 2 &&
       (good.text.splitOn "Overall: PASS (exit 0)").length == 2)
   check "plain summary matches fixture"
-    (good.text == (← IO.FS.readFile "Workflow/Reporter/Fixtures/summary.txt"))
+    (good.text == (← IO.FS.readFile "Workflow/Tests/Unit/Reporter/Fixtures/summary.txt"))
   let escaped := failure "target\nname" "problem\ntext"
   check "plain text escapes line breaks" ((escaped.text.splitOn "Target: target\\nname").length == 2)
   IO.FS.withTempDir fun directory => do
@@ -89,6 +90,6 @@ def run : IO Unit := do
     check "JSON report written" ((Json.parse saved).toOption == some good.toJson)
   IO.println "Reporter fixture checks passed."
 
-end Workflow.Reporter.Tests
+end Workflow.Tests.Unit.Reporter
 
-def main : IO Unit := Workflow.Reporter.Tests.run
+def main : IO Unit := Workflow.Tests.Unit.Reporter.run

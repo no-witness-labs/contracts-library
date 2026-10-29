@@ -1,20 +1,21 @@
 import Workflow.Input
 
 open Lean Workflow
+open Workflow.Input
 
-namespace Workflow.Input.Tests
+namespace Workflow.Tests.Unit.Input
 
 private def check (label : String) (condition : Bool) : IO Unit := do
   unless condition do throw (IO.userError s!"FAIL: {label}")
 
 private def accepted (source selector : String) : IO InputResult := do
-  match Input.parse source selector with
+  match Workflow.Input.parse source selector with
   | .ok result => return result
   | .error error => throw (IO.userError s!"unexpected input error: {error}")
 
 private def rejected (label source selector : String) (kind : ErrorKind)
     (path : String) : IO Unit := do
-  match Input.parse source selector with
+  match Workflow.Input.parse source selector with
   | .ok _ => throw (IO.userError s!"FAIL: {label}: malformed input was accepted")
   | .error error =>
     check s!"{label}: error category" (error.kind == kind)
@@ -40,7 +41,7 @@ private def updateVersion (value : Json) (f : Json → Json) : Json :=
   value.setObjVal! "preamble" (f ((value.getObjVal? "preamble").toOption.getD .null))
 
 def run : IO Unit := do
-  let path : System.FilePath := "Workflow/Input/Fixtures/blueprint.json"
+  let path : System.FilePath := "Workflow/Tests/Unit/Input/Fixtures/blueprint.json"
   let original ← IO.FS.readFile path
   let blueprint ← match Json.parse original with
     | .ok result => pure result
@@ -173,18 +174,18 @@ def run : IO Unit := do
   let selected ← accepted unsupported.compress "alpha"
   check "unrelated unsupported handler is not selected" (selected.target == result.target)
 
-  match ← Input.read path "alpha" with
+  match ← Workflow.Input.read path "alpha" with
   | .ok readResult =>
     check "file and text readers agree" (readResult.target == result.target)
     check "source path retained" (readResult.sourcePath == some path)
     check "original text retained" (readResult.sourceText == original)
   | .error error => throw (IO.userError s!"file read failed: {error}")
   check "source file unchanged" ((← IO.FS.readFile path) == original)
-  match ← Input.read "Workflow/Input/Fixtures/missing.json" "alpha" with
+  match ← Workflow.Input.read "Workflow/Tests/Unit/Input/Fixtures/missing.json" "alpha" with
   | .error error => check "file errors are explicit" (error.kind == .io)
   | .ok _ => throw (IO.userError "FAIL: missing file was accepted")
   IO.println "Input fixture checks passed."
 
-end Workflow.Input.Tests
+end Workflow.Tests.Unit.Input
 
-def main : IO Unit := Workflow.Input.Tests.run
+def main : IO Unit := Workflow.Tests.Unit.Input.run

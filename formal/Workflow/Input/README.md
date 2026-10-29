@@ -75,6 +75,10 @@ support every schema or parameter configuration.
 
 ## Test boundary
 
+The test implementation and fixtures live under `Workflow/Tests/Unit/Input/`;
+see the [unit test guide](../Tests/Unit/README.md).
+
+
 The native Lean fixture harness checks selection, multiple validators and
 purposes, module paths, parameter order, absent versus empty metadata, source
 preservation, file errors, and malformed inputs. It includes invalid hex,
