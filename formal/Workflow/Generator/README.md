@@ -26,16 +26,23 @@ Generator itself has no file-writing effects.
 
 ## First provider: UP-001
 
-The unparameterized statements come from
+The unparameterized statements derive from
 [candidate PR #49](https://github.com/no-witness-labs/contracts-library/pull/49)
 at `b44b6b0757a75d79b79a4de4712523ee3978760e`. The provider keeps its context
 helpers and negated-acceptance formula:
 
 - Quantify over raw redeemer data and the existing full per-purpose context.
 - Check each purpose missing from the supplied handler declarations.
-- Use the existing `ledgerFuel` bound of 1,000,000 CEK steps.
+- Use the reviewed bound of 5,000,000 CEK steps for this provider.
 - Treat fuel exhaustion as satisfying no acceptance within that bound, rather
   than establishing an explicit script error.
+
+The candidate used `ledgerFuel`, which remains 1,000,000 for other candidates.
+This provider now emits literal `5000000`, matching PR #47's default bound while
+keeping the broader domains. The owner approved this semantic change after
+review and successful isolated experiments for each of vesting's five
+undeclared purposes. See the [reconciliation](../RECONCILIATION.md) and
+[validation history](../VALIDATION.md).
 
 The generated support module embeds the original encoded code and defines the
 same context-only argument list and bounded acceptance predicate. Datum and
@@ -62,7 +69,7 @@ lake exe workflow_generator_integration
 ```
 
 The unit harness constructs target descriptions directly. It checks the golden
-candidate declarations, job metadata, module-prefix handling, empty plans,
+reviewed declarations, job metadata, module-prefix handling, empty plans,
 unsupported parameterized targets, and an independent sample provider with a
 different expected result.
 
@@ -82,7 +89,7 @@ Both fixture and vesting type-checking runs passed. These results establish
 generation and type-checking, not proof validity. The actual generated `Checks`
 module retains `by blaster` and inherits the candidate's proof trust boundary.
 The shared command now connects [Executor](../Executor/README.md) and
-[Reporter](../Reporter/README.md). The later unchanged
-[validation run](../VALIDATION.md) completed all five checks under a 120-second
-execution budget. Generation/type-checking and solver results remain separate
-forms of evidence.
+[Reporter](../Reporter/README.md). The [validation history](../VALIDATION.md)
+separates the original 1,000,000-step run from the reviewed 5,000,000-step
+checkpoint. Generation/type-checking and solver results remain separate forms
+of evidence.

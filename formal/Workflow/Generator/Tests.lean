@@ -29,10 +29,11 @@ def run : IO Unit := do
   check "declared spend excluded" (plan.jobs.all (·.name != "otherPurpose_spend"))
   check "expectation belongs to jobs" (plan.jobs.all (·.expected == .valid))
   check "scope records fuel semantics" (plan.jobs.all (·.scope == plan.notes[0]!))
+  check "scope reports the reviewed bound" ((plan.notes[0]!.splitOn "5,000,000 CEK steps").length == 2)
   let golden ← IO.FS.readFile "Workflow/Generator/Fixtures/up001-declarations.txt"
   let declarations := String.intercalate "\n" (plan.jobs.toList.map fun job =>
     s!"theorem {job.name} :\n{job.statement} := by blaster\n")
-  check "candidate declarations preserved verbatim" (declarations.trim == golden.trim)
+  check "reviewed declarations preserved verbatim" (declarations.trim == golden.trim)
   let some types := plan.modules[0]? | throw (IO.userError "missing types module")
   let some checks := plan.modules[1]? | throw (IO.userError "missing checks module")
   check "encoded artifact embedded" ((types.source.splitOn target.compiledCode).length == 2)

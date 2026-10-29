@@ -14,7 +14,7 @@ private def contextType : Purpose → String
   | .propose => "EveryPropose"
 
 private def scope : String :=
-  "No acceptance within ledgerFuel (1,000,000 CEK steps) for undeclared purposes. " ++
+  "No acceptance within 5,000,000 CEK steps for undeclared purposes. " ++
   "Fuel exhaustion satisfies the claim; it does not establish explicit rejection."
 
 private def typesSource (target : TargetDescription) (modulePrefix : String) : String :=
@@ -33,11 +33,12 @@ private def typesSource (target : TargetDescription) (modulePrefix : String) : S
 
 private def checksHeader (modulePrefix : String) : String :=
   String.intercalate "\n" [
-    "-- UP-001 statements preserved from candidate PR #49 at b44b6b0757a75d79b79a4de4712523ee3978760e.",
+    "-- UP-001 domains and predicate from candidate PR #49 at b44b6b0757a75d79b79a4de4712523ee3978760e.",
+    "-- Reviewed workflow bound: 5,000,000 CEK steps (candidate: 1,000,000).",
     "import Blaster", "import Formal.Universal.Properties", s!"import {modulePrefix}.Types", "",
     "set_option Elab.async false", "", s!"namespace {modulePrefix}", "",
     "open PlutusCore.Data (Data)", "open Formal.Universal.Properties", "",
-    "/-! UP-001: no success within ledgerFuel for undeclared purposes.",
+    "/-! UP-001: no success within 5,000,000 CEK steps for undeclared purposes.",
     "The full TxInfo, redeemer, and purpose fields are variables.",
     "Fuel exhaustion satisfies this claim; it does not establish an explicit error.",
     "-/", ""]
@@ -48,7 +49,7 @@ private def makeJob (modulePrefix : String) (purpose : Purpose) : CheckJob :=
     name := s!"otherPurpose_{purpose.name}"
     moduleName := s!"{modulePrefix}.Checks"
     statement := s!"    ∀ (r : Data) (t : {ctx}),\n" ++
-      s!"      ¬ accepts ledgerFuel ({ctx}.ctx t r)"
+      s!"      ¬ accepts 5000000 ({ctx}.ctx t r)"
     expected := .valid
     scope }
 
@@ -74,7 +75,7 @@ private def build (target : TargetDescription) (modulePrefix : String) : Except 
     jobs
     notes := #[scope] }
 
-/-- Reuse the candidate's unparameterized statements and context helpers unchanged. -/
+/-- Reuse the candidate's domains and predicate with the reviewed 5,000,000-step bound. -/
 def provider : Provider := { id := "UP-001", generate := build }
 
 end Workflow.Generator.OtherPurpose

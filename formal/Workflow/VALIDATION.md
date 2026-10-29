@@ -1,11 +1,67 @@
-# Validation baseline
+# Validation history
+
+## Reviewed 5,000,000-step checkpoint
+
+The owner approved a UP-001-only bound change after semantic review and five
+individual experiments. The provider emits literal `5000000` while retaining
+the raw redeemer domain, full per-purpose context, and negated-acceptance
+predicate. The shared `ledgerFuel` helper remains 1,000,000 for other candidates.
+
+The provider source SHA-256 for this checkpoint is
+`c3a327075021bc07fbdec68a7f830f4adfe28b9f699f6247314219a4d79d398d`.
+The compiled vesting artifact, toolchain, and dependency pins match the original
+snapshot below.
+
+### Individual proof experiments
+
+Each purpose used a fresh workspace, one proof-compilation attempt, and a
+120-second limit. Support compilation ran separately.
+
+| Purpose | Result | Proof compilation |
+| --- | --- | --- |
+| Mint | Valid, exit 0 | 10.48 s |
+| Withdraw | Valid, exit 0 | 11.32 s |
+| Publish | Valid, exit 0 | 41.55 s |
+| Vote | Valid, exit 0 | 13.80 s |
+| Propose | Valid, exit 0 | 9.74 s |
+
+The updated declaration fixture exactly matches these five experimental
+statements. Scoped builds, Generator fixtures, and Input-to-Generator integration
+on both the fixture and vesting blueprint passed. The integration harness only
+type-checks propositions; it does not run solver proofs.
+
+These observations retain the bounded non-acceptance meaning and Blaster's SMT
+trust boundary. Fuel exhaustion satisfies the claim. Individual timings do not
+establish a combined workflow time or a performance benchmark.
+
+### Complete workflow at the reviewed bound
+
+From `formal/`, with the pinned dependencies and tools prepared:
+
+```sh
+lake exe universal ../onchain/plutus.json linear_vesting.linear_vesting --check UP-001 --timeout-ms 120000
+```
+
+The updated workflow completed all five checks in **71,712 ms** under the
+120,000 ms shared execution budget. Support compilation took 1,432 ms and the
+Checks module took 70,277 ms. Reporter emitted five PASS rows and exit code zero.
+All five observed results were Valid, and both execution metadata and report
+rows recorded the 5,000,000-step scope. The generated declarations matched the
+reviewed fixture; the source artifact and shared helpers remained unchanged.
+
+This complete run is separate evidence from the individual experiments above.
+It is one timing observation, without a performance guarantee or a claim that
+the larger bound improves runtime. The default shared execution budget remains
+30,000 ms; the example explicitly supplies 120,000 ms.
+
+## Original 1,000,000-step baseline
 
 The four-component prototype completed all five unparameterized UP-001
 obligations for the linear-vesting blueprint in 82.1 seconds with a 120-second
 shared execution budget. Reporter emitted five PASS rows and exit code zero.
 No code, check statement, or CEK bound changed during this validation.
 
-## Snapshot and scope
+### Snapshot and scope
 
 | Item | Value |
 | --- | --- |
@@ -24,7 +80,7 @@ Each result records Blaster's `blasterProven` warning: SMT verification without
 a reconstructed proof term. The results support these compiled-model claims,
 not general validator safety, source correspondence, or deployment assurance.
 
-## Controlled single-obligation comparison
+### Controlled single-obligation comparison
 
 Both paths used the same mint-purpose theorem declaration, namespace, compiled
 script, helper source, lockfile, and tools. Support modules compiled before
@@ -38,9 +94,10 @@ each fresh proof compilation, which had a 30-second limit.
 The observed timings are close. This single comparison gives no evidence of a
 substantial single-obligation slowdown; it is not a performance benchmark.
 
-## Complete workflow
+### Complete workflow at the original revision
 
-From `formal/`, with the pinned dependencies and tools prepared:
+At implementation revision `d3bce414a3417b9227fa92f1e0a33672d2829749`, from
+`formal/` with the pinned dependencies and tools prepared:
 
 ```sh
 lake exe universal ../onchain/plutus.json linear_vesting.linear_vesting --check UP-001 --timeout-ms 120000
@@ -56,7 +113,8 @@ complete this measured workload. The default remains 30,000 ms; use an explicit
 larger budget for this example. One successful run does not guarantee its
 runtime on another machine or run.
 
-The component fixtures, real Valid/Falsified arithmetic controls, and all 54
-legacy Python tests also pass. These results remain distinct from the vesting
-claim above. Each new execution retains its own report, input snapshot,
-generated sources, raw logs, and `execution.json` for review.
+At this original checkpoint, the component fixtures, real Valid/Falsified
+arithmetic controls, and all 54 legacy Python tests also passed. Those results
+remain distinct from the vesting claim above. Each new execution retains its
+own report, input snapshot, generated sources, raw logs, and `execution.json`
+for review.

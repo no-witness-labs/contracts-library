@@ -79,6 +79,7 @@ and both saved formats. It needs no Input, Generator, Executor runtime, or solve
 Real Lean/Blaster arithmetic controls verify passing and failing reports. The
 four-component vesting command also ran with a 5,000 ms execution budget. All
 five jobs remained INCONCLUSIVE, and the process returned exit code 2. That
-short run supplies no passing result for vesting. The later unchanged
+short run supplies no passing result for vesting. The original 1,000,000-step
 [120-second run](../VALIDATION.md) completed all five checks in 82.1 seconds and
-returned zero with matching results, within the same check scope and trust limits.
+returned zero with matching results. The history separately records the later
+5,000,000-step checkpoint and its scope.

@@ -95,9 +95,11 @@ lake exe workflow_executor_integration ../onchain/plutus.json linear_vesting.lin
 
 The recorded 10-second run timed out with all five UP-001 jobs inconclusive.
 That run supplies no passing result for vesting. Its generated sources, input
-snapshot, logs, and manifest remain available for diagnosis. Input and
-Generator fixture harnesses and all 54 legacy Python tests also pass.
+snapshot, logs, and manifest remain available for diagnosis. At that original
+checkpoint, Input and Generator fixture harnesses and all 54 legacy Python
+tests also passed.
 
-The later unchanged [120-second validation run](../VALIDATION.md) completed all
-five checks in 82.1 seconds. The earlier timeout remains a valid observation for
+The original 1,000,000-step [120-second validation run](../VALIDATION.md)
+completed all five checks in 82.1 seconds. The history also records the later
+5,000,000-step checkpoint. The earlier timeout remains a valid observation for
 its short budget; it is not a failing property result.

@@ -32,6 +32,7 @@ Use a prepared checkout with the pinned dependencies and tools. The
 | Compiled-code decoding | Input uses the existing Lean decoder to check that embedded compiled code decodes into a Plutus program | Reject decoder errors before check generation without building another parser |
 | Language | Prefer Lean throughout; use experiments to justify any temporary Python implementation | Reuse working code while establishing the cost of integration |
 | Integration example | Use UP-001 for the first bounded integration example | Exercise the interfaces with an existing check |
+| UP-001 bound | Use 5,000,000 CEK steps with the existing raw redeemer and open context domains | Match PR #47's default bound after semantic review and individual proof experiments |
 | Delivery | Keep issue #39, branch `feat/39-developer-workflow`, and draft PR #52 as the workflow task | Consolidate the relevant work from PR #47 in one delivery |
 
 The planned component folders are:
@@ -130,10 +131,11 @@ and full prototype command.
 ## Next work
 
 The [PR #47 reconciliation](RECONCILIATION.md) records retained behavior,
-deferred features, and semantic differences. The next proposed checkpoint is a
-focused review of the two UP-001 claims before selecting further implementation.
+deferred features, and the completed UP-001 semantic review. The provider now
+uses the approved 5,000,000-step bound. Review the remaining feature exclusions
+and the supported workflow with Irfan before closing the consolidation task.
 
-The [validation baseline](VALIDATION.md) records all five current UP-001 checks
-completing in 82.1 seconds under a 120-second budget. The result retains the
-stated model, CEK bound, and Blaster trust boundary; it does not establish parity
-with PR #47. Further implementation requires a scoped proposal and confirmation.
+The [validation history](VALIDATION.md) separates the original 1,000,000-step
+baseline from the current checkpoint. Results retain the stated model, CEK
+bound, and Blaster trust boundary. Further implementation requires a scoped
+proposal and confirmation.
