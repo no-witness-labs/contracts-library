@@ -6,6 +6,8 @@ namespace Workflow.Main
 private def usage : String :=
   "usage: lake exe universal BLUEPRINT VALIDATOR [--check PROPERTY_ID] [--timeout-ms MILLISECONDS]"
 
+private def outputRoot : System.FilePath := "output"
+
 private structure Request where
   path : System.FilePath
   selector : String
@@ -25,7 +27,8 @@ private def finish (report : Reporter.Report) (source : Option String := none) :
   try
     let directory ← match report.evidenceDirectory with
       | some value => pure value
-      | none => IO.FS.createTempDir
+      | none => Executor.createRunDirectory (some outputRoot)
+    let report := { report with evidenceDirectory := some directory }
     if let some original := source then IO.FS.writeFile (directory / "input.json") original
     report.write directory
     IO.print report.text
@@ -46,7 +49,8 @@ private def runRequest (request : Request) : IO UInt32 := do
     | .ok value => pure value
     | .error error => return ← finish (Reporter.failure input.target.name (toString error)) (some input.sourceText)
   let leanPath := (← IO.getEnv "LEAN_PATH").getD ""
-  let result ← match ← Executor.run plan { leanPath, budgetMs := request.budgetMs } with
+  let result ← match ← Executor.run plan {
+      leanPath, budgetMs := request.budgetMs, outputRoot := some outputRoot } with
     | .ok value => pure value
     | .error message => return ← finish (Reporter.failure input.target.name message) (some input.sourceText)
   finish (Reporter.build plan result) (some input.sourceText)

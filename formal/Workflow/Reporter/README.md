@@ -56,6 +56,11 @@ overhead. The command prints the summary and JSON path, saves both report
 formats, and preserves the input snapshot. It writes an inconclusive report for
 input, provider-selection, and preparation errors too.
 
+The CLI saves each run under `formal/output/run.XXXXXXXX/` and prints its exact
+path. Earlier run directories remain intact. Input errors have report files
+without generated Lean sources; executed jobs also retain sources, compiler
+outputs, logs, and `execution.json`.
+
 The command does not apply the Python prototype's `universal.json` waivers.
 Unknown options return an inconclusive usage error. Standalone CBOR, additional
 properties, typed parameter generation, and portable packaging remain later

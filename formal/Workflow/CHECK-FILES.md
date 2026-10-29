@@ -23,7 +23,8 @@ declares `spend`, so it generates the first five checks only.
 
 ## Generated files
 
-The command prints an `Evidence:` directory. Inside it:
+The command creates `formal/output/run.XXXXXXXX/` and prints its exact path as
+`Evidence:`. Inside that run folder:
 
 | File | Definitions |
 | --- | --- |

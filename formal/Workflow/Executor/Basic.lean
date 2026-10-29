@@ -60,6 +60,19 @@ private def manifest (plan : GenerationPlan) (options : Options) (result : Resul
     ("timeoutCommand", .str options.timeoutCommand), ("problems", toJson result.problems),
     ("notes", toJson plan.notes), ("modules", .arr modules), ("jobs", .arr jobs)]
 
+/-- Allocate a fresh private directory, optionally beneath a caller-selected output root. -/
+def createRunDirectory (outputRoot : Option System.FilePath := none) : IO System.FilePath := do
+  match outputRoot with
+  | none => IO.FS.createTempDir
+  | some root =>
+    IO.FS.createDirAll root
+    let root ← IO.FS.realPath root
+    let result ← IO.Process.output {
+      cmd := "mktemp", args := #["-d", (root / "run.XXXXXXXX").toString] }
+    unless result.exitCode == 0 do
+      throw (IO.userError s!"could not create output directory: {result.stderr.trim}")
+    return System.FilePath.mk result.stdout.trim
+
 private def execute (plan : GenerationPlan) (options : Options) (directory : System.FilePath)
     (started : Nat) : IO Result := do
   let deadline := started + options.budgetMs
@@ -108,7 +121,7 @@ def run (plan : GenerationPlan) (options : Options) : IO (Except String Result) 
   | .ok _ => pure ()
   if plan.jobs.isEmpty then return .ok { state := .noObligations }
   try
-    let directory ← IO.FS.createTempDir
+    let directory ← createRunDirectory options.outputRoot
     let result ← try execute plan options directory started catch error =>
       pure { state := .error, directory := some directory,
              problems := #[error.toString], jobs := plan.jobs.map fun job =>

@@ -6,7 +6,8 @@ JSON report, and exit code. The runtime uses ordinary Lean code and proof tools.
 
 ## Prepare once
 
-Have Lean **4.24.0**, Z3 **4.15.2**, GNU `timeout`, and Git on `PATH`.
+Have Lean **4.24.0**, Z3 **4.15.2**, GNU coreutils (`timeout` and `mktemp`),
+and Git on `PATH`.
 From the repository root:
 
 ```sh
@@ -34,14 +35,27 @@ checks run. Wait for the final summary:
 ```text
 Summary: 5 PASS, 0 FAIL, 0 INCONCLUSIVE
 Overall: PASS (exit 0)
-Evidence: /tmp/...
-Report: /tmp/.../report.json
+Evidence: /path/to/repo/formal/output/run.XXXXXXXX
+Report: /path/to/repo/formal/output/run.XXXXXXXX/report.json
 ```
 
-The printed directory contains `report.txt`, `report.json`, and, for executed
-checks, the input snapshot, generated sources, logs, and `execution.json`.
-Input errors can produce report files without execution artifacts. Copy the
-printed directory to a permanent location if you need to retain the evidence.
+Each run creates a separate folder under `formal/output/`:
+
+```text
+output/run.XXXXXXXX/
+├── report.txt
+├── report.json
+├── input.json
+├── execution.json
+└── Generated/Workflow/
+    ├── Types.lean
+    ├── Checks.lean
+    └── compiler outputs and logs
+```
+
+Earlier runs remain in their own folders. Input errors can produce report files
+without generated sources or execution artifacts. The output folder is local
+and excluded from Git.
 
 For supporting definitions such as `EveryMint` and `EveryWithdraw`, use the
 [check file map](CHECK-FILES.md). Those definitions live in shared repository

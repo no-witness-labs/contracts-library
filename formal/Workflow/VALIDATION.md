@@ -1,5 +1,15 @@
 # Validation history
 
+## Persistent output folders
+
+The CLI now writes each run to its own `formal/output/run.XXXXXXXX/` directory.
+The passing vault, failing vault, invalid-code, and timeout scenarios all retained
+their expected 0/1/2 exit codes in separate output folders. Reports exist for all
+four cases; executed plans also retain generated sources, logs, and `execution.json`.
+Recorded module paths point into the actual output directory, and earlier runs
+remain intact. Executor fixture checks also cover parent paths containing spaces,
+distinct runs, retained source files, and a parent path that is a file.
+
 ## CLI delivery checks
 
 The [quickstart](QUICKSTART.md) uses the compiled vault fixtures from PR #47 at

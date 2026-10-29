@@ -53,6 +53,8 @@ structure Options where
   leanPath : String
   leanCommand : String := "lean"
   timeoutCommand : String := "timeout"
+  /-- Parent for fresh run directories; none uses the system temporary directory. -/
+  outputRoot : Option System.FilePath := none
   /-- One shared wall-clock budget across generated modules. -/
   budgetMs : Nat := 30000
 

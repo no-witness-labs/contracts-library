@@ -25,8 +25,12 @@ produce errors before execution. The current Generator supplies `Types` before
 
 ## Budget and isolation
 
-Every run receives a new private temporary directory. Executor writes only
-inside that directory. Lean receives it as both the package root and the first
+Every run receives a new private directory. `Options.outputRoot` selects a parent
+folder; when absent, Executor uses the system temporary directory. A selected
+parent uses GNU `mktemp` to create a fresh `run.XXXXXXXX` folder. The CLI supplies
+`output`, so its reports and generated sources remain under `formal/output/`.
+
+Executor writes only inside the new run directory. Lean receives it as both the package root and the first
 module search path, and elaborates the supplied source directly.
 
 GNU `timeout --signal=KILL` supervises each command's process group, including

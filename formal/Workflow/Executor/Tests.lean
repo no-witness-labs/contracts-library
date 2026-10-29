@@ -139,6 +139,33 @@ def run : IO Unit := do
     #[⟨"Fixture.Support", "-- delay\n"⟩] ++ (plan "late-valid").modules }
   withResult shared { options with budgetMs := 700 } fun result => do
     check "budget is shared across modules" (result.state == .timedOut && result.modules.size == 2)
+  IO.FS.withTempDir fun parent => do
+    let root := parent / "shared output"
+    let retained := { options with outputRoot := some root }
+    withResult (plan "valid") retained fun first => do
+      let some firstDirectory := first.directory | throw (IO.userError "missing first output directory")
+      let canonicalRoot ← IO.FS.realPath root
+      check "run is created beneath requested output root"
+        (first.state == .completed && firstDirectory.parent == some canonicalRoot)
+      let firstSource := firstDirectory / "Fixture/Checks.lean"
+      let original ← IO.FS.readFile firstSource
+      withResult (plan "valid") retained fun second => do
+        let some secondDirectory := second.directory | throw (IO.userError "missing second output directory")
+        check "separate runs keep separate directories"
+          (second.state == .completed && secondDirectory.parent == some canonicalRoot &&
+           secondDirectory != firstDirectory)
+        check "earlier sources remain intact" ((← IO.FS.readFile firstSource) == original)
+        let manifest ← IO.ofExcept (Json.parse (← IO.FS.readFile (secondDirectory / "execution.json")))
+        let modules ← IO.ofExcept ((← IO.ofExcept (manifest.getObjVal? "modules")).getArr?)
+        let some module := modules[0]? | throw (IO.userError "missing recorded module")
+        check "manifest records actual output source path"
+          ((module.getObjVal? "path").toOption ==
+            some (.str (secondDirectory / "Fixture/Checks.lean").toString))
+    let blocked := parent / "blocked"
+    IO.FS.writeFile blocked "not a directory"
+    match ← Executor.run (plan "valid") { options with outputRoot := some blocked } with
+    | .error _ => pure ()
+    | .ok _ => throw (IO.userError "file accepted as output root")
   let empty : GenerationPlan := { targetName := "fixture", modules := #[], jobs := #[], status := .noObligations }
   withResult empty { options with leanCommand := "/missing/lean" } fun result => do
     check "empty plan does not launch a compiler or pass" (result.state == .noObligations && result.directory.isNone)
