@@ -6,6 +6,10 @@ This is a fourth artifact alongside `onchain/`, `offchain/`, and the spec
 proofs are *about the spec* (the source of truth), not about any one
 implementation. See [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) §2.
 
+For the compiled-blueprint checking prototype, use the
+[CLI quickstart](Workflow/QUICKSTART.md), which uses the installed Lean/Z3 tools
+directly. It includes passing, failing, and inconclusive examples.
+
 Proofs are written in [Lean 4](https://lean-lang.org/) and discharged with
 [Lean-Blaster](https://github.com/input-output-hk/Lean-blaster), an SMT (Z3)
 backend invoked via the `blaster` tactic.
@@ -39,7 +43,7 @@ doc comment citing the spec section it discharges (e.g. `§9 B1`).
 
 ## Prerequisites
 
-The easiest path is **Nix** — `flake.nix` provides the whole toolchain:
+The easiest path is **Nix**: `flake.nix` provides the whole toolchain.
 
 ```bash
 cd formal
@@ -115,5 +119,5 @@ These apply to any contract:
 
 ## Contracts
 
-- **vesting/linear** — see [`Formal/Vesting/Linear/README.md`](Formal/Vesting/Linear/README.md)
+- **vesting/linear**: see [`Formal/Vesting/Linear/README.md`](Formal/Vesting/Linear/README.md)
   for its coverage tables and open targets.

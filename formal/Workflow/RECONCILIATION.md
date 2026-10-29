@@ -16,6 +16,11 @@ the owner approved 5,000,000 steps for UP-001. The [validation history](VALIDATI
 keeps the two checkpoints distinct. Full feature parity remains incomplete;
 deferred items remain visible gaps in issue #39's acceptance scope.
 
+The [CLI quickstart](QUICKSTART.md) also reuses PR #47's compiled vault fixtures
+and attributed source to demonstrate PASS and FAIL. Input-error and timeout
+examples demonstrate INCONCLUSIVE. See the [delivery checks](VALIDATION.md)
+for their results.
+
 ## Behavior inventory
 
 | Area | PR #47 | Modular prototype | Disposition |

@@ -1,5 +1,36 @@
 # Validation history
 
+## CLI delivery checks
+
+The [quickstart](QUICKSTART.md) uses the compiled vault fixtures from PR #47 at
+`0dde8ae76e3f8a239bf06685f72327aed4a7c3ef`, with their source and dependency
+metadata preserved under `Workflow/Fixtures/`. The blueprint SHA-256 is
+`afd375487a56be74f83f60e7c94fc2008f6e79b418a7bde3f1575bb4c6c9b426`.
+
+The existing `lake exe universal` command produced these outcomes on the
+prepared Linux toolchain:
+
+| Scenario | Observed report | Exit code |
+| --- | --- | --- |
+| `vault.vault`, 120-second budget | Five `PASS` rows, each observed Valid | 0 |
+| `vault_buggy.vault_buggy`, 120-second budget | Five `FAIL` rows, each observed Falsified | 1 |
+| Invalid hexadecimal compiled code | `INCONCLUSIVE` before execution | 2 |
+| `vault.vault`, one-millisecond budget | Five `INCONCLUSIVE` rows, execution budget exhausted | 2 |
+
+The negative demo initially exposed a diagnostic-format bug: Blaster emits
+counterexample fields with a leading space before `-`, which Executor treated
+as unrelated errors. Commit `d582c8a` accepts that indentation while retaining
+file, declaration, and source-position matching. The repeated negative run
+returned the expected FAIL report. Regression checks cover indented values,
+wrong positions, and values without a Falsified marker. Real arithmetic controls
+now include a quantified counterexample; Executor and Reporter integrations pass.
+
+These runs used Lean 4.24.0, Z3 4.15.2, the pinned dependencies, and the existing
+5,000,000-step UP-001 scope. They used the installed tools directly in the prepared
+checkout. This checkpoint did not rebuild the Aiken fixtures or validate installation
+on a fresh machine. Raw reports, inputs, sources, and logs remain separate evidence
+from the fixture source descriptions.
+
 ## Reviewed 5,000,000-step checkpoint
 
 The owner approved a UP-001-only bound change after semantic review and five

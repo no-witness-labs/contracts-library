@@ -2,6 +2,9 @@
 
 ## Modular prototype
 
+Start with the [CLI quickstart](../Workflow/QUICKSTART.md) for setup, demo
+validators, expected exit codes, and report locations.
+
 From `formal/`, with the pinned dependencies and tools prepared:
 
 ```sh

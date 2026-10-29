@@ -9,6 +9,7 @@ cd formal
 lake exe universal /path/to/plutus.json module.validator --check UP-001 --timeout-ms 120000
 ```
 
+The [CLI quickstart](QUICKSTART.md) covers setup and examples of all three outcomes.
 Use a prepared checkout with the pinned dependencies and tools. The
 [Reporter guide](Reporter/README.md) describes output and exit codes; the
 [reference usage guide](../docs/WORKFLOW.md) also retains the Python prototype.
