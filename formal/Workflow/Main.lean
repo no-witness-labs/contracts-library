@@ -3,7 +3,7 @@ import Workflow
 namespace Workflow.Main
 
 private def usage : String :=
-  "usage: lake exe universal BLUEPRINT VALIDATOR [--check PROPERTY_ID] [--timeout-ms MILLISECONDS]"
+  "usage: plutus-upv run BLUEPRINT VALIDATOR [--check PROPERTY_ID] [--timeout-ms MILLISECONDS]"
 
 private def outputRoot : System.FilePath := "output"
 

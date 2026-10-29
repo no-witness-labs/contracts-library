@@ -7,6 +7,7 @@ lake exe workflow_input_tests
 lake exe workflow_generator_tests
 lake exe workflow_executor_tests
 lake exe workflow_reporter_tests
+lake exe workflow_runner_tests
 lake exe workflow_executor_integration
 lake exe workflow_reporter_integration
 ```
@@ -17,6 +18,7 @@ lake exe workflow_reporter_integration
 | `Generator/Tests.lean` | Generic contracts with stub providers, namespace validation, and empty plans |
 | `Executor/Tests.lean` | Controlled compiler diagnostics, deadlines, output isolation, and process cleanup |
 | `Reporter/Tests.lean` | Expectation comparison, missing/duplicate observations, statuses, and report files |
+| `Runner/Tests.lean` | Build failure blocks stale binaries, later suites continue after a failure, logs persist, and expected negative text can pass |
 
 `workflow_generator_tests` runs only the generic Generator contract checks.
 The UP001 and UP012 workflow suites run their own candidate-specific checks.

@@ -69,7 +69,7 @@ diagnostics and generated sources remain in Executor's evidence directory.
 With the pinned dependencies and tools prepared, run from `formal/`:
 
 ```sh
-lake exe universal /path/to/plutus.json module.validator --check UP-001 --timeout-ms 120000
+lake exe plutus-upv run /path/to/plutus.json module.validator --check UP-001 --timeout-ms 120000
 ```
 
 The thin `Workflow.Main` entry point connects Input, Generator, Executor, and

@@ -66,8 +66,16 @@ name = "workflow_reporter_integration"
 root = "Workflow.Tests.Unit.Reporter.Integration"
 
 [[lean_exe]]
+name = "workflow_runner_tests"
+root = "Workflow.Tests.Unit.Runner.Tests"
+
+[[lean_exe]]
 name = "universal"
 root = "Workflow.CLI"
+
+[[lean_exe]]
+name = "plutus-upv"
+root = "Workflow.ProductCLI"
 
 [[lean_exe]]
 name = "workflow_up001_tests"

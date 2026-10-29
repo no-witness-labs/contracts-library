@@ -1,12 +1,14 @@
-# Workflow design
+# Plutus UPV workflow
 
-This document records the design for issue #39 and draft PR #52. All four
+The Universal Property Verifier (UPV) performs formal verification
+of universal properties against compiled Plutus validators. This document
+records the design for issue #39 and draft PR #52. All four
 components now have Lean implementations and isolated tests. A thin command
 connects them for the first unparameterized UP-001 example:
 
 ```sh
 cd formal
-lake exe universal /path/to/plutus.json module.validator --check UP-001 --timeout-ms 120000
+lake exe plutus-upv run /path/to/plutus.json module.validator --check UP-001 --timeout-ms 120000
 ```
 
 The [CLI quickstart](QUICKSTART.md) covers setup and examples of all three outcomes.
@@ -27,6 +29,7 @@ Use a prepared checkout with the pinned dependencies and tools. The
 | Testing | Collect test assets under `Workflow/Tests/`, with UP001 and UP012 workflow scenarios and separate component unit checks | Keep the reusable engine separate from example targets and expected results |
 | Independence | Coordinate components through explicit interfaces, without hardcoded property IDs, validator names, or blueprint fields in the entry point | Support different checks and inputs through the same workflow |
 | Runtime | Implement the workflow as ordinary code and configured proof-tool processes, without AI agents or model calls | Keep component behavior and tests independent of AI services |
+| Product and CLI | Plutus UPV (Universal Property Verifier), with `plutus-upv run` and `plutus-upv test` | Make the formal-verification purpose explicit and provide one verbose test command |
 | Reporting | Start with a plain summary and JSON output; defer branding and expanded content | Focus on correct, inspectable outcomes |
 | Initial target | Start with validators; defer function targets to a later contract extension | Establish a useful first scope without settling every future target kind |
 | Initial input | Accept a blueprint containing the selected validator's compiled code; defer standalone CBOR plus metadata | Obtain the compiled artifact and its interface description from one input |
@@ -90,8 +93,9 @@ of property.
 [`Candidates/Catalogue.lean`](../Candidates/Catalogue.lean) is the current thin
 composition index. It references `Candidates.UP001` and the experimental
 `Workflow.Tests.UP012.Profile`, which binds the original candidate propositions
-to its vesting scenario. `Workflow/CLI.lean` supplies that resolver to the generic
-`Workflow.Main.run` entry point. Candidate code stays outside the engine.
+to its vesting scenario. `Workflow/ProductCLI.lean` supplies that resolver to the
+generic `Workflow.Main.run` entry point; `Workflow/CLI.lean` retains the legacy
+entry point. Candidate code stays outside the engine.
 Workflow tests reference that code and supply example targets, scenario-specific
 models or harnesses, and expected outcomes. Fixed fixtures support these tests;
 normal runs supply their own required inputs.
@@ -119,7 +123,7 @@ Solver validity concerns the formal statement; whether that statement is a
 requirement of the client's protocol is a separate assessment.
 
 These are design requirements, not additional implemented CLI capabilities.
-The current command still resolves one provider and defaults to UP-001. Catalogue
+The verification command still resolves one provider and defaults to UP-001. Catalogue
 format, version/model identifiers, default run contents, configuration, and
 enable/disable syntax remain open. An all-candidates mode, explicit lists, and
 client configuration remain possible controls.
@@ -196,11 +200,10 @@ failing, unsupported, malformed-input, and timeout cases. The next checkpoints
 below are a proposed work order; code changes require a bounded implementation
 proposal and confirmation.
 
-- [ ] **Choose the product name and add one verbose test command.** The name must
-  communicate formal verification of universal properties and connect to
-  Plutus/Cardano. Choose the name and launcher before implementation. The intended
-  interface is `<name> test` alongside `<name> run ...`. Cover all four
-  component unit suites, all three integration suites, and UP001/UP012. Run each
+- [x] **Add the branded verbose test command.** The agreed product name is
+  Plutus UPV, with `plutus-upv test` alongside `plutus-upv run ...`. Cover all four
+  component unit suites, runner failure controls, all three integration suites,
+  and UP001/UP012. Run each
   suite once, sequentially, including its existing candidate checks. Show suite
   and case names, commands, progress, stdout/stderr, elapsed time, expected
   negative outcomes, and a final summary. Make verbose logging the default and

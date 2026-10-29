@@ -1,4 +1,5 @@
 import Lean.Data.Json
+import Workflow.Tests.Logging
 
 namespace Workflow.Tests.Support
 
@@ -19,25 +20,57 @@ structure CLIRun where
   directory : System.FilePath
   input : String
 
-def invoke (blueprint selector : String) (checkId : Option String) (budgetMs : Nat) : IO CLIRun := do
-  let original ← IO.FS.readFile blueprint
+def startCase (label expected command : String) (budgetMs : Nat) : IO Unit := do
+  Logging.line s!"\n=== START: {label} ==="
+  Logging.line s!"Command: {command}"
+  Logging.line s!"Execution budget: {budgetMs} ms"
+  unless expected.isEmpty do Logging.line s!"Expected: {expected}"
+
+def showCompilerLogs (directory : System.FilePath) : IO Unit := do
+  let manifestPath := directory / "execution.json"
+  unless (← manifestPath.pathExists) do
+    Logging.line "Compiler logs: no execution manifest for this report."
+    return ()
+  let manifest ← IO.ofExcept (Json.parse (← IO.FS.readFile manifestPath))
+  let modules ← IO.ofExcept do (← manifest.getObjVal? "modules").getArr?
+  if modules.isEmpty then Logging.line "Compiler logs: no module entries in the execution manifest."
+  for item in modules do
+    let source := System.FilePath.mk (← stringField item "path")
+    for extension in #["stdout.log", "stderr.log"] do
+      let path := source.withExtension extension
+      let output ← if extension == "stderr.log" then IO.getStderr else IO.getStdout
+      output.putStrLn s!"\n--- Compiler log: {path} ---"
+      if ← path.pathExists then
+        let contents ← IO.FS.readFile path
+        if contents.isEmpty then output.putStrLn "(empty)"
+        else
+          output.putStr contents
+          unless contents.endsWith "\n" do output.putStrLn ""
+      else output.putStrLn "(file missing)"
+      output.flush
+
+def invoke (blueprint selector : String) (checkId : Option String) (budgetMs : Nat)
+    (label := "CLI workflow") (expected := "") : IO CLIRun := do
   let selection := checkId.map (fun id => #["--check", id]) |>.getD #[]
-  let output ← IO.Process.output {
+  let arguments := #["exe", "plutus-upv", "run", blueprint, selector] ++ selection ++
+    #["--timeout-ms", toString budgetMs]
+  startCase label expected ("lake " ++ String.intercalate " " arguments.toList) budgetMs
+  let original ← IO.FS.readFile blueprint
+  let output ← Logging.run {
     cmd := "lake"
-    args := #["exe", "universal", blueprint, selector] ++ selection ++
-      #["--timeout-ms", toString budgetMs] }
+    args := arguments }
   let some reportLine := (output.stdout.splitOn "\n").find? (·.startsWith "Report: ")
-    | throw (IO.userError s!"CLI did not save a report:\n{output.stdout}{output.stderr}")
+    | throw (IO.userError s!"CLI did not save a report (exit {output.exitCode}); see streamed output above.")
   let reportPath := System.FilePath.mk ((reportLine.drop 8).trim)
   let report ← IO.ofExcept (Json.parse (← IO.FS.readFile reportPath))
   let some directory := reportPath.parent | throw (IO.userError "missing report directory")
+  showCompilerLogs directory
   check "CLI preserves the supplied input" ((← IO.FS.readFile blueprint) == original)
   let root ← IO.FS.realPath "output"
   check "CLI uses the local output folder" (directory.parent == some root)
   check "plain report exists" (← (directory / "report.txt").pathExists)
   check "report points to its actual output directory"
     ((← stringField report "evidenceDirectory") == directory.toString)
-  IO.print output.stdout
   return { exitCode := output.exitCode, report, directory, input := original }
 
 def expectOutcome (label : String) (run : CLIRun) (status : String) (exitCode : UInt32) : IO Unit := do

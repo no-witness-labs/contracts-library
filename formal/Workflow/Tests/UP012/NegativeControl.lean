@@ -43,6 +43,9 @@ private def provider : Generator.Provider :=
       return { plan with modules, jobs, notes := #[scope] } }
 
 def run : IO Unit := do
+  startCase "UP012: retain-signer identity control"
+    "FAIL/1; two property FAIL rows and two applicability PASS rows (intentional negative control)"
+    "direct API: Generator.generate, Executor.run, Reporter.build" 300000
   let input ← IO.ofExcept ((← Input.read "Workflow/Tests/UP012/Inputs/plutus.json"
     "linear_vesting.linear_vesting").mapError toString)
   let plan ← IO.ofExcept ((Generator.generate provider input.target "Generated.Workflow").mapError toString)
@@ -56,7 +59,8 @@ def run : IO Unit := do
   IO.FS.writeFile (directory / "input.json") input.sourceText
   report.write directory
   IO.print report.text
-  IO.println s!"Report: {directory / "report.json"}"
+  Workflow.Tests.Logging.line s!"Report: {directory / "report.json"}"
+  showCompilerLogs directory
   check "identity control completes without execution problems"
     (execution.state == .completed && execution.problems.isEmpty)
   check "identity control produces FAIL/1" (report.status == .fail && report.exitCode == 1)

@@ -40,9 +40,11 @@ current job contract and outcome behavior.
 ## Candidate composition
 
 The current CLI uses [Candidates/Catalogue.lean](../../Candidates/Catalogue.lean)
-through [CLI.lean](../CLI.lean). The generic orchestration entry point receives
+through [ProductCLI.lean](../ProductCLI.lean). The generic orchestration entry point receives
 the resolver as an argument. Additional catalogue formats and selection modes
 remain design work.
+
+`CLI.lean` retains the legacy `universal` executable as a compatibility entry point.
 
 UP-001 generation lives in [Candidates/UP001.lean](../../Candidates/UP001.lean).
 The original UP-012 propositions live in

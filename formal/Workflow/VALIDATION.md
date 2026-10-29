@@ -216,3 +216,24 @@ arithmetic controls, and all 54 legacy Python tests also passed. Those results
 remain distinct from the vesting claim above. Each new execution retains its
 own report, input snapshot, generated sources, raw logs, and `execution.json`
 for review.
+
+## Plutus UPV CLI and aggregate tests
+
+The branded `plutus-upv run` entry point preserves the existing provider
+statements, bounds, and result rules. `plutus-upv test` builds explicit workflow
+targets and runs all ten registered suites with verbose output and saved logs.
+The legacy `universal` entry point remains available.
+
+From the repository root, `./formal/plutus-upv test` completed with exit zero:
+all ten suites passed in 343,659 ms, including the build. Coverage includes four
+component unit suites, test-runner controls, three component integration suites,
+and both UP001/UP012 scenarios. The runner controls verify build failure blocks
+stale executables, later suites run after a failure, expected negative text does
+not fail a suite, stdout/stderr remain available, and output reaches its log
+before the child exits. The live-output control also preserves UTF-8 text.
+
+Launcher checks covered help, invalid usage, relative blueprint paths, spaces,
+missing inputs, and legacy help. The candidate definitions, UP012 profile,
+Input, Executor, and Reporter outcome logic were unchanged. Documentation and
+shell syntax checks passed. Test output stays under ignored `formal/output/`;
+the measured suite run retained `test.OaDTtfhF/summary.json` and per-suite logs.
