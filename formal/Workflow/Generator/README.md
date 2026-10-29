@@ -13,6 +13,16 @@ Import `Workflow.Generator` and call:
 Workflow.Generator.generate provider target modulePrefix
 ```
 
+Generator receives two logical inputs: the validator description from Input,
+and a configured check provider. The provider binds the property definition to any
+model or harness it needs, together with its expectations and scope. The module
+prefix is internal naming information.
+
+UP-001 binds its definition to generic per-purpose contexts. UP-012's test
+profile binds its four propositions to the typed vesting data and Claim/Cancel
+transaction shapes. Blueprint metadata alone does not supply those transaction
+shapes; the current profile supplies them explicitly.
+
 A provider supplies property-specific generation through the common interface.
 The reusable Generator has no built-in candidate catalogue, validator snapshot,
 or transaction model. The application supplies those dependencies.

@@ -23,6 +23,22 @@ Statuses apply to the stated check scope. A report does not establish general
 validator safety. The JSON retains each job's expected and observed result,
 scope, issues, and a reference to Executor's detailed evidence.
 
+## Approved policies, pending implementation
+
+Generator will identify applicability obligations and link them to the property
+obligations they qualify. When applicability is disproved within the supplied
+model, the linked property reports INCONCLUSIVE with the reason
+"no applicable scenario in this model". Retain the raw applicability result and
+its diagnostics separately. It does not constitute a property counterexample.
+
+Independently completed, trustworthy property results retain their PASS/FAIL
+status when an unrelated check times out, provided their own applicability
+requirements are satisfied. Unfinished checks remain INCONCLUSIVE.
+
+These contracts await implementation. The current flat-job implementation above
+does not yet apply these relationships or preserve completed rows in an incomplete
+run. Overall run status and exit-code precedence remain under review.
+
 ## API
 
 Import `Workflow.Reporter` and use:
