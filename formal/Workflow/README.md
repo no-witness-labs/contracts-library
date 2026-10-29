@@ -16,7 +16,7 @@ also runs the existing vesting signer-removal suite through the same components;
 see the [quickstart](QUICKSTART.md) for its command and scope.
 Use a prepared checkout with the pinned dependencies and tools. The
 [Reporter guide](Reporter/README.md) describes output and exit codes; the
-[reference usage guide](../docs/WORKFLOW.md) also retains the Python prototype.
+[workflow usage guide](../docs/WORKFLOW.md) summarizes the supported CLI.
 
 ## Agreed decisions
 

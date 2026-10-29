@@ -16,6 +16,12 @@ the owner approved 5,000,000 steps for UP-001. The [validation history](VALIDATI
 keeps the two checkpoints distinct. Full feature parity remains incomplete;
 deferred items remain visible gaps in issue #39's acceptance scope.
 
+The Lean CLI is the active prototype workflow. Git history at
+`2ef7d11d48018fce48dd17de6fa94ff8d0574d7f` retains the legacy Python runner and
+its runner-specific tests. The shared
+`scripts/process_blueprint.py` translator remains for other candidate work.
+Waiver handling and UP-005/UP-006 integration remain future work for this CLI.
+
 The [CLI quickstart](QUICKSTART.md) also reuses PR #47's compiled vault fixtures
 and attributed source to demonstrate PASS and FAIL. Input-error and timeout
 examples demonstrate INCONCLUSIVE. See the [delivery checks](VALIDATION.md)

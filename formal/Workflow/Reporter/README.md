@@ -63,7 +63,7 @@ path. Earlier run directories remain intact. Input errors have report files
 without generated Lean sources; executed jobs also retain sources, compiler
 outputs, logs, and `execution.json`.
 
-The command does not apply the Python prototype's `universal.json` waivers.
+Reviewed exceptions and `universal.json` waiver handling remain future work.
 Unknown options return an inconclusive usage error. Standalone CBOR, additional
 properties, typed parameter generation, and portable packaging remain later
 work.
