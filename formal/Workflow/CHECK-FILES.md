@@ -1,11 +1,11 @@
-# Supporting files for UP-001
+# Supporting files for candidate checks
 
 The generated checks import their shared context definitions from
 [`formal/Formal/Universal/Properties.lean`](../Formal/Universal/Properties.lean).
 These definitions already live in the repository. Each run imports them rather
 than generating copies in its output directory.
 
-## Context definitions
+## UP-001 context definitions
 
 | Generated check | Supporting type and context builder |
 | --- | --- |
@@ -52,3 +52,28 @@ Lake prepares local copies under `formal/.lake/packages/`.
 The run's `execution.json` records the generated module paths, observed jobs,
 and prepared module search path. Use the [quickstart](QUICKSTART.md) to run the
 checks and find their generated sources and logs.
+
+## UP-012 vesting profile
+
+[`Generator/RequiredSigners.lean`](Generator/RequiredSigners.lean) retains the
+original typed data, transaction shapes, and propositions from PR #55. Each
+output folder has three generated Lean files:
+
+| File | Definitions |
+| --- | --- |
+| `Generated/Workflow/Types.lean` | Vesting data/redeemer types, compiled program, `accepts`, and `rejects` |
+| `Generated/Workflow/Tx.lean` | `ClaimLeaves`, `CancelLeaves`, `claim`, `cancel`, and their datum builder |
+| `Generated/Workflow/Checks.lean` | `dropSigner_claim`, `dropSigner_cancel`, and both `_applies` statements |
+
+Shared support comes from the same repository helper file:
+
+- [`signatoriesOf` and `withSignatories`](../Formal/Universal/Properties.lean#L86)
+  read or replace the context's signatory list.
+- [`Formal.Universal.TxBuilder`](../Formal/Universal/Properties.lean#L107)
+  builds the supplied inputs, outputs, and spend contexts.
+- [`rejectedWithin`](../Formal/Universal/Properties.lean#L26)
+  requires rejection within the candidate's `ledgerFuel` bound of 1,000,000 steps.
+
+These shapes have one signatory and remove the first key. The provider is an
+experimental test of the pinned vesting artifact, with applicability checks;
+it does not generate general required-signer checks for arbitrary validators.

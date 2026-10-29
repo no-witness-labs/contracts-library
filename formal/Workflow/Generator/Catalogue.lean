@@ -1,9 +1,10 @@
 import Workflow.Generator.OtherPurpose
+import Workflow.Generator.RequiredSigners
 
 namespace Workflow.Generator
 
 /-- Register ordinary Lean providers here; the command entry point stays property-independent. -/
-def providers : Array Provider := #[OtherPurpose.provider]
+def providers : Array Provider := #[OtherPurpose.provider, RequiredSigners.provider]
 
 def selectProvider (id : Option String) : Except String Provider :=
   match id with

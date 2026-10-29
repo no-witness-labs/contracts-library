@@ -13,7 +13,7 @@ an error; executed runs retain a structured result and evidence directory.
 
 `Options.leanPath` supplies the prepared Lean dependency search path. Defaults
 are `lean`, GNU `timeout`, and a 30,000 ms budget. Executor does not install or
-update dependencies. The formal Nix shell lists coreutils for `timeout`.
+update dependencies. GNU coreutils provides `timeout` and `mktemp`.
 This process-supervision profile targets POSIX environments; the descendant
 cleanup test uses Linux process information.
 

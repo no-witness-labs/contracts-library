@@ -49,6 +49,8 @@ Reporter. Providers live in Generator's ordinary Lean catalogue; the default is
 its first registered provider. The first provider supports unparameterized
 UP-001 targets. The command requires the prepared `LEAN_PATH` supplied by
 `lake exe` and performs no dependency installation.
+`--check UP-012` selects the experimental pinned vesting suite, including its
+two signer-removal and two applicability statements.
 
 The default execution budget is 30,000 ms. The option controls Executor's shared
 module budget; package builds, input reading, generation, and reporting add

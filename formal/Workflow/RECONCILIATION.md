@@ -28,7 +28,7 @@ for their results.
 | Input selection | Several validators per command; requires a spend handler and `name.name.handler` titles | One validator per request, canonical or unambiguous short name; validates explicit V3 metadata and decodes code | Keep the current Input contract; defer batch orchestration |
 | Schema handling | Translates datum and redeemer schemas into bounded symbolic data | Input preserves schemas; UP-001 uses raw redeemer data without schema translation | Review the translation before adding checks that need it |
 | Parameters | Rejects any entry with a `parameters` field, including an empty array | Input preserves descriptions; Generator accepts absent or empty lists and rejects nonempty lists | Typed parameter generation is separate work, not behavior supplied by PR #47 |
-| Candidate checks | UP-000, UP-001, UP-002, UP-004, UP-005, and UP-011 | UP-001 derived from candidate PR #49 with the reviewed 5,000,000-step bound | Keep the broader UP-001 domains; other providers remain deferred |
+| Candidate checks | UP-000, UP-001, UP-002, UP-004, UP-005, and UP-011 | UP-001 from PR #49 with the reviewed 5,000,000-step bound; experimental UP-012 vesting suite from PR #55 | Keep the broader UP-001 domains; other PR #47 providers remain deferred |
 | Cases and reachability | Full constructor splits, weaker quick mode, and UNREACHED classification using UP-000 | No schema case splitting or cross-check reachability classification | Review case domains and aggregation before porting spend checks |
 | Generated code | Embeds script bytes in the generated Base module; writes modules in the checkout | Embeds script bytes in generated Types; Executor writes to a fresh evidence directory | Retain embedded artifacts and isolated execution |
 | Execution | Parallel check modules; default four workers and 600 seconds per check module | Sequential modules under one shared budget, default 30,000 ms; scoped JSON observations | Keep the current Executor contract; defer scheduling and budget options |
@@ -40,6 +40,10 @@ contracts live in the [Input](Input/README.md), [Generator](Generator/README.md)
 [Executor](Executor/README.md), and [Reporter](Reporter/README.md) guides.
 The comparison uses source inspection and modular-provider experiments;
 PR #47's original proofs were not rerun.
+
+UP-012 comes from its separate candidate PR #55 and issue #33. It removes the
+first signer in supplied vesting shapes and includes applicability statements.
+It is separate from PR #47's UP-002 no-signature checks.
 
 ## Reviewed UP-001 scope
 

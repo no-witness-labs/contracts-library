@@ -11,7 +11,9 @@ lake exe universal /path/to/plutus.json module.validator --check UP-001 --timeou
 
 The [CLI quickstart](QUICKSTART.md) covers setup and examples of all three outcomes.
 The [check file map](CHECK-FILES.md) locates `EveryMint`, `EveryWithdraw`, and the
-other definitions used by generated UP-001 checks.
+other definitions used by generated checks. The experimental UP-012 provider
+also runs the existing vesting signer-removal suite through the same components;
+see the [quickstart](QUICKSTART.md) for its command and scope.
 Use a prepared checkout with the pinned dependencies and tools. The
 [Reporter guide](Reporter/README.md) describes output and exit codes; the
 [reference usage guide](../docs/WORKFLOW.md) also retains the Python prototype.

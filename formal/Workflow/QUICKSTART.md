@@ -1,8 +1,9 @@
 # Run the prototype from the CLI
 
 The prototype accepts an existing Aiken-style Plutus V3 blueprint and one
-unparameterized validator. It runs UP-001 and produces a plain-text report,
-JSON report, and exit code. The runtime uses ordinary Lean code and proof tools.
+unparameterized validator. It defaults to UP-001 and also offers the experimental
+UP-012 vesting suite below. Each run produces a plain-text report, JSON report,
+and exit code using ordinary Lean code and proof tools.
 
 ## Prepare once
 
@@ -109,3 +110,17 @@ UP-001 checks non-acceptance for undeclared purposes within that bound. Fuel
 exhaustion satisfies the claim, and results inherit Blaster's SMT trust boundary.
 See the [validation history](VALIDATION.md) for measured runs and limits, or
 `lake exe universal --help` for the supported arguments.
+
+## Test the UP-012 candidate
+
+For the existing vesting suite:
+
+```sh
+lake exe universal ../onchain/plutus.json linear_vesting.linear_vesting --check UP-012 --timeout-ms 300000
+```
+
+This experimental profile runs four original checks: signer removal for Claim
+and Cancel, plus an applicability check for each. It uses the candidate's
+1,000,000-step bound and supplied one-signer shapes. The command accepts only
+the pinned vesting artifact; other validators return INCONCLUSIVE/2. The
+[provider guide](Generator/README.md) describes its scope and restrictions.

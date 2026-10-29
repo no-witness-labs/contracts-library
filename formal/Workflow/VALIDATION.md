@@ -1,5 +1,25 @@
 # Validation history
 
+## Experimental UP-012 vesting suite
+
+The existing suite from PR #55 at `f5cbda7df624f2496dd2e6fe354a0cd15365b923`
+completed all four jobs through the CLI: two signer-removal statements and two
+applicability statements. All observations were Valid; Reporter emitted four
+`PASS` rows and exit code zero. Execution took 64,283 ms under a 300,000 ms shared
+budget: Types 1,799 ms, Tx 1,395 ms, and Checks 61,084 ms.
+
+All three generated source files match the pinned candidate after only module
+namespace/import replacement and embedding the supplied compiled script. The
+propositions, typed data, transaction shapes, and 1,000,000-step bound remain
+unchanged. The profile accepts only the original unparameterized vesting artifact.
+Both supplied shapes have one signatory; the operation removes the first key.
+General required-signer semantics remain a candidate-design question.
+
+Generator fixture checks passed for the four propositions, provider selection,
+unchanged UP-001 default, and explicit rejection of unsupported profiles.
+Executor fixture checks also pass. These bounded observations retain Blaster's
+SMT verification trust boundary and the original suite's model limits.
+
 ## Persistent output folders
 
 The CLI now writes each run to its own `formal/output/run.XXXXXXXX/` directory.

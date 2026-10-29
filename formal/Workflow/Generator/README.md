@@ -58,6 +58,31 @@ The provider accepts Plutus V3 targets only. Module-prefix segments must start
 with an uppercase ASCII letter. All six declared purposes produce no obligations; an exported
 fallback does not count as a declared purpose.
 
+## Experimental provider: UP-012
+
+`--check UP-012` selects the existing vesting suite from
+[PR #55](https://github.com/no-witness-labs/contracts-library/pull/55) at
+`f5cbda7df624f2496dd2e6fe354a0cd15365b923`. This testing profile accepts only
+the original unparameterized compiled vesting artifact with a declared spend
+handler. Other artifacts produce an explicit unsupported-profile error.
+
+The provider retains the candidate's typed data, Claim/Cancel transaction shapes,
+and four propositions. Module names adapt to the fresh run namespace, and Types
+embeds the supplied code instead of importing an external `Scripts/` file.
+
+- `dropSigner_claim` and `dropSigner_cancel` remove the first signer from their
+  supplied shape, whose signatory list contains one key.
+- The corresponding `_applies` statements check that the premises have a witness.
+- The bound remains **1,000,000 steps**. `rejects` uses `rejectedWithin`, so fuel
+  exhaustion does not establish rejection.
+- All four jobs expect Valid. Reporter shows their separate outcomes; passing
+  only a signer-removal theorem does not complete this suite.
+
+The experimental profile exercises only the existing vesting suite. General
+required-signer semantics and generation from arbitrary validator schemas remain
+outside its scope. The candidate design remains in issue #33. UP-001 remains
+the default provider.
+
 ## Tests
 
 From `formal/`, with the pinned dependencies prepared:

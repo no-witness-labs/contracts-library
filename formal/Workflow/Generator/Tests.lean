@@ -75,6 +75,27 @@ def run : IO Unit := do
     check "engine accepts another provider and expectation"
       (result.status == .ready && job.propertyId == "fixture-witness" && job.expected == .falsified)
   | .error error => throw (IO.userError (toString error))
+  let referenceCode ← IO.FS.readFile "Workflow/Generator/Fixtures/up012-compiled-code.txt"
+  let vesting := { target with compiledCode := referenceCode.trim }
+  let signerPlan ← match generate RequiredSigners.provider vesting "Generated.Signers" with
+    | .ok value => pure value
+    | .error error => throw (IO.userError (toString error))
+  check "UP-012 has support, shapes, and checks" (signerPlan.modules.size == 3 && signerPlan.jobs.size == 4)
+  check "UP-012 keeps applicability jobs" ((signerPlan.jobs.filter (·.name.endsWith "_applies")).size == 2)
+  check "UP-012 uses declared Valid expectations" (signerPlan.jobs.all (·.expected == .valid))
+  let signerGolden ← IO.FS.readFile "Workflow/Generator/Fixtures/up012-declarations.txt"
+  let signerDeclarations := String.intercalate "\n" (signerPlan.jobs.toList.map fun job =>
+    s!"theorem {job.name} :\n{job.statement} := by blaster\n")
+  check "UP-012 preserves the candidate propositions" (signerDeclarations.trim == signerGolden.trim)
+  check "UP-012 embeds code instead of reading Scripts"
+    (signerPlan.modules.all fun source => (source.source.splitOn "#import_uplc").length == 1)
+  check "UP-001 remains the default provider" ((selectProvider none).toOption.map (·.id) == some "UP-001")
+  check "UP-012 is selectable" ((selectProvider (some "UP-012")).toOption.map (·.id) == some "UP-012")
+  for unsupported in [target, { vesting with parameters := some #[parameter] },
+      { vesting with plutusVersion := "v2" }, { vesting with handlers := #[] }] do
+    match generate RequiredSigners.provider unsupported "Generated.Unsupported" with
+    | .error error => check "UP-012 profile restrictions are explicit" (error.kind == .unsupported)
+    | .ok _ => throw (IO.userError "UP-012 accepted an unsupported profile")
   IO.println "Generator fixture checks passed."
 
 end Workflow.Generator.Tests

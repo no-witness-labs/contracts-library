@@ -15,3 +15,15 @@ Namespace and generated-file comments are outside that comparison.
 
 The fixture checks generated statements. The [validation history](../../VALIDATION.md)
 records the separate proof evidence and its limits.
+
+## UP-012 fixtures
+
+`up012-compiled-code.txt` identifies the pinned vesting artifact accepted by the
+experimental UP-012 profile. `up012-declarations.txt` contains the four original
+propositions from [PR #55's DropSigner.lean](https://github.com/no-witness-labs/contracts-library/blob/f5cbda7df624f2496dd2e6fe354a0cd15365b923/formal/Formal/Vesting/Linear/Blueprint/DropSigner.lean).
+The unit harness compares the emitted job propositions with that fixture.
+
+The provider's source templates preserve the same revision's `Types.lean`,
+`Tx.lean`, and `DropSigner.lean`. Only namespace/import paths and compiled-script
+loading adapt to the workflow. Their 1,000,000-step bound and first-signer
+operation remain intact. The fixtures are source comparisons, not proof results.
