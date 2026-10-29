@@ -32,6 +32,25 @@ This term identifies an encoding concern, rather than an additional target kind.
 A generated obligation with its declared expectation and scope, together with
 the information needed to execute it and interpret the observations.
 
+**Check definition**:
+The property statement, model assumptions, applicability conditions, and expected
+observations that specify a check.
+
+**Applicability obligation**:
+An obligation establishing that the scenario required by a property check exists
+within its stated model. Its result qualifies the associated property obligation.
+
+**Candidate catalogue**:
+Named references to maintained candidate check definitions and their supporting
+models.
+
+**Run selection**:
+The candidate checks requested for one execution of the workflow.
+
+**Workflow test scenario**:
+A prepared combination of candidate references, target inputs, scenario models,
+and expected outcomes used to test the assembled workflow.
+
 **Check provider**:
 An ordinary Lean function supplying property-specific generation through the
 common Generator contract.

@@ -24,7 +24,7 @@ Use a prepared checkout with the pinned dependencies and tools. The
 | --- | --- | --- |
 | Components | Input, Generator, Executor, and Reporter, each in its own folder | Give each responsibility a clear boundary |
 | Location | Keep all four under `formal/Workflow/`, with shared interfaces and a thin entry point at the root | Keep the workflow together in one Lean project |
-| Testing | Give each component its own tests and fixtures; test the assembled workflow separately | Verify components without requiring the full pipeline |
+| Testing | Collect test assets under `Workflow/Tests/`, with UP001 and UP012 workflow scenarios and separate component unit checks | Keep the reusable engine separate from example targets and expected results |
 | Independence | Coordinate components through explicit interfaces, without hardcoded property IDs, validator names, or blueprint fields in the entry point | Support different checks and inputs through the same workflow |
 | Runtime | Implement the workflow as ordinary code and configured proof-tool processes, without AI agents or model calls | Keep component behavior and tests independent of AI services |
 | Reporting | Start with a plain summary and JSON output; defer branding and expanded content | Focus on correct, inspectable outcomes |
@@ -39,16 +39,26 @@ Use a prepared checkout with the pinned dependencies and tools. The
 | Integration example | Use UP-001 for the first bounded integration example | Exercise the interfaces with an existing check |
 | UP-001 bound | Use 5,000,000 CEK steps with the existing raw redeemer and open context domains | Match PR #47's default bound after semantic review and individual proof experiments |
 | Delivery | Keep issue #39, branch `feat/39-developer-workflow`, and draft PR #52 as the workflow task | Consolidate the relevant work from PR #47 in one delivery |
+| Applicability | Generator explicitly identifies applicability obligations and links them to the property obligations they qualify | Let downstream components distinguish an unusable scenario from a property counterexample |
+| Candidate catalogue | Reference maintained candidate implementations and supporting models through a catalogue | Add candidates without embedding their identities or example validators in the core components |
 
-The planned component folders are:
+The approved refactor target is:
 
 ```text
 formal/Workflow/
 ├── Input/
 ├── Generator/
 ├── Executor/
-└── Reporter/
+├── Reporter/
+└── Tests/
+    ├── UP001/
+    ├── UP012/
+    └── Unit/
 ```
+
+This separation and the explicit applicability relationships remain pending
+implementation. The current prototype still imports built-in providers from
+Generator and includes the fixed UP-012 vesting setup there.
 
 Input reads supported artifacts and produces a target description. Generator
 produces check jobs from that description and selected property definitions.
@@ -73,6 +83,30 @@ and observation contracts, without hardcoded property IDs.
 Additional input formats or proof backends may require their own adapters.
 Those differences belong to format and tool support, rather than to the choice
 of property.
+
+## Planned candidate catalogue and run selection
+
+The catalogue is a small index of references to candidate implementations and
+their supporting models. Candidate code stays at its maintained location.
+Workflow tests reference that code and supply example targets, scenario-specific
+models or harnesses, and expected outcomes. Fixed fixtures support these tests;
+normal runs supply their own required inputs.
+
+The reusable engine receives the selected check definitions and target through
+its interfaces. It does not own the candidate list or a particular validator's
+test setup. Adding a candidate should require providing its implementation and
+catalogue reference rather than editing the engine.
+
+The owner proposed three selection modes for later CLI review:
+
+- Explicit selection of one or more candidates.
+- An all-candidates mode, potentially the default.
+- A client-provided configuration selecting checks for a run.
+
+Catalogue format, configuration schema, flags such as `-a`, default behavior,
+which entries all mode includes, and unsupported-check handling remain open.
+The run configuration should refer to catalogue entries without duplicating
+property implementations. CLI selection implementation awaits that later review.
 
 ## Targets and input formats
 
