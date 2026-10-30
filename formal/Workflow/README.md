@@ -90,6 +90,11 @@ of property.
 
 ## Candidate composition and report direction
 
+The workflow now loads the grouped property-definition records for its registered
+providers and retains them with reports and execution evidence. See the
+[metadata guide](METADATA.md) for the shape-only contract and staged rollout.
+The legacy catalogue schemas remain unchanged; issue #66 tracks their later migration.
+
 [`Candidates/Catalogue.lean`](../Candidates/Catalogue.lean) is the current thin
 composition index. It references `Candidates.UP001` and the experimental
 `Workflow.Tests.UP012.Profile`, which binds the original candidate propositions

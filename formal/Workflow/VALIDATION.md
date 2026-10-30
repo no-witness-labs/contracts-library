@@ -256,3 +256,23 @@ the signer-identity negative control. The emitted Types/Checks for UP001 and
 Types/Tx/Checks for UP012 matched the previous CLI checkpoint byte for byte.
 Property propositions, transaction models, and CEK bounds did not change.
 The aggregate run retained `output/test.AsIZxSM3/summary.json` and per-suite logs.
+
+## Workflow property-definition metadata
+
+The workflow-scoped metadata checkpoint passed all eleven suites through
+`./formal/plutus-upv test` in 306,824 ms including build. The new suite checks
+shape validation, preserved missing/empty values, integer handling, catalogue
+ID/version association, duplicate or wrong-primary rejection, and unchanged
+generated statements. Reporter tests cover snapshot retention, metadata mismatch,
+safe text display, and existing result-policy behavior.
+
+Both CLI scenarios retain the selected definition in reports and execution
+manifests; preparation failures retain it when lookup succeeds. The emitted
+UP001 Types/Checks and UP012 Types/Tx/Checks match the preceding workflow
+checkpoint byte for byte. The UP012 formulas and model remain unchanged.
+
+An isolated Ajv 8.20.0 validator compiled the workflow JSON Schema and validated
+both maintained records, including the intended acceptance of partial records.
+Legacy catalogue schemas, records, and their validation scripts did not change.
+The aggregate output is `output/test.FUFkwumk/`; issue #66 remains open for the
+later rollout beyond the workflow.

@@ -25,6 +25,13 @@ private def observation (metadata : CheckJob) (observed : Executor.ObservedResul
 private def completed (jobs : Array Executor.JobObservation) : Executor.Result :=
   { state := .completed, jobs }
 
+private def definition (title := "Fixture metadata") : IO PropertyDefinition :=
+  IO.ofExcept (PropertyDefinition.parse (Json.mkObj [
+    ("schema_version", toJson (2 : Nat)),
+    ("identity", Json.mkObj [("id", .str "fixture"),
+      ("definition_version", toJson (1 : Nat)), ("title", .str title)]),
+    ("formalization", Json.mkObj [("primary", .str "Fixture.Checks.proof")])]))
+
 private def rowFor (report : Report) (metadata : CheckJob) : IO Row :=
   match report.rows.find? (fun row => row.job.name == metadata.name &&
       row.job.moduleName == metadata.moduleName) with
@@ -54,6 +61,45 @@ def run : IO Unit := do
   let ordinary := job "ordinary_applies"
   let ordinaryFailure := build (plan #[ordinary]) (completed #[observation ordinary .falsified])
   check "job names do not infer applicability roles" (ordinaryFailure.status == .fail)
+
+  let metadata ← definition
+  for (metadataJob, observed, expectedCode) in
+      [(job, Executor.ObservedResult.valid, (0 : UInt32)),
+       (job, .falsified, 1), (witness, .falsified, 0)] do
+    let report := build { plan #[metadataJob] with propertyDefinition := some metadata }
+      { completed #[observation metadataJob observed] with propertyDefinition := some metadata }
+    check "matching property metadata retains actual result policy" (report.exitCode == expectedCode)
+    check "report retains the plan's property metadata snapshot"
+      (report.propertyDefinition == some metadata &&
+       (report.toJson.getObjVal? "propertyDefinition").toOption == some metadata.toJson)
+  let changedMetadata ← definition "Different metadata"
+  for (plannedMetadata, executedMetadata) in
+      [(some metadata, none), (none, some metadata), (some metadata, some changedMetadata)] do
+    for observed in [Executor.ObservedResult.valid, .falsified] do
+      let report := build { plan #[job] with propertyDefinition := plannedMetadata }
+        { completed #[observation job observed] with propertyDefinition := executedMetadata }
+      let row ← rowFor report job
+      check "mismatched property metadata prevents qualification without erasing raw evidence"
+        (report.exitCode == 2 && row.status == .inconclusive &&
+         row.observed == some observed && row.evidenceComplete &&
+         report.problems.contains "property definition metadata changed during execution")
+      check "metadata mismatch keeps the plan snapshot rather than the execution replacement"
+        (report.propertyDefinition == plannedMetadata)
+  let preparationFailure := failure "fixture.target" "unsupported fixture" (some metadata)
+  check "preparation failure retains known property metadata without inventing results"
+    (preparationFailure.exitCode == 2 && preparationFailure.rows.isEmpty &&
+     preparationFailure.propertyDefinition == some metadata &&
+     (preparationFailure.toJson.getObjVal? "propertyDefinition").toOption == some metadata.toJson)
+  check "absent property metadata is explicit and does not invent values"
+    (good.propertyDefinition.isNone &&
+     (good.toJson.getObjVal? "propertyDefinition").toOption == some .null &&
+     (failure "fixture.target" "no selected definition").propertyDefinition.isNone)
+  let multilineMetadata ← definition "Fixture\nmetadata"
+  let escapedMetadata := failure "fixture.target" "unsupported fixture" (some multilineMetadata)
+  check "property metadata text escapes embedded line breaks"
+    ((escapedMetadata.text.splitOn "Fixture\\nmetadata").length == 2 &&
+     (escapedMetadata.text.splitOn "Fixture\nmetadata").length == 1 &&
+     (escapedMetadata.toJson.getObjVal? "propertyDefinition").toOption == some multilineMetadata.toJson)
 
   for state in [Executor.RunState.timedOut, .error, .noObligations] do
     let report := build (plan #[job])

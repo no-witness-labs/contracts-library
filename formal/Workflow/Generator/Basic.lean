@@ -19,6 +19,7 @@ instance : ToString Error where
 structure Provider where
   id : String
   generate : TargetDescription → String → Except Error GenerationPlan
+  propertyDefinition : Option PropertyDefinition := none
 
 /-- The caller chooses an isolated module prefix; generated code never writes it. -/
 def generate (provider : Provider) (target : TargetDescription) (modulePrefix : String) :
@@ -26,6 +27,7 @@ def generate (provider : Provider) (target : TargetDescription) (modulePrefix : 
   unless validModuleName modulePrefix do
     throw ⟨.invalidNamespace, "module prefix must contain capitalized Lean identifier segments"⟩
   let plan ← provider.generate target modulePrefix
-  return { plan with status := if plan.jobs.isEmpty then .noObligations else .ready }
+  return { plan with status := if plan.jobs.isEmpty then .noObligations else .ready
+                     propertyDefinition := provider.propertyDefinition }
 
 end Workflow.Generator

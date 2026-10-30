@@ -17,7 +17,7 @@ stops the run; a suite failure allows the remaining independent suites to run.
 Only a complete successful test run returns zero. Expected negative controls
 print FAIL or INCONCLUSIVE without making their enclosing suite fail.
 
-The aggregate command includes component units, runner failure controls,
+The aggregate command includes component units, property metadata checks, runner failure controls,
 Input-to-Generator type-checking, real Executor/Reporter solver controls, and
 both scenarios below. Each scenario already invokes its candidate-specific
 checks. Optional manual integration probes are not additional suite runs.

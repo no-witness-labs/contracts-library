@@ -27,6 +27,7 @@ structure Report where
   problems : Array String := #[]
   notes : Array String := #[]
   evidenceDirectory : Option System.FilePath := none
+  propertyDefinition : Option PropertyDefinition := none
 
 def Report.exitCode (report : Report) : UInt32 :=
   match report.status with
@@ -92,6 +93,8 @@ def build (plan : GenerationPlan) (execution : Executor.Result) : Report := Id.r
     problems := problems.push s!"execution did not complete: {reprStr execution.state}"
   if plan.jobs.isEmpty then problems := problems.push "no obligations were executed"
   let mut integrityProblems : Array String := #[]
+  if plan.propertyDefinition != execution.propertyDefinition then
+    integrityProblems := integrityProblems.push "property definition metadata changed during execution"
   if plan.jobs.isEmpty != (plan.status == .noObligations) then
     integrityProblems := integrityProblems.push "generation status and job count disagree"
   if execution.state == .noObligations && !plan.jobs.isEmpty then
@@ -125,10 +128,10 @@ def build (plan : GenerationPlan) (execution : Executor.Result) : Report := Id.r
     else if !problems.isEmpty || rows.isEmpty || rows.any (·.status == .inconclusive) then .inconclusive
     else .pass
   return { target := plan.targetName, status, rows, problems, notes := plan.notes
-           evidenceDirectory := execution.directory }
+           evidenceDirectory := execution.directory, propertyDefinition := plan.propertyDefinition }
 
-def failure (target message : String) : Report :=
-  { target, status := .inconclusive, problems := #[message] }
+def failure (target message : String) (propertyDefinition : Option PropertyDefinition := none) : Report :=
+  { target, status := .inconclusive, problems := #[message], propertyDefinition }
 
 private def expectedText : ExpectedResult → String
   | .valid => "valid"
@@ -153,14 +156,37 @@ def Report.toJson (report : Report) : Json :=
   Json.mkObj [
     ("schemaVersion", Lean.toJson (1 : Nat)), ("target", .str report.target),
     ("status", .str report.status.label), ("exitCode", Lean.toJson report.exitCode.toNat),
+    ("propertyDefinition", report.propertyDefinition.map (·.toJson) |>.getD .null),
     ("checks", .arr rows), ("problems", Lean.toJson report.problems), ("notes", Lean.toJson report.notes),
     ("evidenceDirectory", report.evidenceDirectory.map (fun path => Json.str path.toString) |>.getD .null)]
 
 private def oneLine (text : String) : String :=
   text.replace "\r" "\\r" |>.replace "\n" "\\n" |>.replace "\t" "\\t"
 
+private def definitionLabel : String → String
+  | "schema_version" => "Metadata format"
+  | "identity.id" => "Property"
+  | "identity.definition_version" => "Definition version"
+  | "identity.title" => "Title"
+  | "identity.category" => "Category"
+  | "explanation.summary" => "Description"
+  | "explanation.claim" => "Claim"
+  | "explanation.purpose" => "Purpose"
+  | "scope.relevance_conditions" => "Relevance conditions"
+  | "scope.preconditions" => "Definition premises"
+  | "scope.limitations" => "Definition limitations"
+  | "formalization.primary" => "Formal definition"
+  | "formalization.theorems" => "Static theorem references"
+  | label =>
+    if label.startsWith "references[" then
+      if label.endsWith ".label" then "Reference label" else "Reference"
+    else label
+
 def Report.text (report : Report) : String := Id.run do
   let mut lines := #[s!"Target: {oneLine report.target}"]
+  if let some definition := report.propertyDefinition then
+    for (label, value) in definition.textFields do
+      lines := lines.push s!"{oneLine (definitionLabel label)}: {oneLine value}"
   for row in report.rows do
     lines := lines.push s!"{row.status.label} {oneLine row.job.propertyId} {oneLine row.job.name}"
     if let some issue := row.issues[0]? then

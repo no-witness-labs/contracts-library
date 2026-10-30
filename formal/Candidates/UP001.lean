@@ -46,13 +46,17 @@ private def checksHeader (modulePrefix : String) : String :=
     "Fuel exhaustion satisfies this claim; it does not establish an explicit error.",
     "-/", ""]
 
-private def makeJob (modulePrefix : String) (purpose : Purpose) : CheckJob :=
+/-- The bounded nonacceptance proposition for one undeclared purpose. -/
+def statement (purpose : Purpose) : String :=
   let ctx := contextType purpose
+  s!"    ∀ (r : Data) (t : {ctx}),\n" ++
+    s!"      ¬ accepts 5000000 ({ctx}.ctx t r)"
+
+private def makeJob (modulePrefix : String) (purpose : Purpose) : CheckJob :=
   { propertyId := "UP-001"
     name := s!"otherPurpose_{purpose.name}"
     moduleName := s!"{modulePrefix}.Checks"
-    statement := s!"    ∀ (r : Data) (t : {ctx}),\n" ++
-      s!"      ¬ accepts 5000000 ({ctx}.ctx t r)"
+    statement := statement purpose
     expected := .valid
     scope }
 

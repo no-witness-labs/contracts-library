@@ -1,3 +1,5 @@
+import Workflow.PropertyDefinition
+
 namespace Workflow
 
 private def asciiLetter (c : Char) : Bool :=
@@ -58,5 +60,6 @@ structure GenerationPlan where
   jobs : Array CheckJob
   notes : Array String := #[]
   status : GenerationStatus := .ready
+  propertyDefinition : Option PropertyDefinition := none
 
 end Workflow
