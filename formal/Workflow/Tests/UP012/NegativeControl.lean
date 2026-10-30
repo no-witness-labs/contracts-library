@@ -39,8 +39,13 @@ private def provider : Generator.Provider :=
           | "dropSigner_cancel_applies" => pure (0, 1)
           | _ => throw ⟨.unsupported, "identity control: unexpected obligation"⟩
         let statement ← retainSigner job.statement counts.1 counts.2
-        return { job with propertyId, statement, scope }
-      return { plan with modules, jobs, notes := #[scope] } }
+        return { job with propertyId, statement, scope, binding := none }
+      return { plan with
+        modules
+        jobs
+        notes := #[scope]
+        bindingsRequired := false
+        propertyDefinition := none } }
 
 def run : IO Unit := do
   startCase "UP012: retain-signer identity control"
@@ -67,15 +72,24 @@ def run : IO Unit := do
   check "identity control preserves all four obligations"
     (report.rows.map (·.job.name) ==
       #["dropSigner_claim", "dropSigner_claim_applies", "dropSigner_cancel", "dropSigner_cancel_applies"])
+  check "identity control retains no official property definition" report.propertyDefinition.isNone
   for row in report.rows do
     check "identity control retains Valid expectations" (row.job.expected == .valid)
     check "identity control is labeled test-only" (row.job.propertyId == propertyId && row.job.scope == scope)
+    check "identity control retains no official combined-check binding" row.job.binding.isNone
+    let expectedModel := if row.job.name == "dropSigner_claim" || row.job.name == "dropSigner_claim_applies"
+      then "TxM-007" else "TxM-008"
+    check "identity control preserves the original transaction model" (row.job.txModelId == some expectedModel)
     if row.job.name.endsWith "_applies" then
       check s!"{row.job.name}: applicability remains Valid/PASS"
         (row.observed == some .valid && row.status == .pass)
     else
       check s!"{row.job.name}: unchanged signer produces Falsified/FAIL"
         (row.observed == some .falsified && row.status == .fail)
+  let jsonRows ← rows report.toJson
+  for row in jsonRows do
+    check "identity control JSON does not claim an official combination"
+      ((row.getObjVal? "combinedCheck").toOption == some .null)
   IO.println "UP012 identity negative control passed (the two property failures are intentional)."
 
 end Workflow.Tests.UP012.NegativeControl

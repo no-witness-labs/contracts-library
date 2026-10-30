@@ -1,8 +1,9 @@
 # Workflow metadata
 
 Workflow metadata describes property definitions, transaction models, and their
-combined checks. The runtime currently loads property-definition metadata only.
-The model and combined-check schemas define record shapes for later integration.
+combined checks. The catalogue loads the selected provider's metadata once, and
+each generated check retains the model and combination used by its registered
+implementation. Execution evidence and reports preserve those snapshots.
 
 ## Property definitions
 
@@ -55,7 +56,8 @@ problem and keeps the affected result inconclusive.
 Known metadata remains in input, generation, and execution-preparation error
 reports. Metadata errors themselves do not claim a failed validator property.
 If both intake and catalogue lookup fail, intake keeps its existing precedence.
-The original readable-input capture gap on intake failures remains separate work.
+The coordinator also retains readable input on intake failures and records the
+run settings in `invocation.json`; see the [run guide](QUICKSTART.md).
 
 Static theorem names in metadata are not results for the supplied target.
 The current UP001/UP012 records list no static target proofs: their target-specific
@@ -82,6 +84,32 @@ facts belong in the description, while Lean code implements the construction.
 The Plutus version identifies the context format; protocol and evaluator
 configuration remain separate execution concerns.
 
+The registered model IDs identify these context families:
+
+| Model ID | Context family | Current property |
+| --- | --- | --- |
+| `TxM-001` | `EveryMint` | UP-001 |
+| `TxM-002` | `EveryWithdraw` | UP-001 |
+| `TxM-003` | `EveryPublish` | UP-001 |
+| `TxM-004` | `EveryVote` | UP-001 |
+| `TxM-005` | `EveryPropose` | UP-001 |
+| `TxM-006` | `EverySpend` | UP-001 |
+| `TxM-007` | Vesting Claim | UP-012 test profile |
+| `TxM-008` | Vesting Cancel | UP-012 test profile |
+
+Model implementations and metadata live together in the
+[`Formal/TxModels` bank](../Formal/TxModels/README.md). Each
+`Definitions/TxMNNN.lean` file owns one model and its four metadata values.
+The [Lean index](../Formal/TxModels/Index.lean) imports the eight models and exports
+their metadata for the catalogue. Shared model helpers and vesting types stay at
+the bank root. Model code imports no workflow modules.
+
+The bank replaces the two previously authored transaction-model JSON lists.
+`Formal.TxModels.Index.toJson` supplies the same records to the existing reader;
+JSON consumers can use that export without maintaining another source copy.
+UP-001 selects only purposes without a declared handler in the supplied validator.
+UP-012 retains its existing guard for the original vesting artifact.
+
 ## Combined checks
 
 The [combined-check schema](combined-check.schema.json) describes an array of
@@ -99,17 +127,49 @@ Descriptions stay in the referenced records, and execution produces the results.
 One model can serve several properties, and one property can use several models
 through separate combined checks.
 
-Both new schemas check known fields and types. Required/optional and
-list-cardinality policies remain open, as with the property schema. The runtime
-does not yet load these records or resolve their references to executable checks.
-That integration requires mapping each generated check to its actual model.
+The corresponding records live in
+[`Candidates/combined-checks.json`](../Candidates/combined-checks.json) and
+[`Tests/UP012/combined-checks.json`](Tests/UP012/combined-checks.json).
+Registered generator code assigns each job its expected model ID. The catalogue
+resolves the selected property/version/model combination, and generation attaches
+the matching records. Descriptive metadata does not choose a different generator.
+
+The schemas and [Lean readers](ModelMetadata.lean) check known fields and types.
+Required/optional and list-cardinality policies remain open. Runnable bindings
+must nevertheless resolve uniquely. The combined property's ID and definition
+version must match the retained property record and job. Its `tx_model` must match
+the registered model ID, and the model's Plutus version must match the target.
+Missing, ambiguous, or mismatched selected bindings produce a preparation error.
+
+### Applicability and evidence
+
+An applicability obligation retains the same combination and model as the property
+job that references it. Reporter checks this agreement using the existing exact
+module/name reference, while preserving each job's role and observation. A passing
+applicability check only qualifies its linked property's result.
+
+Each job in `execution.json` and each check in `report.json` includes `txModelId`,
+`transactionModel`, and `combinedCheck`. The latter two fields retain the complete
+supplied records. The text report shows the model description and combination
+limitations alongside the check. Changed or inconsistent snapshots prevent the
+affected evidence from supporting a conclusive result. A preparation failure or
+empty plan does not claim that any model check executed.
+
+Direct API providers can remain explicitly metadata-free. Their records contain
+no invented official bindings. The UP-012 retain-signer negative control clears
+the official combined-check binding when it changes the property proposition.
+
+The UP-012 models describe baseline contexts with one signer. The property removes
+that signer to construct a second context; the result need not belong to the
+baseline model family. Its `validScriptContext` conditions are property premises,
+not guarantees of the constructor or proof of full ledger reachability.
 
 ### Example
 
-These illustrative arrays describe the existing `EveryMint` context builder in
-[`Formal/Universal/Properties.lean`](../Formal/Universal/Properties.lean) paired
-with UP-001 for a target without a minting handler. `TxM-001` is an example ID;
-these records do not register an executable model or check.
+These sample arrays illustrate the JSON representation of the native
+[`TxM001.lean`](../Formal/TxModels/Definitions/TxM001.lean) model paired with UP-001
+for a target without a minting handler. The model file contains the maintained
+constructor and metadata; executable property/model registration remains in Lean.
 
 Transaction-model metadata:
 
@@ -153,7 +213,7 @@ and other branches remain unchanged. [Issue #66](https://github.com/no-witness-l
 stays open for the broader migration and reconciliation across existing PRs.
 The workflow implementation PR references that issue without closing it.
 
-Run the focused property-definition metadata checks from `formal/`:
+Run the focused metadata checks from `formal/`:
 
 ```sh
 lake exe workflow_metadata_tests

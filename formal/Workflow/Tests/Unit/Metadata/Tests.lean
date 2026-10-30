@@ -1,5 +1,7 @@
 import Workflow.PropertyDefinition
 import Candidates.Catalogue
+import Workflow.Tests.Unit.Metadata.Models
+import Workflow.Tests.Unit.Metadata.Bindings
 
 open Lean Workflow
 
@@ -37,6 +39,8 @@ private def catalogueRecord (id : String := "UP-001") (version : Int := 1)
     primary.toList.map (fun name => ("formalization", Json.mkObj [("primary", .str name)]))))
 
 def run : IO Unit := do
+  Models.run
+  Bindings.run
   let definition ← accepted record
   check "complete record keeps its raw snapshot" (definition.toJson == record)
   check "equal snapshots compare equal" (definition == (← accepted record))

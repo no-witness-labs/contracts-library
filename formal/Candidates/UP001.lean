@@ -16,6 +16,16 @@ private def contextType : Purpose → String
   | .vote => "EveryVote"
   | .propose => "EveryPropose"
 
+private def modelId : Purpose → String
+  | .mint => Formal.TxModels.TxM001.metadata.id
+  | .withdraw => Formal.TxModels.TxM002.metadata.id
+  | .publish => Formal.TxModels.TxM003.metadata.id
+  | .vote => Formal.TxModels.TxM004.metadata.id
+  | .propose => Formal.TxModels.TxM005.metadata.id
+  | .spend => Formal.TxModels.TxM006.metadata.id
+
+def modelIds : Array String := allPurposes.map modelId
+
 private def scope : String :=
   "No acceptance within 5,000,000 CEK steps for undeclared purposes. " ++
   "Fuel exhaustion satisfies the claim; it does not establish explicit rejection."
@@ -58,6 +68,7 @@ private def makeJob (modulePrefix : String) (purpose : Purpose) : CheckJob :=
     moduleName := s!"{modulePrefix}.Checks"
     statement := statement purpose
     expected := .valid
+    txModelId := some (modelId purpose)
     scope }
 
 private def build (target : TargetDescription) (modulePrefix : String) : Except Error GenerationPlan := do

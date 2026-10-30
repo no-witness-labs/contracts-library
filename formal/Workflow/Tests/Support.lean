@@ -71,6 +71,26 @@ def invoke (blueprint selector : String) (checkId : Option String) (budgetMs : N
   check "plain report exists" (← (directory / "report.txt").pathExists)
   check "report points to its actual output directory"
     ((← stringField report "evidenceDirectory") == directory.toString)
+  check "readable CLI input is retained for every outcome"
+    ((← IO.FS.readFile (directory / "input.json")) == original)
+  let invocation ← IO.ofExcept (Json.parse (← IO.FS.readFile (directory / "invocation.json")))
+  let requestArgs := #[blueprint, selector] ++ selection ++ #["--timeout-ms", toString budgetMs]
+  let cwd ← IO.currentDir
+  let inputPath := System.FilePath.mk blueprint
+  let inputPath := if inputPath.isAbsolute then inputPath else cwd / inputPath
+  check "CLI invocation preserves the arguments, effective paths, and settings"
+    ((invocation.getObjVal? "args").toOption == some (Lean.toJson requestArgs) &&
+     (invocation.getObjVal? "cwd").toOption == some (.str cwd.toString) &&
+     (invocation.getObjVal? "inputPath").toOption == some (.str inputPath.toString) &&
+     (invocation.getObjVal? "validator").toOption == some (.str selector) &&
+     (invocation.getObjVal? "requestedCheck").toOption == some (checkId.map Json.str |>.getD .null) &&
+     (invocation.getObjVal? "timeoutMs").toOption == some (Lean.toJson budgetMs))
+  let resolved := do
+    let definition ← (report.getObjVal? "propertyDefinition").toOption
+    let identity ← (definition.getObjVal? "identity").toOption
+    (identity.getObjVal? "id").toOption
+  check "CLI invocation records the property resolved by the catalogue"
+    ((invocation.getObjVal? "resolvedCheck").toOption == some (resolved.getD .null))
   return { exitCode := output.exitCode, report, directory, input := original }
 
 def expectOutcome (label : String) (run : CLIRun) (status : String) (exitCode : UInt32) : IO Unit := do
@@ -93,6 +113,40 @@ def expectPropertyDefinition (label : String) (run : CLIRun)
     let manifest ← IO.ofExcept (Json.parse (← IO.FS.readFile manifestPath))
     check s!"{label}: report and execution retain the same property definition"
       ((manifest.getObjVal? "propertyDefinition").toOption == some definition)
+
+def expectBindings (label : String) (run : CLIRun)
+    (propertyId : String) (definitionVersion : Nat)
+    (expected : Array (String × String)) : IO Unit := do
+  let checks ← rows run.report
+  let names ← checks.mapM (fun row => stringField row "name")
+  check s!"{label}: exact bound job selection" (names == expected.map Prod.fst)
+  let manifest ← IO.ofExcept (Json.parse (← IO.FS.readFile (run.directory / "execution.json")))
+  let jobs ← IO.ofExcept do (← manifest.getObjVal? "jobs").getArr?
+  check s!"{label}: execution retains every requested job" (jobs.size == checks.size)
+  for (name, modelId) in expected do
+    let matching := checks.filter fun row => (row.getObjVal? "name").toOption == some (.str name)
+    check s!"{label}: unique report row for {name}" (matching.size == 1)
+    let some row := matching[0]? | throw (IO.userError s!"missing report row: {name}")
+    let model ← IO.ofExcept (row.getObjVal? "transactionModel")
+    let combined ← IO.ofExcept (row.getObjVal? "combinedCheck")
+    let property ← IO.ofExcept (combined.getObjVal? "property")
+    let version ← IO.ofExcept do (← property.getObjVal? "definition_version").getNat?
+    check s!"{label}: registered model for {name}" ((← stringField row "txModelId") == modelId)
+    check s!"{label}: model snapshot identity for {name}" ((← stringField model "id") == modelId)
+    check s!"{label}: model context format for {name}" ((← stringField model "plutus_version") == "v3")
+    check s!"{label}: combined model reference for {name}" ((← stringField combined "tx_model") == modelId)
+    check s!"{label}: combined property reference for {name}"
+      ((← stringField property "id") == propertyId && version == definitionVersion)
+    let moduleName ← stringField row "module"
+    let observations := jobs.filter fun item =>
+      (item.getObjVal? "name").toOption == some (.str name) &&
+      (item.getObjVal? "module").toOption == some (.str moduleName)
+    check s!"{label}: unique execution observation for {name}" (observations.size == 1)
+    let some observation := observations[0]?
+      | throw (IO.userError s!"missing execution observation: {name}")
+    for field in #["txModelId", "transactionModel", "combinedCheck"] do
+      check s!"{label}: exact {field} snapshot retained for {name}"
+        ((observation.getObjVal? field).toOption == (row.getObjVal? field).toOption)
 
 def expectRows (label : String) (run : CLIRun) (count : Nat)
     (property status observed bound : String) : IO Unit := do
@@ -121,5 +175,18 @@ def expectArtifacts (label : String) (run : CLIRun) (sources : Array String) : I
     check s!"{label}: recorded module exists" (← path.pathExists)
     check s!"{label}: compiler stdout retained" (← (path.withExtension "stdout.log").pathExists)
     check s!"{label}: compiler stderr retained" (← (path.withExtension "stderr.log").pathExists)
+    let call ← IO.ofExcept (item.getObjVal? "invocation")
+    if call == .null then
+      check s!"{label}: unattempted modules have no process exit code"
+        ((item.getObjVal? "exitCode").toOption == some .null &&
+         (item.getObjVal? "timedOut").toOption == some (.bool true))
+    else
+      let args ← IO.ofExcept do (← call.getObjVal? "args").getArr?
+      check s!"{label}: records the actual timeout and Lean argument array"
+        ((← stringField call "command") == (← stringField manifest "timeoutCommand") &&
+         args[0]? == some (.str "--signal=KILL") &&
+         args[2]? == some (.str (← stringField manifest "leanCommand")) &&
+         args.toList.drop 3 == [.str "--json", .str s!"--root={run.directory}", .str "-o",
+           .str (path.withExtension "olean").toString, .str path.toString])
 
 end Workflow.Tests.Support
