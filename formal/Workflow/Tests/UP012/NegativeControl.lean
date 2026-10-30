@@ -21,7 +21,7 @@ private def retainSigner (text : String) (claimCount cancelCount : Nat) :
     result := result.replace original s!"(signatoriesOf ({action} p))"
   return result
 
-private def provider : Generator.Provider :=
+private def provider (legacyDeclarations : String) : Generator.Provider :=
   { id := propertyId
     generate := fun target modulePrefix => do
       let plan ← Profile.provider.generate target modulePrefix
@@ -29,8 +29,9 @@ private def provider : Generator.Provider :=
         throw ⟨.unsupported, "identity control: expected exactly one Checks module"⟩
       let modules ← plan.modules.mapM fun source => do
         if source.name != s!"{modulePrefix}.Checks" then return source
-        let body ← retainSigner source.source 3 3
-        return { source with source := s!"-- {scope}\n{body}" }
+        let body ← retainSigner legacyDeclarations 3 3
+        let header := (source.source.splitOn "theorem dropSigner_claim :").head?.getD ""
+        return { source with source := s!"-- {scope}\n{header}{body}\nend {modulePrefix}\n" }
       let jobs ← plan.jobs.mapM fun job => do
         let counts ← match job.name with
           | "dropSigner_claim" => pure (2, 0)
@@ -38,7 +39,10 @@ private def provider : Generator.Provider :=
           | "dropSigner_cancel" => pure (0, 2)
           | "dropSigner_cancel_applies" => pure (0, 1)
           | _ => throw ⟨.unsupported, "identity control: unexpected obligation"⟩
-        let statement ← retainSigner job.statement counts.1 counts.2
+        let some declaration := (legacyDeclarations.splitOn s!"theorem {job.name} :")[1]?
+          | throw ⟨.unsupported, s!"identity control: missing legacy obligation {job.name}"⟩
+        let statement := ((declaration.splitOn ":= by blaster").head?.getD "").trim
+        let statement ← retainSigner statement counts.1 counts.2
         return { job with propertyId, statement, scope, binding := none }
       return { plan with
         modules
@@ -53,7 +57,8 @@ def run : IO Unit := do
     "direct API: Generator.generate, Executor.run, Reporter.build" 300000
   let input ← IO.ofExcept ((← Input.read "Workflow/Tests/UP012/Inputs/plutus.json"
     "linear_vesting.linear_vesting").mapError toString)
-  let plan ← IO.ofExcept ((Generator.generate provider input.target "Generated.Workflow").mapError toString)
+  let legacy ← IO.FS.readFile "Workflow/Tests/UP012/Expected/legacy-declarations.lean.txt"
+  let plan ← IO.ofExcept ((Generator.generate (provider legacy) input.target "Generated.Workflow").mapError toString)
   let execution ← IO.ofExcept (← Executor.run plan {
     leanPath := (← IO.getEnv "LEAN_PATH").getD ""
     outputRoot := some "output"

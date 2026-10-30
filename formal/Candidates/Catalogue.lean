@@ -22,7 +22,7 @@ private def registrations : Array Registration := #[
     checksPath := "Candidates/combined-checks.json" },
   { provider := Workflow.Tests.UP012.Profile.provider
     definitionVersion := 1
-    primary := "Candidates.UP012.checks"
+    primary := "Formal.Properties.Universal.UP012.statement"
     modelIds := Candidates.UP012.modelIds
     checksPath := "Workflow/Tests/UP012/combined-checks.json" }]
 

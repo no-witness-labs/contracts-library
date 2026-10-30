@@ -55,6 +55,7 @@ private def manifest (plan : GenerationPlan) (options : Options) (result : Resul
     Json.mkObj [
       ("property", .str item.job.propertyId), ("name", .str item.job.name),
       ("module", .str item.job.moduleName), ("scope", .str item.job.scope),
+      ("statement", .str item.job.statement),
       ("role", .str item.job.role.label),
       ("txModelId", item.job.txModelId.map Json.str |>.getD .null),
       ("transactionModel", item.job.binding.map (fun binding => binding.txModel.toJson) |>.getD .null),
