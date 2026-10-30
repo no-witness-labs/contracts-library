@@ -45,6 +45,7 @@ private def manifest (plan : GenerationPlan) (options : Options) (result : Resul
     ("name", .str item.name), ("path", .str item.path.toString),
     ("exitCode", item.process.exitCode.map (fun code => toJson code.toNat) |>.getD .null),
     ("timedOut", .bool (item.process.state == .timedOut)),
+    ("invocation", item.process.invocation.map (·.toJson) |>.getD .null),
     ("elapsedMs", toJson item.process.elapsedMs)]
   let jobs := result.jobs.map fun item =>
     let diagnostics := item.diagnostics.map fun diagnostic => Json.mkObj [
@@ -101,26 +102,34 @@ private def execute (plan : GenerationPlan) (options : Options) (directory : Sys
       let process ← Process.run options deadline
         #["--json", s!"--root={directory}", "-o", (path.withExtension "olean").toString, path.toString]
         #[("LEAN_PATH", some s!"{directory}:{options.leanPath}")]
-      IO.FS.writeFile (path.withExtension "stdout.log") process.stdout
-      IO.FS.writeFile (path.withExtension "stderr.log") process.stderr
-      let jobs := plan.jobs.filter (·.moduleName == source.name)
-      let (observations, problems) := Diagnostics.observe source path jobs process
-      let jobIssues := observations.foldl (fun acc row =>
-        acc ++ row.issues.map (fun issue => s!"{row.job.name}: {issue}")) #[]
-      result := { result with
-        modules := result.modules.push { name := source.name, path, process }
-        jobs := result.jobs ++ observations
-        problems := result.problems ++ problems ++ jobIssues }
-      if process.state == .timedOut then
-        result := { result with state := .timedOut }
-        stopped := true
-      else if !problems.isEmpty || !jobIssues.isEmpty then
+      result := { result with modules := result.modules.push { name := source.name, path, process } }
+      try
+        IO.FS.writeFile (path.withExtension "stdout.log") process.stdout
+        IO.FS.writeFile (path.withExtension "stderr.log") process.stderr
+        let jobs := plan.jobs.filter (·.moduleName == source.name)
+        let (observations, problems) := Diagnostics.observe source path jobs process
+        let jobIssues := observations.foldl (fun acc row =>
+          acc ++ row.issues.map (fun issue => s!"{row.job.name}: {issue}")) #[]
+        result := { result with
+          jobs := result.jobs ++ observations
+          problems := result.problems ++ problems ++ jobIssues }
+        if process.state == .timedOut then
+          result := { result with state := .timedOut }
+          stopped := true
+        else if !problems.isEmpty || !jobIssues.isEmpty then
+          result := { result with state := .error }
+          stopped := true
+      catch error =>
         result := { result with state := .error }
+        result := { result with problems := result.problems.push s!"could not retain module evidence: {error}" }
         stopped := true
   for job in plan.jobs do
     unless result.jobs.any (fun item => item.job.moduleName == job.moduleName && item.job.name == job.name) do
+      let issue := if result.modules.any (·.name == job.moduleName) then
+        "module evidence could not be retained"
+        else "job was not run because an earlier step did not complete"
       result := { result with jobs := result.jobs.push {
-        job, issues := #["job was not run because an earlier step did not complete"] } }
+        job, issues := #[issue] } }
   let elapsed := (← IO.monoMsNow) - started
   if elapsed ≥ options.budgetMs then result := { result with state := .timedOut }
   return { result with elapsedMs := elapsed }

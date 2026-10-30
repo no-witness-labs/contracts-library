@@ -54,6 +54,7 @@ output/run.XXXXXXXX/
 ├── report.txt
 ├── report.json
 ├── input.json
+├── invocation.json
 ├── execution.json
 └── Generated/Workflow/
     ├── Types.lean
@@ -61,9 +62,25 @@ output/run.XXXXXXXX/
     └── compiler outputs and logs
 ```
 
-Earlier runs remain in their own folders. Input errors can produce report files
-without generated sources or execution artifacts. The output folder is local
-and excluded from Git.
+Earlier runs remain in their own folders. `input.json` preserves the readable
+source even when JSON parsing, validator selection, or code validation fails.
+An unavailable input has no source snapshot. Input errors produce reports without
+generated sources or an execution manifest. The output folder is local and
+excluded from Git.
+
+`invocation.json` records the arguments received by the run command, its effective
+working directory and absolute input path, validator selection, requested and
+resolved property, and timeout. A null requested property means the default was
+requested; the resolved property identifies what the catalogue selected. Invalid
+CLI arguments leave parsed settings null. The launcher may normalize the input
+path before the command receives it.
+
+Each module in `execution.json` records its attempted timeout/Lean command as a
+command name, argument array, working directory, and explicit environment overrides.
+The argument array preserves spaces without shell quoting. Inherited environment
+variables are not copied. An expired deadline before launch has a null invocation;
+a launch failure retains the attempted command. These records describe the run
+and do not constitute a complete dependency or environment snapshot.
 
 For supporting definitions such as `EveryMint` and `EveryWithdraw`, use the
 [check file map](CHECK-FILES.md). Those definitions live in shared repository

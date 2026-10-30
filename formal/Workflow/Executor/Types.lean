@@ -7,12 +7,26 @@ inductive ProcessState where
   | finished | timedOut | launchError
   deriving BEq, Repr
 
+/-- An attempted process invocation and its explicit environment overrides. -/
+structure Invocation where
+  command : String
+  args : Array String
+  cwd : System.FilePath
+  environment : Array (String × Option String)
+
+def Invocation.toJson (invocation : Invocation) : Lean.Json := Lean.Json.mkObj [
+  ("command", .str invocation.command), ("args", Lean.toJson invocation.args),
+  ("cwd", .str invocation.cwd.toString),
+  ("environment", .arr (invocation.environment.map fun (name, value) => Lean.Json.mkObj [
+    ("name", .str name), ("value", value.map Lean.Json.str |>.getD .null)]))]
+
 structure ProcessObservation where
   state : ProcessState
   exitCode : Option UInt32 := none
   stdout : String := ""
   stderr : String := ""
   elapsedMs : Nat := 0
+  invocation : Option Invocation := none
 
 structure Diagnostic where
   fileName : String
