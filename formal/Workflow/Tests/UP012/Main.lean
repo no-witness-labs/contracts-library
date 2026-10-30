@@ -10,7 +10,7 @@ def main : IO Unit := do
     (some "UP-012") 300000
     "UP012: original vesting suite" "PASS/0; four Valid results, including both applicability obligations"
   expectOutcome "original UP012 vesting suite" passing "PASS" 0
-  expectPropertyDefinition "original UP012 vesting suite" passing "UP-012" 1 "Candidates.UP012.checks"
+  expectPropertyDefinition "original UP012 vesting suite" passing "UP-012" 1 "Formal.Properties.Universal.UP012.statement"
   expectRows "original UP012 vesting suite" passing 4 "UP-012" "PASS" "valid" "1,000,000-step bound"
   expectBindings "original UP012 vesting suite" passing "UP-012" 1 #[
     ("dropSigner_claim", "TxM-007"), ("dropSigner_claim_applies", "TxM-007"),
@@ -24,7 +24,7 @@ def main : IO Unit := do
     (some "UP-012") 300000
     "UP012: unsupported artifact" "INCONCLUSIVE/2; profile rejection (intentional unsupported case)"
   expectOutcome "unsupported UP012 artifact" unsupported "INCONCLUSIVE" 2
-  expectPropertyDefinition "unsupported UP012 artifact" unsupported "UP-012" 1 "Candidates.UP012.checks"
+  expectPropertyDefinition "unsupported UP012 artifact" unsupported "UP-012" 1 "Formal.Properties.Universal.UP012.statement"
   check "unsupported profile has no proof observations" ((← rows unsupported.report).isEmpty)
   check "unsupported profile has no execution manifest"
     (!(← (unsupported.directory / "execution.json").pathExists))

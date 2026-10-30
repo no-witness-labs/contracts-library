@@ -144,7 +144,7 @@ def expectBindings (label : String) (run : CLIRun)
     check s!"{label}: unique execution observation for {name}" (observations.size == 1)
     let some observation := observations[0]?
       | throw (IO.userError s!"missing execution observation: {name}")
-    for field in #["txModelId", "transactionModel", "combinedCheck"] do
+    for field in #["txModelId", "transactionModel", "combinedCheck", "statement"] do
       check s!"{label}: exact {field} snapshot retained for {name}"
         ((observation.getObjVal? field).toOption == (row.getObjVal? field).toOption)
 

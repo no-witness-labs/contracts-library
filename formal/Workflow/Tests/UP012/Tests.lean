@@ -1,3 +1,4 @@
+import Workflow.Tests.UP012.DefinitionEquivalence
 import Workflow.Generator
 import Workflow.Tests.UP012.Profile
 import Candidates.Catalogue
@@ -44,7 +45,7 @@ def run : IO Unit := do
   let signerGolden ← IO.FS.readFile "Workflow/Tests/UP012/Expected/declarations.lean.txt"
   let signerDeclarations := String.intercalate "\n" (signerPlan.jobs.toList.map fun job =>
     s!"theorem {job.name} :\n{job.statement} := by blaster\n")
-  check "UP-012 preserves the candidate propositions" (signerDeclarations.trim == signerGolden.trim)
+  check "UP-012 instantiates the shared property and applicability definitions" (signerDeclarations.trim == signerGolden.trim)
   check "UP-012 embeds code instead of reading Scripts"
     (signerPlan.modules.all fun source => (source.source.splitOn "#import_uplc").length == 1)
   check "UP-001 remains the default provider" ((Candidates.Catalogue.selectProvider none).toOption.map (·.id) == some "UP-001")

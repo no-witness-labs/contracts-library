@@ -152,6 +152,7 @@ def Report.toJson (report : Report) : Json :=
   let rows := report.rows.map fun row => Json.mkObj [
     ("property", .str row.job.propertyId), ("name", .str row.job.name),
     ("module", .str row.job.moduleName), ("scope", .str row.job.scope),
+    ("statement", .str row.job.statement),
     ("role", .str row.job.role.label),
     ("txModelId", row.job.txModelId.map Json.str |>.getD .null),
     ("transactionModel", row.job.binding.map (fun binding => binding.txModel.toJson) |>.getD .null),
