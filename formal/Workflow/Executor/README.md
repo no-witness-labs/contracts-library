@@ -77,6 +77,14 @@ module, and `execution.json`. The manifest records the target, commands, search
 path, budget, elapsed time, process exit codes, job metadata, diagnostics, and
 problems. It contains no PASS/FAIL or waiver decisions.
 
+Each module's `invocation` records the command and exact arguments passed to the
+timeout wrapper, the effective working directory, and explicit environment
+overrides. The same recorded values drive process launch. An already expired
+deadline records no attempted invocation; a launch failure retains its attempted
+command. Inherited environment variables stay outside the evidence record.
+If writing a later module's logs fails, the manifest retains its attempted command
+and earlier observations while the affected jobs remain inconclusive.
+
 When supplied, `propertyDefinition` snapshots the parsed descriptive metadata in
 the plan and result. Reporter checks that the execution and plan snapshots agree;
 Executor does not use that metadata to choose code, expectations, or outcomes.

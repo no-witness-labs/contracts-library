@@ -19,6 +19,9 @@ Import `Workflow.Input` to use:
   `Except Error InputResult`.
 - `Workflow.Input.read path selector`: read a file and return the same result
   in `IO`, preserving the input file.
+- `Workflow.Input.readWithSource path selector`: return the optional readable
+  source and validation result from one read. The source remains available on
+  validation errors; file-read errors return no source snapshot.
 
 `InputResult.target` is Generator's handoff. It contains the canonical name,
 explicit Plutus version, original encoded code, handler descriptions, ordered

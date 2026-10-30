@@ -74,6 +74,10 @@ name = "workflow_metadata_tests"
 root = "Workflow.Tests.Unit.Metadata.Tests"
 
 [[lean_exe]]
+name = "workflow_evidence_tests"
+root = "Workflow.Tests.Unit.Evidence.Tests"
+
+[[lean_exe]]
 name = "universal"
 root = "Workflow.CLI"
 

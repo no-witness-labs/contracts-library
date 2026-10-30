@@ -56,7 +56,8 @@ problem and keeps the affected result inconclusive.
 Known metadata remains in input, generation, and execution-preparation error
 reports. Metadata errors themselves do not claim a failed validator property.
 If both intake and catalogue lookup fail, intake keeps its existing precedence.
-The original readable-input capture gap on intake failures remains separate work.
+The coordinator also retains readable input on intake failures and records the
+run settings in `invocation.json`; see the [run guide](QUICKSTART.md).
 
 Static theorem names in metadata are not results for the supplied target.
 The current UP001/UP012 records list no static target proofs: their target-specific

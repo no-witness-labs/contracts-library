@@ -27,6 +27,12 @@ def compiler (args : List String) : IO UInt32 := do
   let mode := ((← IO.FS.readFile path).splitOn "\n").head!.drop 3
   match mode with
   | "valid" => emit path.toString "✅ Valid"; return 0
+  | "trace" =>
+    IO.FS.writeFile (path.withExtension "invoked.json") (Json.mkObj [
+      ("args", toJson args), ("cwd", .str (← IO.currentDir).toString),
+      ("leanPath", (← IO.getEnv "LEAN_PATH").map Json.str |>.getD .null)]).pretty
+    emit path.toString "✅ Valid"
+    return 0
   | "warning" =>
     emit path.toString "declaration uses 'blasterProven' (SMT-verified, no proof term)" "warning"
     return 0
@@ -139,6 +145,10 @@ private def modelBindingChecks (options : Workflow.Executor.Options) : IO Unit :
         ((saved.getObjVal? "txModelId").toOption == some (.str "TxM-001") &&
          (saved.getObjVal? "transactionModel").toOption == some expectedBinding.txModel.toJson &&
          (saved.getObjVal? "combinedCheck").toOption == some expectedBinding.combinedCheck.toJson)
+      let modules ← IO.ofExcept do (← manifest.getObjVal? "modules").getArr?
+      let some savedModule := modules[0]? | throw (IO.userError "missing attempted module")
+      check "attempted commands survive success and evidence-write failure"
+        (modules.size == 1 && (savedModule.getObjVal? "invocation").toOption.any (· != .null))
       let some expectedSource := input.modules[0]? | throw (IO.userError "missing bound source")
       check "binding metadata leaves emitted Lean unchanged"
         ((← IO.FS.readFile (directory / "Fixture/Checks.lean")) == expectedSource.source)
@@ -157,9 +167,53 @@ private def modelBindingChecks (options : Workflow.Executor.Options) : IO Unit :
         check "invalid bindings fail before files or processes are created" (!(← output.pathExists))
       | .ok _ => throw (IO.userError "invalid model binding reached execution")
 
+private def commandEvidenceChecks (options : Workflow.Executor.Options) : IO Unit := do
+  let expired ← Workflow.Executor.Process.run options 0 #["--must-not-run"] #[]
+  check "an expired deadline invents no attempted command"
+    (expired.state == .timedOut && expired.invocation.isNone)
+  for controlledWrapper in [false, true] do
+    IO.FS.withTempDir fun parent => do
+      let options := { options with
+        outputRoot := some (parent / "output with spaces")
+        timeoutCommand := if controlledWrapper then options.leanCommand else options.timeoutCommand }
+      withResult (plan "trace") options fun result => do
+        check "trace fixture completes" (result.state == .completed)
+        let some module := result.modules[0]? | throw (IO.userError "missing trace module")
+        let some call := module.process.invocation | throw (IO.userError "missing attempted command")
+        let actual ← IO.ofExcept (Json.parse (← IO.FS.readFile (module.path.withExtension "invoked.json")))
+        let leanArgs := #["--json", s!"--root={result.directory.getD parent}", "-o",
+          (module.path.withExtension "olean").toString, module.path.toString]
+        check "timeout wrapper and compiler arguments are preserved without shell joining"
+          (call.command == options.timeoutCommand && call.args[0]? == some "--signal=KILL" &&
+           call.args[2]? == some options.leanCommand && call.args.toList.drop 3 == leanArgs.toList)
+        let received := if controlledWrapper then call.args.toList else leanArgs.toList
+        check "recorded arguments match the array the subprocess actually received"
+          ((actual.getObjVal? "args").toOption == some (toJson received))
+        check "recorded cwd matches the subprocess"
+          (call.cwd == (← IO.currentDir) &&
+           (actual.getObjVal? "cwd").toOption == some (.str call.cwd.toString))
+        let expectedPath := s!"{result.directory.getD parent}:{options.leanPath}"
+        check "explicit search-path override matches the subprocess"
+          (call.environment == #[("LEAN_PATH", some expectedPath)] &&
+           (actual.getObjVal? "leanPath").toOption == some (.str expectedPath))
+        let some directory := result.directory | throw (IO.userError "missing trace directory")
+        let manifest ← IO.ofExcept (Json.parse (← IO.FS.readFile (directory / "execution.json")))
+        let modules ← IO.ofExcept do (← manifest.getObjVal? "modules").getArr?
+        let some saved := modules[0]? | throw (IO.userError "missing saved trace")
+        check "execution manifest retains the exact attempted invocation"
+          ((saved.getObjVal? "invocation").toOption == some call.toJson)
+  let unavailable ← Workflow.Executor.Process.run { options with timeoutCommand := "/missing/timeout" }
+    ((← IO.monoMsNow) + 5000) #["argument with spaces"] #[("LEAN_PATH", some ".")]
+  check "launch failures retain the command that was attempted"
+    ((unavailable.state == .launchError ||
+       (unavailable.state == .finished && unavailable.exitCode.any (· != 0))) &&
+     unavailable.invocation.any (fun call => call.command == "/missing/timeout" &&
+       call.args.toList.drop 3 == ["argument with spaces"]))
+
 def run : IO Unit := do
   let options : Workflow.Executor.Options := { leanPath := ".", leanCommand := (← IO.appPath).toString, budgetMs := 5000 }
   modelBindingChecks options
+  commandEvidenceChecks options
   for mode in ["valid", "warning", "falsified", "unexpected-valid"] do
     withResult (plan mode) options fun result => do
       let job ← firstJob result
@@ -257,6 +311,17 @@ def run : IO Unit := do
     check "manifest preserves the linked prerequisite"
       ((savedSecond.getObjVal? "applicability").toOption ==
         some (Json.mkObj [("module", .str "Fixture.First"), ("name", .str "first")]))
+  let writeFailure := { completedThenTimedOut with modules := #[
+    ⟨"Fixture.First", "-- valid\n\ntheorem first : True := by trivial\n"⟩,
+    ⟨"Fixture.Second", "-- evidence-write-error\n\ntheorem second : True := by trivial\n"⟩,
+    ⟨"Fixture.Third", "-- valid\n\ntheorem third : True := by trivial\n"⟩] }
+  withResult writeFailure options fun result => do
+    check "an evidence-write failure retains prior observations and attempted commands"
+      (result.state == .error && result.modules.size == 2 &&
+       result.modules.all (·.process.invocation.isSome) &&
+       result.jobs.any (fun job => job.job.name == "first" && job.evidenceComplete && job.observed == .valid) &&
+       result.jobs.any (fun job => job.job.name == "second" && !job.evidenceComplete && job.observed == .inconclusive) &&
+       result.jobs.any (fun job => job.job.name == "third" && !job.evidenceComplete && job.observed == .inconclusive))
   IO.FS.withTempDir fun parent => do
     let root := parent / "shared output"
     let retained := { options with outputRoot := some root }

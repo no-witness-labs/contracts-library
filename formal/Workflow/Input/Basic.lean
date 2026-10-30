@@ -184,12 +184,17 @@ def parse (source selector : String) : Except Error InputResult := do
     sourceText := source
     sourcePath := none }
 
-/-- Read without modifying the input; retain the exact text separately from target metadata. -/
-def read (path : System.FilePath) (selector : String) : IO (Except Error InputResult) := do
+/-- Read once and retain readable source text even when validation fails. -/
+def readWithSource (path : System.FilePath) (selector : String) :
+    IO (Option String × Except Error InputResult) := do
   try
     let source ← IO.FS.readFile path
-    return (parse source selector).map fun result => { result with sourcePath := some path }
+    return (some source, (parse source selector).map fun result => { result with sourcePath := some path })
   catch error =>
-    return .error ⟨.io, path.toString, error.toString⟩
+    return (none, .error ⟨.io, path.toString, error.toString⟩)
+
+/-- Read without modifying the input; retain the exact text separately from target metadata. -/
+def read (path : System.FilePath) (selector : String) : IO (Except Error InputResult) := do
+  return (← readWithSource path selector).2
 
 end Workflow.Input
