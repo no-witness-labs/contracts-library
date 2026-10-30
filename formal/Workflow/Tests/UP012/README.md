@@ -1,9 +1,11 @@
 # UP-012 vesting workflow scenario
 
-[Candidates/UP012.lean](../../../Candidates/UP012.lean) owns the single source of
-the four original propositions from [PR #55](https://github.com/no-witness-labs/contracts-library/pull/55)
-at `f5cbda7df624f2496dd2e6fe354a0cd15365b923`. [Profile.lean](Profile.lean) supplies
-the original vesting types, transaction shapes, and pinned artifact guard.
+[UP012/Definition.lean](../../../Formal/Properties/Universal/UP012/Definition.lean)
+owns the shared signer-removal statement and applicability predicate.
+[Candidates/UP012.lean](../../../Candidates/UP012.lean) instantiates them for Claim
+and Cancel, preserving the four claims from PR #55 at
+`f5cbda7df624f2496dd2e6fe354a0cd15365b923`. [Profile.lean](Profile.lean) supplies
+the pinned artifact guard and imports the native types/models from Formal/TxModels.
 
 From `formal/`:
 
@@ -32,20 +34,22 @@ the first key. The original bound is 1,000,000 steps, and `rejectedWithin` requi
 an error or non-unit halt within the bound. Exhaustion does not establish rejection.
 Both applicability statements remain separate required jobs.
 
-The transaction model emitted as `Tx.lean` constructs the Claim and Cancel
-contexts used by these propositions, including their inputs, outputs, and signer.
+The generated `Tx.lean` imports and aliases the native Claim and Cancel models,
+including their inputs, outputs, and signer.
 Blueprint schemas describe datum and redeemer encoding; they do not determine
-those transaction contexts. This model belongs to this test profile. Other
+those transaction contexts. These remain experimental test models. Other
 providers can supply different models or use generic contexts, as UP-001 does.
 
 `Inputs/plutus.json` is a self-contained selection of the vesting entries and
 supporting schemas from the repository's `onchain/plutus.json`. It preserves the
 compiled code and selected handler metadata. `Inputs/compiled-code.txt` and
-`Expected/declarations.lean.txt` are the unchanged independent regression oracles.
+`Expected/legacy-declarations.lean.txt` are the frozen independent regression oracles.
+The current declarations fixture records applications of the shared definition;
+DefinitionEquivalence.lean checks their equivalence to the expanded formulas.
 `Inputs/unsupported.json` exercises the profile guard.
 
 Generated headers identify the current Lean emitter and the original PR/SHA
 provenance. Runtime generation uses the profile and candidate module. Edit the
-profile model and rerun to change the generated scenario sources.
+native model and rerun to change the generated scenario sources.
 General required-signer semantics
 remain outside this experimental scenario, as tracked in issue #33.

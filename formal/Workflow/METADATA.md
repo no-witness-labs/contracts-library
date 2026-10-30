@@ -7,10 +7,11 @@ implementation. Execution evidence and reports preserve those snapshots.
 
 ## Property definitions
 
-Plutus UPV reads the registered property's description from
-[`Candidates/property-definitions.json`](../Candidates/property-definitions.json).
-The workflow-scoped [JSON Schema](property-definition.schema.json) describes
-the agreed layout:
+Plutus UPV reads each registered property's `metadata.json` from the
+[property bank](../Formal/Properties/README.md). Root and category Lean indexes
+reference native definitions and their metadata paths. The shared
+[record schema](../Formal/Properties/property-definition.schema.json) describes
+the agreed field layout:
 
 | Group | Contents |
 | --- | --- |
@@ -24,6 +25,11 @@ the agreed layout:
 definitions currently use format 2 and definition version 1. The model and
 combined-check schemas leave this existing property format unchanged.
 
+Each property folder contains README.md, Definition.lean, and one metadata.json
+record. The old workflow schema remains a collection wrapper referencing the
+shared record schema. Register both schemas to validate collection documents;
+per-property files validate directly against the record schema.
+
 ### Shape and binding
 
 The schema and [Lean reader](PropertyDefinition.lean) check types and known
@@ -35,6 +41,10 @@ make a record runnable or establish a theorem.
 The application catalogue binds a selected record to an existing registered
 provider by property ID and definition version. A selected record must resolve
 uniquely. Its primary declaration, when supplied, must match the registration.
+The property index uses compile-checked Lean names for native primary declarations.
+Metadata references the mathematical statement rather than its generation adapter.
+Each result's module/name and `statement` preserve the exact submitted theorem
+expression, whose meaning depends on the imported definition.
 These association checks prevent metadata from relabeling another implementation;
 they do not make every descriptive field mandatory. Unregistered or malformed
 metadata produces a preparation error rather than selecting alternative code.
@@ -66,6 +76,12 @@ the precise executed scope remain in each run's evidence. Metadata prose does
 not strengthen that evidence or prove correspondence to ledger execution.
 This checkpoint does not add full source/dependency fingerprinting; that remains
 separate evidence work.
+
+UP-012 has one shared primary definition and a supporting applicability predicate.
+Claim and Cancel are applications to TxM-007/008 in the binding/test layer. Each
+retains its own property and applicability obligations. The adapter unfolds the
+shared statement before running Blaster, exposing the original formula without
+changing its logical goal or polarity.
 
 ## Transaction models
 

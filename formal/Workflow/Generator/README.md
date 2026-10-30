@@ -23,9 +23,11 @@ provider. Generator preserves that record in the plan without passing metadata
 to the proposition-generating function. Descriptions cannot change the emitted
 statements or their expectations. See the [metadata contract](../METADATA.md).
 
-UP-001 binds its definition to generic per-purpose contexts. UP-012's test
-profile binds its four propositions to the typed vesting data and Claim/Cancel
-transaction shapes. Blueprint metadata alone does not supply those transaction
+UP-001 binds its shared definition to generic purpose contexts. UP-012's test
+profile applies one shared definition and its applicability predicate to the
+Claim/Cancel models, producing four obligations. Native statements and metadata
+live in the [property bank](../../Formal/Properties/README.md); model construction
+lives in Formal/TxModels. Blueprint metadata alone does not supply those transaction
 shapes; the current profile supplies them explicitly.
 
 A provider supplies property-specific generation through the common interface.
@@ -52,12 +54,12 @@ remain design work.
 
 `CLI.lean` retains the legacy `universal` executable as a compatibility entry point.
 
-UP-001 generation lives in [Candidates/UP001.lean](../../Candidates/UP001.lean).
-The original UP-012 propositions live in
-[Candidates/UP012.lean](../../Candidates/UP012.lean), while their experimental
-vesting model and artifact guard belong to the
-[UP-012 scenario](../Tests/UP012/README.md). Candidate definitions have one source;
-scenario tests reference them.
+Generation adapters live in [Candidates/UP001.lean](../../Candidates/UP001.lean)
+and [Candidates/UP012.lean](../../Candidates/UP012.lean). They instantiate the native
+primary statements and unfold them before invoking Blaster. The experimental
+artifact guard remains in the [UP-012 scenario](../Tests/UP012/README.md).
+Tests retain expanded legacy formulas for kernel-checked equivalence and the
+independent signer-identity negative control.
 
 The agreed direction is to supply reusable models with property definitions and
 accept the validator as an input. Definitions may have several versions and run

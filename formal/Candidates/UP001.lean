@@ -1,5 +1,6 @@
 import Workflow.Generator.Basic
 import Formal.Universal.Properties
+import Formal.Properties.Universal.UP001.Definition
 
 namespace Candidates.UP001
 
@@ -48,7 +49,7 @@ private def checksHeader (modulePrefix : String) : String :=
   String.intercalate "\n" [
     "-- UP-001 domains and predicate from candidate PR #49 at b44b6b0757a75d79b79a4de4712523ee3978760e.",
     "-- Reviewed workflow bound: 5,000,000 CEK steps (candidate: 1,000,000).",
-    "import Blaster", "import Formal.Universal.Properties", s!"import {modulePrefix}.Types", "",
+    "import Blaster", "import Formal.Universal.Properties", "import Formal.Properties.Universal.UP001.Definition", s!"import {modulePrefix}.Types", "",
     "set_option Elab.async false", "", s!"namespace {modulePrefix}", "",
     "open PlutusCore.Data (Data)", "open Formal.Universal.Properties", "",
     "/-! UP-001: no success within 5,000,000 CEK steps for undeclared purposes.",
@@ -59,8 +60,7 @@ private def checksHeader (modulePrefix : String) : String :=
 /-- The bounded nonacceptance proposition for one undeclared purpose. -/
 def statement (purpose : Purpose) : String :=
   let ctx := contextType purpose
-  s!"    ∀ (r : Data) (t : {ctx}),\n" ++
-    s!"      ¬ accepts 5000000 ({ctx}.ctx t r)"
+  s!"    Formal.Properties.Universal.UP001.statement (accepts 5000000) {ctx}.ctx"
 
 private def makeJob (modulePrefix : String) (purpose : Purpose) : CheckJob :=
   { propertyId := "UP-001"
@@ -83,7 +83,7 @@ private def build (target : TargetDescription) (modulePrefix : String) : Except 
              notes := #["All purposes have handlers; UP-001 has no obligations."] }
   let jobs := undeclared.map (makeJob modulePrefix)
   let declarations := jobs.map fun job =>
-    s!"theorem {job.name} :\n{job.statement} := by blaster\n"
+    s!"theorem {job.name} :\n{job.statement} := by\n  unfold Formal.Properties.Universal.UP001.statement\n  blaster\n"
   let checks := checksHeader modulePrefix ++ "\n" ++
     String.intercalate "\n" declarations.toList ++ s!"\nend {modulePrefix}\n"
   return {

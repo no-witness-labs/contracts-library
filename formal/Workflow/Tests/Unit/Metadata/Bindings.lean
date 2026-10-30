@@ -41,7 +41,8 @@ private def boundTo (job : CheckJob) (propertyId modelId : String) : Bool :=
       binding.txModel.id? == some modelId && binding.txModel.plutusVersion? == some "v3"
 
 def run : IO Unit := do
-  let definitions ← IO.ofExcept (← PropertyDefinition.read "Candidates/property-definitions.json")
+  let definitions ← Formal.Properties.Index.entries.mapM fun entry => do
+    IO.ofExcept (← PropertyDefinition.readRecord entry.metadataPath)
   let models ← IO.ofExcept (TransactionModel.parseList Formal.TxModels.Index.toJson)
   let combinations ← IO.ofExcept (← CombinedCheck.read "Candidates/combined-checks.json")
   let provider ← IO.ofExcept (Candidates.Catalogue.withBindings (some "UP-001")
@@ -64,7 +65,8 @@ def run : IO Unit := do
     check s!"UP001 {purpose.name} selects its registered context model"
       (selected.size == 1 && selected.all fun job =>
         boundTo job "UP-001" modelId && job.role == .property && job.applicability.isNone &&
-          (job.statement.splitOn s!"(t : {contextName})").length == 2)
+          (job.statement.splitOn s!"{contextName}.ctx").length == 2 &&
+          (job.statement.splitOn "Formal.Properties.Universal.UP001.statement").length == 2)
     let input := target (allPurposes.filter (· != purpose))
     let onlyMissing ← generated provider input
     check s!"only undeclared {purpose.name} generates a check"

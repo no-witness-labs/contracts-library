@@ -96,14 +96,23 @@ def parseList (value : Json) : Except String (Array PropertyDefinition) := do
     result := result.push (← parseAt items[index]! s!"$[{index}]")
   return result
 
-def read (path : System.FilePath) : IO (Except String (Array PropertyDefinition)) := do
+private def readAs {A : Type} (parseDocument : Json → Except String A)
+    (path : System.FilePath) : IO (Except String A) := do
   try
     let source ← IO.FS.readFile path
     return do
       let value ← Json.parse source |>.mapError fun message => s!"{path}: invalid JSON: {message}"
-      parseList value |>.mapError fun message => s!"{path}: {message}"
+      parseDocument value |>.mapError fun message => s!"{path}: {message}"
   catch error =>
     return .error s!"{path}: {error}"
+
+/-- Compatibility reader for a collection of property records. -/
+def read (path : System.FilePath) : IO (Except String (Array PropertyDefinition)) :=
+  readAs parseList path
+
+/-- Read the single metadata record maintained in one property folder. -/
+def readRecord (path : System.FilePath) : IO (Except String PropertyDefinition) :=
+  readAs parse path
 
 def toJson (definition : PropertyDefinition) : Json := definition.value
 

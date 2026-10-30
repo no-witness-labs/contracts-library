@@ -60,8 +60,9 @@ formal/Workflow/
 ```
 
 The reusable components and orchestration do not import candidate or test
-implementations. `Candidates/` contains candidate code, and the UP-012 test
-profile owns its pinned artifact and transaction model. Explicit applicability
+implementations. Native definitions and metadata live in Formal/Properties;
+models live in Formal/TxModels. Candidates/ contains generation/composition
+adapters, and the UP-012 test profile owns its pinned artifact guard. Explicit applicability
 references qualify each property's result without hardcoded property IDs in the core.
 
 Input reads supported artifacts and produces a target description. Generator
@@ -95,8 +96,10 @@ providers and retains them with reports and execution evidence. See the
 [metadata guide](METADATA.md) for the shape-only contract and staged rollout.
 The legacy catalogue schemas remain unchanged; issue #66 tracks their later migration.
 
-[`Candidates/Catalogue.lean`](../Candidates/Catalogue.lean) is the current thin
-composition index. It references `Candidates.UP001` and the experimental
+[`Formal/Properties/Index.lean`](../Formal/Properties/Index.lean) is the property-bank
+index. Categories have an index and README; property folders have their code,
+README, and metadata.json. [`Candidates/Catalogue.lean`](../Candidates/Catalogue.lean)
+composes their generation adapters. It references `Candidates.UP001` and the experimental
 `Workflow.Tests.UP012.Profile`, which binds the original candidate propositions
 to its vesting scenario. `Workflow/ProductCLI.lean` supplies that resolver to the
 generic `Workflow.Main.run` entry point; `Workflow/CLI.lean` retains the legacy
