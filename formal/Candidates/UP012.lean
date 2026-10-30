@@ -79,8 +79,8 @@ private def scope : String :=
 private def names : Array String :=
   #["dropSigner_claim", "dropSigner_claim_applies", "dropSigner_cancel", "dropSigner_cancel_applies"]
 
-private def claimModelId : String := "TxM-007"
-private def cancelModelId : String := "TxM-008"
+private def claimModelId : String := Formal.TxModels.TxM007.metadata.id
+private def cancelModelId : String := Formal.TxModels.TxM008.metadata.id
 
 def modelIds : Array String := #[claimModelId, cancelModelId]
 

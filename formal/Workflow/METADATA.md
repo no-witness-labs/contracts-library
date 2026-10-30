@@ -96,10 +96,16 @@ The registered model IDs identify these context families:
 | `TxM-007` | Vesting Claim | UP-012 test profile |
 | `TxM-008` | Vesting Cancel | UP-012 test profile |
 
-The generic records live in
-[`Candidates/transaction-models.json`](../Candidates/transaction-models.json).
-The vesting records stay with the test profile in
-[`Tests/UP012/transaction-models.json`](Tests/UP012/transaction-models.json).
+Model implementations and metadata live together in the
+[`Formal/TxModels` bank](../Formal/TxModels/README.md). Each
+`Definitions/TxMNNN.lean` file owns one model and its four metadata values.
+The [Lean index](../Formal/TxModels/Index.lean) imports the eight models and exports
+their metadata for the catalogue. Shared model helpers and vesting types stay at
+the bank root. Model code imports no workflow modules.
+
+The bank replaces the two previously authored transaction-model JSON lists.
+`Formal.TxModels.Index.toJson` supplies the same records to the existing reader;
+JSON consumers can use that export without maintaining another source copy.
 UP-001 selects only purposes without a declared handler in the supplied validator.
 UP-012 retains its existing guard for the original vesting artifact.
 
@@ -159,10 +165,10 @@ not guarantees of the constructor or proof of full ledger reachability.
 
 ### Example
 
-These sample arrays describe the existing `EveryMint` context builder in
-[`Formal/Universal/Properties.lean`](../Formal/Universal/Properties.lean) paired
-with UP-001 for a target without a minting handler. The maintained records linked
-above contain the current descriptions; executable registration remains in Lean.
+These sample arrays illustrate the JSON representation of the native
+[`TxM001.lean`](../Formal/TxModels/Definitions/TxM001.lean) model paired with UP-001
+for a target without a minting handler. The model file contains the maintained
+constructor and metadata; executable property/model registration remains in Lean.
 
 Transaction-model metadata:
 

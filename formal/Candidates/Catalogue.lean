@@ -1,6 +1,7 @@
 import Candidates.UP001
 import Workflow.PropertyDefinition
 import Workflow.Tests.UP012.Profile
+import Formal.TxModels.Index
 
 namespace Candidates.Catalogue
 
@@ -11,7 +12,6 @@ private structure Registration where
   definitionVersion : Int
   primary : String
   modelIds : Array String
-  modelsPath : System.FilePath
   checksPath : System.FilePath
 
 private def registrations : Array Registration := #[
@@ -19,13 +19,11 @@ private def registrations : Array Registration := #[
     definitionVersion := 1
     primary := "Candidates.UP001.statement"
     modelIds := Candidates.UP001.modelIds
-    modelsPath := "Candidates/transaction-models.json"
     checksPath := "Candidates/combined-checks.json" },
   { provider := Workflow.Tests.UP012.Profile.provider
     definitionVersion := 1
     primary := "Candidates.UP012.checks"
     modelIds := Candidates.UP012.modelIds
-    modelsPath := "Workflow/Tests/UP012/transaction-models.json"
     checksPath := "Workflow/Tests/UP012/combined-checks.json" }]
 
 /-- Compose the currently runnable candidate implementations and experimental profiles. -/
@@ -86,7 +84,7 @@ def loadProvider (id : Option String) : IO (Except String Provider) := do
   let provider ← match withDefinitions id definitions with
     | .ok value => pure value
     | .error message => return .error s!"{path}: {message}"
-  let models ← match ← Workflow.TransactionModel.read registration.modelsPath with
+  let models ← match Workflow.TransactionModel.parseList Formal.TxModels.Index.toJson with
     | .ok value => pure value
     | .error message => return .error message
   let checks ← match ← Workflow.CombinedCheck.read registration.checksPath with
@@ -97,7 +95,7 @@ def loadProvider (id : Option String) : IO (Except String Provider) := do
   return do
     let bindings ← registration.modelIds.mapM fun modelId =>
       (Workflow.CheckBinding.resolve definition modelId models checks).mapError fun message =>
-        s!"{registration.modelsPath}, {registration.checksPath}: {message}"
+        s!"Formal.TxModels.Index, {registration.checksPath}: {message}"
     return { provider with bindings := some bindings }
 
 end Candidates.Catalogue

@@ -42,12 +42,12 @@ private def boundTo (job : CheckJob) (propertyId modelId : String) : Bool :=
 
 def run : IO Unit := do
   let definitions ← IO.ofExcept (← PropertyDefinition.read "Candidates/property-definitions.json")
-  let models ← IO.ofExcept (← TransactionModel.read "Candidates/transaction-models.json")
+  let models ← IO.ofExcept (TransactionModel.parseList Formal.TxModels.Index.toJson)
   let combinations ← IO.ofExcept (← CombinedCheck.read "Candidates/combined-checks.json")
   let provider ← IO.ofExcept (Candidates.Catalogue.withBindings (some "UP-001")
     definitions models combinations)
   let loaded ← IO.ofExcept (← Candidates.Catalogue.loadProvider (some "UP-001"))
-  check "file loading and pure catalogue association retain identical snapshots"
+  check "native index loading and pure catalogue association retain identical snapshots"
     (loaded.propertyDefinition == provider.propertyDefinition && loaded.bindings == provider.bindings)
   check "UP001 registration loads six model combinations"
     (provider.bindings.any (fun bindings => bindings.size == 6))
