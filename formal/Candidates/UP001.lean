@@ -17,12 +17,12 @@ private def contextType : Purpose → String
   | .propose => "EveryPropose"
 
 private def modelId : Purpose → String
-  | .mint => "TxM-001"
-  | .withdraw => "TxM-002"
-  | .publish => "TxM-003"
-  | .vote => "TxM-004"
-  | .propose => "TxM-005"
-  | .spend => "TxM-006"
+  | .mint => Formal.TxModels.TxM001.metadata.id
+  | .withdraw => Formal.TxModels.TxM002.metadata.id
+  | .publish => Formal.TxModels.TxM003.metadata.id
+  | .vote => Formal.TxModels.TxM004.metadata.id
+  | .propose => Formal.TxModels.TxM005.metadata.id
+  | .spend => Formal.TxModels.TxM006.metadata.id
 
 def modelIds : Array String := allPurposes.map modelId
 
