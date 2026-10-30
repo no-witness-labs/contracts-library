@@ -102,8 +102,64 @@ private def firstJob (result : Result) : IO JobObservation :=
   | some value => pure value
   | none => throw (IO.userError "missing job observation")
 
+private def boundPlan (mode : String) : IO GenerationPlan := do
+  let definition ← IO.ofExcept (PropertyDefinition.parse (Json.mkObj [
+    ("identity", Json.mkObj [("id", .str "fixture"), ("definition_version", toJson (1 : Nat))])]))
+  let txModel ← IO.ofExcept (TransactionModel.parse (Json.mkObj [
+    ("id", .str "TxM-001"), ("title", .str "Fixture model"),
+    ("plutus_version", .str "v3"), ("description", .str "One fixture context.")]))
+  let combinedCheck ← IO.ofExcept (CombinedCheck.parse (Json.mkObj [
+    ("property", Json.mkObj [("id", .str "fixture"), ("definition_version", toJson (1 : Nat))]),
+    ("tx_model", .str "TxM-001"), ("limitations", .arr #[.str "Fixture-only evidence."])]))
+  let binding : CheckBinding := { txModel, combinedCheck }
+  return { plan mode with
+    propertyDefinition := some definition
+    bindingsRequired := true
+    jobs := (plan mode).jobs.map fun job =>
+      { job with txModelId := some "TxM-001", binding := some binding } }
+
+private def modelBindingChecks (options : Workflow.Executor.Options) : IO Unit := do
+  for mode in ["valid", "evidence-write-error"] do
+    let input ← boundPlan mode
+    let some expectedJob := input.jobs[0]? | throw (IO.userError "missing bound job")
+    let some expectedBinding := expectedJob.binding | throw (IO.userError "missing binding")
+    withResult input options fun result => do
+      let observed ← firstJob result
+      check "execution retains model binding on success and file failure"
+        (observed.job.binding == expectedJob.binding && observed.job.txModelId == expectedJob.txModelId &&
+         result.propertyDefinition == input.propertyDefinition)
+      check "retained binding does not promote incomplete evidence"
+        (if mode == "valid" then result.state == .completed && observed.evidenceComplete
+         else result.state == .error && !observed.evidenceComplete && observed.observed == .inconclusive)
+      let some directory := result.directory | throw (IO.userError "missing bound evidence directory")
+      let manifest ← IO.ofExcept (Json.parse (← IO.FS.readFile (directory / "execution.json")))
+      let jobs ← IO.ofExcept ((← IO.ofExcept (manifest.getObjVal? "jobs")).getArr?)
+      let some saved := jobs[0]? | throw (IO.userError "missing saved model binding")
+      check "manifest preserves the exact model and combination snapshots"
+        ((saved.getObjVal? "txModelId").toOption == some (.str "TxM-001") &&
+         (saved.getObjVal? "transactionModel").toOption == some expectedBinding.txModel.toJson &&
+         (saved.getObjVal? "combinedCheck").toOption == some expectedBinding.combinedCheck.toJson)
+      let some expectedSource := input.modules[0]? | throw (IO.userError "missing bound source")
+      check "binding metadata leaves emitted Lean unchanged"
+        ((← IO.FS.readFile (directory / "Fixture/Checks.lean")) == expectedSource.source)
+
+  let valid ← boundPlan "valid"
+  let some bound := valid.jobs[0]? | throw (IO.userError "missing bound fixture")
+  for invalid in [
+      { valid with jobs := #[{ bound with binding := none }] },
+      { valid with jobs := #[{ bound with txModelId := some "TxM-002" }] },
+      { valid with jobs := #[{ bound with propertyId := "other-property" }] },
+      { valid with propertyDefinition := none }] do
+    IO.FS.withTempDir fun directory => do
+      let output := directory / "must-not-be-created"
+      match ← Workflow.Executor.run invalid { options with outputRoot := some output } with
+      | .error _ =>
+        check "invalid bindings fail before files or processes are created" (!(← output.pathExists))
+      | .ok _ => throw (IO.userError "invalid model binding reached execution")
+
 def run : IO Unit := do
   let options : Workflow.Executor.Options := { leanPath := ".", leanCommand := (← IO.appPath).toString, budgetMs := 5000 }
+  modelBindingChecks options
   for mode in ["valid", "warning", "falsified", "unexpected-valid"] do
     withResult (plan mode) options fun result => do
       let job ← firstJob result
@@ -124,6 +180,9 @@ def run : IO Unit := do
       check "manifest preserves the default property role"
         ((savedJob.getObjVal? "role").toOption == some (.str "property") &&
          (savedJob.getObjVal? "applicability").toOption == some .null)
+      check "metadata-free execution does not invent model snapshots"
+        ((savedJob.getObjVal? "transactionModel").toOption == some .null &&
+         (savedJob.getObjVal? "combinedCheck").toOption == some .null)
   for mode in ["silent", "foreign", "off-range", "malformed-json", "foreign-error", "error-after", "zero-error", "conflict",
       "wrong-detail-position", "wrong-indented-detail-position", "orphan-detail", "sorry", "undetermined", "exit-one"] do
     withResult (plan mode) options fun result => do

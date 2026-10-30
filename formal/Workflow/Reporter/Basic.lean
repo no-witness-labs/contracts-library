@@ -41,7 +41,8 @@ private def sameIdentity (left right : CheckJob) : Bool :=
 private def sameMetadata (left right : CheckJob) : Bool :=
   sameIdentity left right && left.propertyId == right.propertyId &&
     left.expected == right.expected && left.statement == right.statement && left.scope == right.scope &&
-    left.role == right.role && left.applicability == right.applicability
+    left.role == right.role && left.applicability == right.applicability &&
+    left.txModelId == right.txModelId && left.binding == right.binding
 
 private def matchesRef (reference : JobRef) (job : CheckJob) : Bool :=
   reference.moduleName == job.moduleName && reference.name == job.name
@@ -95,6 +96,8 @@ def build (plan : GenerationPlan) (execution : Executor.Result) : Report := Id.r
   let mut integrityProblems : Array String := #[]
   if plan.propertyDefinition != execution.propertyDefinition then
     integrityProblems := integrityProblems.push "property definition metadata changed during execution"
+  if let .error message := plan.validateBindings then
+    integrityProblems := integrityProblems.push s!"invalid model binding: {message}"
   if plan.jobs.isEmpty != (plan.status == .noObligations) then
     integrityProblems := integrityProblems.push "generation status and job count disagree"
   if execution.state == .noObligations && !plan.jobs.isEmpty then
@@ -116,6 +119,9 @@ def build (plan : GenerationPlan) (execution : Executor.Result) : Report := Id.r
             if support.row.job.role != .applicability ||
                 support.row.job.propertyId != row.job.propertyId then
               some "invalid applicability reference: expected an applicability obligation for this property"
+            else if support.row.job.txModelId != row.job.txModelId ||
+                support.row.job.binding != row.job.binding then
+              some "invalid applicability reference: property and support use different model bindings"
             else if support.trustworthy && support.row.observed == some .valid then none
             else if support.trustworthy && support.row.observed == some .falsified then
               some "no applicable scenario in this model"
@@ -147,6 +153,9 @@ def Report.toJson (report : Report) : Json :=
     ("property", .str row.job.propertyId), ("name", .str row.job.name),
     ("module", .str row.job.moduleName), ("scope", .str row.job.scope),
     ("role", .str row.job.role.label),
+    ("txModelId", row.job.txModelId.map Json.str |>.getD .null),
+    ("transactionModel", row.job.binding.map (fun binding => binding.txModel.toJson) |>.getD .null),
+    ("combinedCheck", row.job.binding.map (fun binding => binding.combinedCheck.toJson) |>.getD .null),
     ("applicability", row.job.applicability.map (fun reference => Json.mkObj [
       ("module", .str reference.moduleName), ("name", .str reference.name)]) |>.getD .null),
     ("evidenceComplete", .bool row.evidenceComplete),
@@ -182,6 +191,13 @@ private def definitionLabel : String → String
       if label.endsWith ".label" then "Reference label" else "Reference"
     else label
 
+private def modelLabel : String → String
+  | "id" => "Model"
+  | "title" => "Model title"
+  | "plutus_version" => "Plutus version"
+  | "description" => "Model description"
+  | label => label
+
 def Report.text (report : Report) : String := Id.run do
   let mut lines := #[s!"Target: {oneLine report.target}"]
   if let some definition := report.propertyDefinition then
@@ -189,6 +205,12 @@ def Report.text (report : Report) : String := Id.run do
       lines := lines.push s!"{oneLine (definitionLabel label)}: {oneLine value}"
   for row in report.rows do
     lines := lines.push s!"{row.status.label} {oneLine row.job.propertyId} {oneLine row.job.name}"
+    if let some binding := row.job.binding then
+      for (label, value) in binding.txModel.textFields do
+        lines := lines.push s!"  {oneLine (modelLabel label)}: {oneLine value}"
+      for (label, value) in binding.combinedCheck.textFields do
+        if label == "limitations" then
+          lines := lines.push s!"  Combination limitations: {oneLine value}"
     if let some issue := row.issues[0]? then
       lines := lines.push s!"  Reason: {oneLine issue}"
   let count := fun status => (report.rows.filter (·.status == status)).size

@@ -4,6 +4,13 @@ import Formal.Universal.Properties
 
 open Workflow.Tests.Support
 
+private def expectedModels : Array (String × String) := #[
+  ("otherPurpose_mint", "TxM-001"),
+  ("otherPurpose_withdraw", "TxM-002"),
+  ("otherPurpose_publish", "TxM-003"),
+  ("otherPurpose_vote", "TxM-004"),
+  ("otherPurpose_propose", "TxM-005")]
+
 def main : IO Unit := do
   Workflow.Tests.UP001.Tests.run
   let blueprint := "Workflow/Tests/UP001/Inputs/plutus.json"
@@ -12,6 +19,7 @@ def main : IO Unit := do
   expectOutcome "UP001 passing vault" passing "PASS" 0
   expectPropertyDefinition "UP001 passing vault" passing "UP-001" 1 "Candidates.UP001.statement"
   expectRows "UP001 passing vault" passing 5 "UP-001" "PASS" "valid" "5,000,000 CEK steps"
+  expectBindings "UP001 passing vault" passing "UP-001" 1 expectedModels
   expectArtifacts "UP001 passing vault" passing #["Types.lean", "Checks.lean"]
   let earlierReport ← IO.FS.readFile (passing.directory / "report.json")
 
@@ -20,6 +28,7 @@ def main : IO Unit := do
   expectOutcome "UP001 failing vault" failing "FAIL" 1
   expectPropertyDefinition "UP001 failing vault" failing "UP-001" 1 "Candidates.UP001.statement"
   expectRows "UP001 failing vault" failing 5 "UP-001" "FAIL" "falsified" "5,000,000 CEK steps"
+  expectBindings "UP001 failing vault" failing "UP-001" 1 expectedModels
   expectArtifacts "UP001 failing vault" failing #["Types.lean", "Checks.lean"]
 
   let invalid ← invoke "Workflow/Tests/UP001/Inputs/invalid-code.json" "invalid.invalid" (some "UP-001") 120000
@@ -27,6 +36,7 @@ def main : IO Unit := do
   expectOutcome "invalid compiled code" invalid "INCONCLUSIVE" 2
   expectPropertyDefinition "invalid compiled code" invalid "UP-001" 1 "Candidates.UP001.statement"
   check "input failure has no proof observations" ((← rows invalid.report).isEmpty)
+  check "input failure has no execution manifest" (!(← (invalid.directory / "execution.json").pathExists))
   expectProblem "invalid code fails during intake" invalid "compiledCode"
 
   let timeout ← invoke blueprint "vault.vault" none 1
@@ -34,6 +44,7 @@ def main : IO Unit := do
   expectOutcome "shared execution deadline" timeout "INCONCLUSIVE" 2
   expectPropertyDefinition "shared execution deadline" timeout "UP-001" 1 "Candidates.UP001.statement"
   expectRows "default UP001 selection" timeout 5 "UP-001" "INCONCLUSIVE" "inconclusive" "5,000,000 CEK steps"
+  expectBindings "default UP001 selection" timeout "UP-001" 1 expectedModels
   expectArtifacts "shared execution deadline" timeout #["Types.lean", "Checks.lean"]
   expectProblem "timeout records exhausted execution budget" timeout "execution time budget exhausted"
   let directories := [passing.directory, failing.directory, invalid.directory, timeout.directory]

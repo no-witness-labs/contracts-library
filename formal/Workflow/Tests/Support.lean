@@ -94,6 +94,40 @@ def expectPropertyDefinition (label : String) (run : CLIRun)
     check s!"{label}: report and execution retain the same property definition"
       ((manifest.getObjVal? "propertyDefinition").toOption == some definition)
 
+def expectBindings (label : String) (run : CLIRun)
+    (propertyId : String) (definitionVersion : Nat)
+    (expected : Array (String × String)) : IO Unit := do
+  let checks ← rows run.report
+  let names ← checks.mapM (fun row => stringField row "name")
+  check s!"{label}: exact bound job selection" (names == expected.map Prod.fst)
+  let manifest ← IO.ofExcept (Json.parse (← IO.FS.readFile (run.directory / "execution.json")))
+  let jobs ← IO.ofExcept do (← manifest.getObjVal? "jobs").getArr?
+  check s!"{label}: execution retains every requested job" (jobs.size == checks.size)
+  for (name, modelId) in expected do
+    let matching := checks.filter fun row => (row.getObjVal? "name").toOption == some (.str name)
+    check s!"{label}: unique report row for {name}" (matching.size == 1)
+    let some row := matching[0]? | throw (IO.userError s!"missing report row: {name}")
+    let model ← IO.ofExcept (row.getObjVal? "transactionModel")
+    let combined ← IO.ofExcept (row.getObjVal? "combinedCheck")
+    let property ← IO.ofExcept (combined.getObjVal? "property")
+    let version ← IO.ofExcept do (← property.getObjVal? "definition_version").getNat?
+    check s!"{label}: registered model for {name}" ((← stringField row "txModelId") == modelId)
+    check s!"{label}: model snapshot identity for {name}" ((← stringField model "id") == modelId)
+    check s!"{label}: model context format for {name}" ((← stringField model "plutus_version") == "v3")
+    check s!"{label}: combined model reference for {name}" ((← stringField combined "tx_model") == modelId)
+    check s!"{label}: combined property reference for {name}"
+      ((← stringField property "id") == propertyId && version == definitionVersion)
+    let moduleName ← stringField row "module"
+    let observations := jobs.filter fun item =>
+      (item.getObjVal? "name").toOption == some (.str name) &&
+      (item.getObjVal? "module").toOption == some (.str moduleName)
+    check s!"{label}: unique execution observation for {name}" (observations.size == 1)
+    let some observation := observations[0]?
+      | throw (IO.userError s!"missing execution observation: {name}")
+    for field in #["txModelId", "transactionModel", "combinedCheck"] do
+      check s!"{label}: exact {field} snapshot retained for {name}"
+        ((observation.getObjVal? field).toOption == (row.getObjVal? field).toOption)
+
 def expectRows (label : String) (run : CLIRun) (count : Nat)
     (property status observed bound : String) : IO Unit := do
   let checks ← rows run.report

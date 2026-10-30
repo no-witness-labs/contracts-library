@@ -6,6 +6,7 @@ namespace Workflow.Executor
 open Lean
 
 private def validate (plan : GenerationPlan) (options : Options) : Except String Unit := do
+  plan.validateBindings
   unless options.budgetMs > 0 && !options.leanPath.trim.isEmpty do
     throw "a positive budget and a prepared Lean search path are required"
   unless plan.jobs.isEmpty == (plan.status == .noObligations) do
@@ -54,6 +55,9 @@ private def manifest (plan : GenerationPlan) (options : Options) (result : Resul
       ("property", .str item.job.propertyId), ("name", .str item.job.name),
       ("module", .str item.job.moduleName), ("scope", .str item.job.scope),
       ("role", .str item.job.role.label),
+      ("txModelId", item.job.txModelId.map Json.str |>.getD .null),
+      ("transactionModel", item.job.binding.map (fun binding => binding.txModel.toJson) |>.getD .null),
+      ("combinedCheck", item.job.binding.map (fun binding => binding.combinedCheck.toJson) |>.getD .null),
       ("applicability", item.job.applicability.map jobRefJson |>.getD .null),
       ("expected", .str (if item.job.expected == .valid then "valid" else "falsified")),
       ("observed", .str (observedText item.observed)), ("evidenceComplete", .bool item.evidenceComplete),
