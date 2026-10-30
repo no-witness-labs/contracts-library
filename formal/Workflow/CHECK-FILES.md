@@ -1,23 +1,24 @@
 # Supporting files for candidate checks
 
-The generated checks import their shared context definitions from
-[`formal/Formal/Universal/Properties.lean`](../Formal/Universal/Properties.lean).
-These definitions already live in the repository. Each run imports them rather
-than generating copies in its output directory.
+Primary definitions and property metadata live in the
+[property bank](../Formal/Properties/README.md). Context construction and model
+metadata live in the [transaction-model bank](../Formal/TxModels/README.md).
+Generated checks import this repository code rather than copying it into each
+output directory. The old property-helper module keeps current context aliases.
 
 ## UP-001 context definitions
 
 | Generated check | Supporting type and context builder |
 | --- | --- |
-| `otherPurpose_mint` | [`EveryMint` and `EveryMint.ctx`](../Formal/Universal/Properties.lean#L49) |
-| `otherPurpose_withdraw` | [`EveryWithdraw` and `EveryWithdraw.ctx`](../Formal/Universal/Properties.lean#L56) |
-| `otherPurpose_publish` | [`EveryPublish` and `EveryPublish.ctx`](../Formal/Universal/Properties.lean#L63) |
-| `otherPurpose_vote` | [`EveryVote` and `EveryVote.ctx`](../Formal/Universal/Properties.lean#L71) |
-| `otherPurpose_propose` | [`EveryPropose` and `EveryPropose.ctx`](../Formal/Universal/Properties.lean#L78) |
-| `otherPurpose_spend`, when spend is undeclared | [`EverySpend` and `EverySpend.ctx`](../Formal/Universal/Properties.lean#L41) |
+| `otherPurpose_mint` | [`EveryMint` and `EveryMint.ctx`](../Formal/TxModels/Definitions/TxM001.lean) |
+| `otherPurpose_withdraw` | [`EveryWithdraw` and `EveryWithdraw.ctx`](../Formal/TxModels/Definitions/TxM002.lean) |
+| `otherPurpose_publish` | [`EveryPublish` and `EveryPublish.ctx`](../Formal/TxModels/Definitions/TxM003.lean) |
+| `otherPurpose_vote` | [`EveryVote` and `EveryVote.ctx`](../Formal/TxModels/Definitions/TxM004.lean) |
+| `otherPurpose_propose` | [`EveryPropose` and `EveryPropose.ctx`](../Formal/TxModels/Definitions/TxM005.lean) |
+| `otherPurpose_spend`, when spend is undeclared | [`EverySpend` and `EverySpend.ctx`](../Formal/TxModels/Definitions/TxM006.lean) |
 
 Each type holds a full `TxInfo` plus the fields for its purpose. Its `.ctx`
-function uses [`mkCtx`](../Formal/Universal/Properties.lean#L36) to assemble the
+function uses [`mkCtx`](../Formal/TxModels/Common.lean) to assemble the
 `ScriptContext`, with the raw redeemer supplied by the theorem. The vault demo
 declares `spend`, so it generates the first five checks only.
 
@@ -29,11 +30,12 @@ The command creates `formal/output/run.XXXXXXXX/` and prints its exact path as
 | File | Definitions |
 | --- | --- |
 | `Generated/Workflow/Types.lean` | `program`, `args`, and `accepts`: the compiled validator, context conversion, and bounded execution predicate |
-| `Generated/Workflow/Checks.lean` | The generated `otherPurpose_*` theorems, which use the shared `Every*` contexts |
+| `Generated/Workflow/Checks.lean` | The generated `otherPurpose_*` theorems, applying the shared UP-001 statement to the selected `Every*` contexts |
 
 [`Candidates/UP001.lean`](../Candidates/UP001.lean) produces these files
 and selects a context type for each undeclared purpose. Current UP-001 statements
-pass literal `5000000` to `accepts`. The shared helper file also defines
+apply [UP001/Definition.lean](../Formal/Properties/Universal/UP001/Definition.lean)
+with literal `5000000` passed to `accepts`. The shared helper file also defines
 `ledgerFuel`, `runFor`, and `rejectedWithin`; these are not the predicate or bound
 used by the current UP-001 statements.
 
@@ -55,22 +57,25 @@ checks and find their generated sources and logs.
 
 ## UP-012 vesting profile
 
-[`Candidates/UP012.lean`](../Candidates/UP012.lean) holds the original four
-propositions from PR #55. [`Tests/UP012/Profile.lean`](Tests/UP012/Profile.lean)
-supplies the typed data, transaction shapes, and pinned artifact guard. Each
+[UP012/Definition.lean](../Formal/Properties/Universal/UP012/Definition.lean)
+holds one signer-removal statement and its applicability predicate.
+[`Candidates/UP012.lean`](../Candidates/UP012.lean) applies them to Claim and Cancel;
+[`Tests/UP012/Profile.lean`](Tests/UP012/Profile.lean) supplies the pinned artifact guard.
+The models live in [TxM007](../Formal/TxModels/Definitions/TxM007.lean) and
+[TxM008](../Formal/TxModels/Definitions/TxM008.lean). Each
 output folder has three generated Lean files:
 
 | File | Definitions |
 | --- | --- |
-| `Generated/Workflow/Types.lean` | Vesting data/redeemer types, compiled program, `accepts`, and `rejects` |
-| `Generated/Workflow/Tx.lean` | `ClaimLeaves`, `CancelLeaves`, `claim`, `cancel`, and their datum builder |
+| `Generated/Workflow/Types.lean` | Aliases for native vesting types, compiled program, `accepts`, and `rejects` |
+| `Generated/Workflow/Tx.lean` | Aliases for native `ClaimLeaves`, `CancelLeaves`, `claim`, `cancel`, and their datum builder |
 | `Generated/Workflow/Checks.lean` | `dropSigner_claim`, `dropSigner_cancel`, and both `_applies` statements |
 
 Shared support comes from the same repository helper file:
 
-- [`signatoriesOf` and `withSignatories`](../Formal/Universal/Properties.lean#L86)
+- [`signatoriesOf` and `withSignatories`](../Formal/Universal/Properties.lean)
   read or replace the context's signatory list.
-- [`Formal.Universal.TxBuilder`](../Formal/Universal/Properties.lean#L107)
+- [`Formal.TxModels.TxBuilder`](../Formal/TxModels/Common.lean)
   builds the supplied inputs, outputs, and spend contexts.
 - [`rejectedWithin`](../Formal/Universal/Properties.lean#L26)
   requires rejection within the candidate's `ledgerFuel` bound of 1,000,000 steps.
@@ -81,8 +86,10 @@ it does not generate general required-signer checks for arbitrary validators.
 
 ## Catalogue and entry point
 
-[`Candidates/Catalogue.lean`](../Candidates/Catalogue.lean) references the current
-implementations. [`CLI.lean`](CLI.lean) wires that index into
-[`Main.lean`](Main.lean). The four reusable components do not import candidates
+[Formal/Properties/Index.lean](../Formal/Properties/Index.lean) references categories
+and their native definitions/metadata. [`Candidates/Catalogue.lean`](../Candidates/Catalogue.lean)
+composes the supported generation adapters. [`ProductCLI.lean`](ProductCLI.lean)
+supplies that resolver to [`Main.lean`](Main.lean); CLI.lean retains the legacy entry
+point. The four reusable components do not import candidates
 or scenario fixtures. Catalogue format and additional CLI selection modes remain
 separate design decisions.
