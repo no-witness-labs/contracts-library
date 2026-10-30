@@ -79,6 +79,11 @@ private def scope : String :=
 private def names : Array String :=
   #["dropSigner_claim", "dropSigner_claim_applies", "dropSigner_cancel", "dropSigner_cancel_applies"]
 
+private def claimModelId : String := "TxM-007"
+private def cancelModelId : String := "TxM-008"
+
+def modelIds : Array String := #[claimModelId, cancelModelId]
+
 private def statement (name : String) : String :=
   let body := (checksTemplate.splitOn s!"theorem {name} :")[1]?.getD ""
   ((body.splitOn ":= by blaster").head?.getD "").trim
@@ -101,13 +106,17 @@ def jobs (modulePrefix : String) : Array CheckJob :=
     | "dropSigner_claim" =>
       { job with
         role := .property
+        txModelId := some claimModelId
         applicability := some { moduleName, name := "dropSigner_claim_applies" } }
     | "dropSigner_cancel" =>
       { job with
         role := .property
+        txModelId := some cancelModelId
         applicability := some { moduleName, name := "dropSigner_cancel_applies" } }
-    | "dropSigner_claim_applies" | "dropSigner_cancel_applies" =>
-      { job with role := .applicability, applicability := none }
+    | "dropSigner_claim_applies" =>
+      { job with role := .applicability, applicability := none, txModelId := some claimModelId }
+    | "dropSigner_cancel_applies" =>
+      { job with role := .applicability, applicability := none, txModelId := some cancelModelId }
     | _ => job
 
 def notes : Array String :=
