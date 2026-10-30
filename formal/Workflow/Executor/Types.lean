@@ -49,6 +49,7 @@ structure Result where
   jobs : Array JobObservation := #[]
   problems : Array String := #[]
   elapsedMs : Nat := 0
+  propertyDefinition : Option PropertyDefinition := none
 
 structure Options where
   /-- Prepared dependency/module search path; preparation is the caller's responsibility. -/

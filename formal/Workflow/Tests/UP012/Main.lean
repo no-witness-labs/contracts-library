@@ -10,6 +10,7 @@ def main : IO Unit := do
     (some "UP-012") 300000
     "UP012: original vesting suite" "PASS/0; four Valid results, including both applicability obligations"
   expectOutcome "original UP012 vesting suite" passing "PASS" 0
+  expectPropertyDefinition "original UP012 vesting suite" passing "UP-012" 1 "Candidates.UP012.checks"
   expectRows "original UP012 vesting suite" passing 4 "UP-012" "PASS" "valid" "1,000,000-step bound"
   expectArtifacts "original UP012 vesting suite" passing #["Types.lean", "Tx.lean", "Checks.lean"]
   let checks ← rows passing.report
@@ -20,6 +21,7 @@ def main : IO Unit := do
     (some "UP-012") 300000
     "UP012: unsupported artifact" "INCONCLUSIVE/2; profile rejection (intentional unsupported case)"
   expectOutcome "unsupported UP012 artifact" unsupported "INCONCLUSIVE" 2
+  expectPropertyDefinition "unsupported UP012 artifact" unsupported "UP-012" 1 "Candidates.UP012.checks"
   check "unsupported profile has no proof observations" ((← rows unsupported.report).isEmpty)
   expectProblem "UP012 rejects unsupported profile" unsupported "original unparameterized"
   check "UP012 attempts have separate output directories" (passing.directory != unsupported.directory)

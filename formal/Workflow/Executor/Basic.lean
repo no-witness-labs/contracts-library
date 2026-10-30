@@ -61,6 +61,7 @@ private def manifest (plan : GenerationPlan) (options : Options) (result : Resul
       ("diagnostics", .arr diagnostics)]
   Json.mkObj [
     ("target", .str plan.targetName), ("state", .str (runStateText result.state)),
+    ("propertyDefinition", result.propertyDefinition.map (·.toJson) |>.getD .null),
     ("budgetMs", toJson options.budgetMs), ("elapsedMs", toJson result.elapsedMs),
     ("leanCommand", .str options.leanCommand), ("leanPath", .str options.leanPath),
     ("timeoutCommand", .str options.timeoutCommand), ("problems", toJson result.problems),
@@ -86,7 +87,9 @@ private def execute (plan : GenerationPlan) (options : Options) (directory : Sys
     let path := directory / (source.name.replace "." "/" ++ ".lean")
     IO.FS.createDirAll (path.parent.getD directory)
     IO.FS.writeFile path source.source
-  let mut result : Result := { state := .completed, directory := some directory }
+  let mut result : Result := {
+    state := .completed, directory := some directory
+    propertyDefinition := plan.propertyDefinition }
   let mut stopped := false
   for source in plan.modules do
     unless stopped do
@@ -125,11 +128,11 @@ def run (plan : GenerationPlan) (options : Options) : IO (Except String Result) 
   match validate plan options with
   | .error message => return .error message
   | .ok _ => pure ()
-  if plan.jobs.isEmpty then return .ok { state := .noObligations }
+  if plan.jobs.isEmpty then return .ok { state := .noObligations, propertyDefinition := plan.propertyDefinition }
   try
     let directory ← createRunDirectory options.outputRoot
     let result ← try execute plan options directory started catch error =>
-      pure { state := .error, directory := some directory,
+      pure { state := .error, directory := some directory, propertyDefinition := plan.propertyDefinition,
              problems := #[error.toString], jobs := plan.jobs.map fun job =>
                { job, issues := #["executor file or process failure"] } }
     IO.FS.writeFile (directory / "execution.json") ((manifest plan options result).pretty ++ "\n")

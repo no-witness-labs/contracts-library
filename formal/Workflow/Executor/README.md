@@ -77,6 +77,10 @@ module, and `execution.json`. The manifest records the target, commands, search
 path, budget, elapsed time, process exit codes, job metadata, diagnostics, and
 problems. It contains no PASS/FAIL or waiver decisions.
 
+When supplied, `propertyDefinition` snapshots the parsed descriptive metadata in
+the plan and result. Reporter checks that the execution and plan snapshots agree;
+Executor does not use that metadata to choose code, expectations, or outcomes.
+
 Input provenance belongs to the coordinator. The integration harness also
 copies its input blueprint into the evidence directory.
 

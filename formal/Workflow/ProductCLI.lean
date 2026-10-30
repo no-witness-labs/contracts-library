@@ -15,6 +15,6 @@ def main (args : List String) : IO UInt32 := do
   match args with
   | [] | ["--help"] | ["help"] => IO.print help; return 0
   | ["run", "--help"] | ["test", "--help"] => IO.print help; return 0
-  | "run" :: rest => Workflow.Main.run Candidates.Catalogue.selectProvider rest
+  | "run" :: rest => Workflow.Main.run Candidates.Catalogue.loadProvider rest
   | ["test"] => Workflow.Tests.Runner.run
   | _ => IO.eprint help; return 2

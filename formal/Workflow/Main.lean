@@ -37,25 +37,28 @@ private def finish (report : Reporter.Report) (source : Option String := none) :
     IO.eprintln s!"INCONCLUSIVE: could not save the report: {error}"
     return 2
 
-private def runRequest (resolveProvider : Option String → Except String Generator.Provider)
+private def runRequest (resolveProvider : Option String → IO (Except String Generator.Provider))
     (request : Request) : IO UInt32 := do
-  let input ← match ← Input.read request.path request.selector with
+  let inputResult ← Input.read request.path request.selector
+  let providerResult ← resolveProvider request.checkId
+  let definition := providerResult.toOption.bind (·.propertyDefinition)
+  let input ← match inputResult with
     | .ok value => pure value
-    | .error error => return ← finish (Reporter.failure request.selector (toString error))
-  let provider ← match resolveProvider request.checkId with
+    | .error error => return ← finish (Reporter.failure request.selector (toString error) definition)
+  let provider ← match providerResult with
     | .ok value => pure value
     | .error message => return ← finish (Reporter.failure input.target.name message) (some input.sourceText)
   let plan ← match Generator.generate provider input.target "Generated.Workflow" with
     | .ok value => pure value
-    | .error error => return ← finish (Reporter.failure input.target.name (toString error)) (some input.sourceText)
+    | .error error => return ← finish (Reporter.failure input.target.name (toString error) definition) (some input.sourceText)
   let leanPath := (← IO.getEnv "LEAN_PATH").getD ""
   let result ← match ← Executor.run plan {
       leanPath, budgetMs := request.budgetMs, outputRoot := some outputRoot } with
     | .ok value => pure value
-    | .error message => return ← finish (Reporter.failure input.target.name message) (some input.sourceText)
+    | .error message => return ← finish (Reporter.failure input.target.name message definition) (some input.sourceText)
   finish (Reporter.build plan result) (some input.sourceText)
 
-def run (resolveProvider : Option String → Except String Generator.Provider)
+def run (resolveProvider : Option String → IO (Except String Generator.Provider))
     (args : List String) : IO UInt32 := do
   match args with
   | ["--help"] => IO.println usage; return 0

@@ -79,6 +79,21 @@ def expectOutcome (label : String) (run : CLIRun) (status : String) (exitCode : 
   check s!"{label}: report exit code" (savedExit == exitCode.toNat)
   check s!"{label}: report status" ((← stringField run.report "status") == status)
 
+def expectPropertyDefinition (label : String) (run : CLIRun)
+    (propertyId : String) (definitionVersion : Nat) (primary : String) : IO Unit := do
+  let definition ← IO.ofExcept (run.report.getObjVal? "propertyDefinition")
+  let identity ← IO.ofExcept (definition.getObjVal? "identity")
+  let version ← IO.ofExcept do (← identity.getObjVal? "definition_version").getNat?
+  let formalization ← IO.ofExcept (definition.getObjVal? "formalization")
+  check s!"{label}: property definition identity" ((← stringField identity "id") == propertyId)
+  check s!"{label}: property definition version" (version == definitionVersion)
+  check s!"{label}: property definition primary" ((← stringField formalization "primary") == primary)
+  let manifestPath := run.directory / "execution.json"
+  if ← manifestPath.pathExists then
+    let manifest ← IO.ofExcept (Json.parse (← IO.FS.readFile manifestPath))
+    check s!"{label}: report and execution retain the same property definition"
+      ((manifest.getObjVal? "propertyDefinition").toOption == some definition)
+
 def expectRows (label : String) (run : CLIRun) (count : Nat)
     (property status observed bound : String) : IO Unit := do
   let checks ← rows run.report

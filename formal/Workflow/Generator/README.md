@@ -18,6 +18,11 @@ and a configured check provider. The provider binds the property definition to a
 model or harness it needs, together with its expectations and scope. The module
 prefix is internal naming information.
 
+The application catalogue can attach a parsed property-definition record to the
+provider. Generator preserves that record in the plan without passing metadata
+to the proposition-generating function. Descriptions cannot change the emitted
+statements or their expectations. See the [metadata contract](../METADATA.md).
+
 UP-001 binds its definition to generic per-purpose contexts. UP-012's test
 profile binds its four propositions to the typed vesting data and Claim/Cancel
 transaction shapes. Blueprint metadata alone does not supply those transaction

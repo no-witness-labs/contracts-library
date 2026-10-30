@@ -60,9 +60,11 @@ discipline; it does not certify arbitrary dependencies between proof declaration
 
 ## Planned metadata and run configuration
 
-The report will identify definition/model versions and explain their descriptions,
-assumptions, and limitations. [Issue #65](https://github.com/no-witness-labs/contracts-library/issues/65)
-will define that metadata contract.
+Workflow reports now retain the selected property-definition snapshot, including
+its definition version, explanations, and stated limits. Executor retains the
+same snapshot in its manifest; a mismatch makes the report inconclusive. See the
+[workflow metadata guide](../METADATA.md). Model metadata and combined-check
+records remain design work in [issue #65](https://github.com/no-witness-labs/contracts-library/issues/65).
 Clients can review protocol relevance afterward. Multiple variants and optional
 enable/disable controls remain later work; current reports retain all job rows.
 
