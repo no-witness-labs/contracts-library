@@ -24,6 +24,19 @@ private def registry : Array CheckId := #[
   { propertyId := "UP-001", definitionVersion := 2, modelId := "TxM-009" }]
 
 def run : IO Unit := do
+  let bare ← accepted "bare request" (parseRequest [])
+  check "bare request defaults" (bare.path == "plutus.json" &&
+    bare.validators.isEmpty && bare.properties.isEmpty &&
+    bare.checksFile.isNone && bare.timeoutMs == 30000 && bare.args.isEmpty)
+  let flagArgs := ["--validator", "vault", "--check", "UP-001", "--timeout-ms", "5000"]
+  let flags ← accepted "flags-only request" (parseRequest flagArgs)
+  check "flags-only request controls" (flags.path == "plutus.json" &&
+    flags.validators == #["vault"] && flags.properties == #["UP-001"] &&
+    flags.timeoutMs == 5000 && flags.args == flagArgs.toArray)
+  let flagFile ← accepted "flags-only selection file request"
+    (parseRequest ["--checks-file", "checks.json"])
+  check "flags-only selection file defaults" (flagFile.path == "plutus.json" &&
+    flagFile.checksFile == some "checks.json" && flagFile.timeoutMs == 30000)
   let defaults ← accepted "default request" (parseRequest ["blueprint.json"])
   check "default request controls" (defaults.path == "blueprint.json" &&
     defaults.validators.isEmpty && defaults.properties.isEmpty &&
@@ -31,13 +44,18 @@ def run : IO Unit := do
   let args := ["blueprint.json", "vault", "--validator", "vesting", "--check", "UP-012",
     "--check", "UP-001", "--timeout-ms", "120000"]
   let explicit ← accepted "explicit request" (parseRequest args)
-  check "original invocation retained" (explicit.args == args.toArray)
+  check "explicit path and original invocation retained"
+    (explicit.path == "blueprint.json" && explicit.args == args.toArray)
   check "positional and repeated selection" (explicit.validators == #["vault", "vesting"] &&
     explicit.properties == #["UP-012", "UP-001"] && explicit.timeoutMs == 120000)
   let fileRequest ← accepted "selection file request"
     (parseRequest ["blueprint.json", "--checks-file", "checks.json"])
   check "selection file path" (fileRequest.checksFile == some "checks.json")
-  for invalid in [[], ["--validator", "vault"], ["blueprint.json", "one", "two"],
+  for invalid in [[""], ["--unknown"], ["--validator"], ["--check", ""],
+      ["--checks-file", "--check", "UP-001"], ["--timeout-ms", "0"],
+      ["--timeout-ms", "abc"], ["--timeout-ms"],
+      ["--check", "UP-001", "--checks-file", "checks.json"],
+      ["blueprint.json", "one", "two"],
       ["blueprint.json", "--unknown"], ["blueprint.json", "--check"],
       ["blueprint.json", "--validator", "--check", "UP-001"],
       ["blueprint.json", "--checks-file", ""],

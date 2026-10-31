@@ -158,7 +158,7 @@ def runWith (registry : Array CheckId)
     return run
 
 def usage : String :=
-  "plutus-upv run BLUEPRINT [VALIDATOR] [--validator NAME] [--check PROPERTY_ID | --checks-file FILE] [--timeout-ms MILLISECONDS]"
+  "plutus-upv run [BLUEPRINT] [VALIDATOR] [--validator NAME] [--check PROPERTY_ID | --checks-file FILE] [--timeout-ms MILLISECONDS]"
 
 def run (registry : Array CheckId)
     (load : CheckId → IO (Except String Generator.ConfiguredCheck))
