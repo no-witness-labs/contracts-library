@@ -1,7 +1,8 @@
 # Input component
 
-Input's Lean implementation selects one validator, validates its embedded
-compiled code, and preserves the metadata Generator needs. The
+Input's Lean implementation discovers logical validators, prepares one selected
+validator at a time, validates its embedded compiled code, and preserves the
+metadata Generator needs. The app reuses each prepared validator across its checks. The
 [workflow decisions](../README.md) define its scope.
 
 ## Use and test
@@ -15,6 +16,9 @@ lake exe workflow_input_tests
 
 Import `Workflow.Input` to use:
 
+- `Workflow.Input.discover source`: return canonical logical validator names in
+  blueprint order, grouping entries for different handlers. Discovery checks the
+  shared JSON/version/title profile without decoding each compiled artifact.
 - `Workflow.Input.parse source selector`: read blueprint text and return an
   `Except Error InputResult`.
 - `Workflow.Input.read path selector`: read a file and return the same result
@@ -28,6 +32,12 @@ explicit Plutus version, original encoded code, handler descriptions, ordered
 parameter descriptions, and optional schema definitions and compiler metadata.
 `sourceText` and `sourcePath` retain provenance separately. Input decodes the
 program internally for validation; it does not expose a decoded program field.
+
+The app captures the blueprint text once, discovers its names, and calls `parse`
+on that same source for each selected validator. A malformed compiled artifact
+fails that validator's preparation while other validators can continue. Invalid
+shared JSON or title structure prevents discovery; unsupported selected handler
+purposes remain preparation errors.
 
 ## Supported blueprint profile
 
@@ -82,7 +92,8 @@ The test implementation and fixtures live under `Workflow/Tests/Unit/Input/`;
 see the [unit test guide](../Tests/Unit/README.md).
 
 
-The native Lean fixture harness checks selection, multiple validators and
+The native Lean fixture harness checks discovery/grouping, invalid-code isolation,
+selection, multiple validators and
 purposes, module paths, parameter order, absent versus empty metadata, source
 preservation, file errors, and malformed inputs. It includes invalid hex,
 truncated CBOR, rejected programs, and trailing bytes. These tests use no Aiken
@@ -94,6 +105,7 @@ smoke checks also succeeded on the repository blueprint's linear-vesting,
 settings, and DAO-proposal entries, including their parameter descriptions.
 
 Standalone CBOR files, function targets, other Plutus versions, and additional
-blueprint profiles remain later extensions. The shared command now connects
-Input with [Generator](../Generator/README.md), [Executor](../Executor/README.md),
-and [Reporter](../Reporter/README.md).
+blueprint profiles remain later extensions. The app connects Input to
+[Generator](../Generator/README.md), [Executor](../Executor/README.md), and
+[Assessor](../Assessor/README.md), then retains individual results and renders
+its terminal summary. Final human-friendly reporting is separate work.
