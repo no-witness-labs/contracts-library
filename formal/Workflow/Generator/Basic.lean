@@ -1,5 +1,5 @@
-import Workflow.Types
-import Workflow.Jobs
+import Workflow.Types.Target
+import Workflow.Types.Jobs
 
 namespace Workflow.Generator
 

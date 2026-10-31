@@ -1,4 +1,4 @@
-import Workflow.Types
+import Workflow.Types.Target
 import PlutusCore.UPLC.ScriptEncoding.Basic
 
 namespace Workflow.Input

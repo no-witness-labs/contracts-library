@@ -1,5 +1,5 @@
 import Lean.Data.Json
-import Workflow.Jobs
+import Workflow.Types.Jobs
 
 namespace Workflow.Executor
 
