@@ -27,6 +27,12 @@ def compiler (args : List String) : IO UInt32 := do
   let mode := ((← IO.FS.readFile path).splitOn "\n").head!.drop 3
   match mode with
   | "valid" => emit path.toString "✅ Valid"; return 0
+  | "trace" =>
+    IO.FS.writeFile (path.withExtension "invoked.json") (Json.mkObj [
+      ("args", toJson args), ("cwd", .str (← IO.currentDir).toString),
+      ("leanPath", (← IO.getEnv "LEAN_PATH").map Json.str |>.getD .null)]).pretty
+    emit path.toString "✅ Valid"
+    return 0
   | "warning" =>
     emit path.toString "declaration uses 'blasterProven' (SMT-verified, no proof term)" "warning"
     return 0
@@ -102,8 +108,112 @@ private def firstJob (result : Result) : IO JobObservation :=
   | some value => pure value
   | none => throw (IO.userError "missing job observation")
 
+private def boundPlan (mode : String) : IO GenerationPlan := do
+  let definition ← IO.ofExcept (PropertyDefinition.parse (Json.mkObj [
+    ("identity", Json.mkObj [("id", .str "fixture"), ("definition_version", toJson (1 : Nat))])]))
+  let txModel ← IO.ofExcept (TransactionModel.parse (Json.mkObj [
+    ("id", .str "TxM-001"), ("title", .str "Fixture model"),
+    ("plutus_version", .str "v3"), ("description", .str "One fixture context.")]))
+  let combinedCheck ← IO.ofExcept (CombinedCheck.parse (Json.mkObj [
+    ("property", Json.mkObj [("id", .str "fixture"), ("definition_version", toJson (1 : Nat))]),
+    ("tx_model", .str "TxM-001"), ("limitations", .arr #[.str "Fixture-only evidence."])]))
+  let binding : CheckBinding := { txModel, combinedCheck }
+  return { plan mode with
+    propertyDefinition := some definition
+    bindingsRequired := true
+    jobs := (plan mode).jobs.map fun job =>
+      { job with txModelId := some "TxM-001", binding := some binding } }
+
+private def modelBindingChecks (options : Workflow.Executor.Options) : IO Unit := do
+  for mode in ["valid", "evidence-write-error"] do
+    let input ← boundPlan mode
+    let some expectedJob := input.jobs[0]? | throw (IO.userError "missing bound job")
+    let some expectedBinding := expectedJob.binding | throw (IO.userError "missing binding")
+    withResult input options fun result => do
+      let observed ← firstJob result
+      check "execution retains model binding on success and file failure"
+        (observed.job.binding == expectedJob.binding && observed.job.txModelId == expectedJob.txModelId &&
+         result.propertyDefinition == input.propertyDefinition)
+      check "retained binding does not promote incomplete evidence"
+        (if mode == "valid" then result.state == .completed && observed.evidenceComplete
+         else result.state == .error && !observed.evidenceComplete && observed.observed == .inconclusive)
+      let some directory := result.directory | throw (IO.userError "missing bound evidence directory")
+      let manifest ← IO.ofExcept (Json.parse (← IO.FS.readFile (directory / "execution.json")))
+      let jobs ← IO.ofExcept ((← IO.ofExcept (manifest.getObjVal? "jobs")).getArr?)
+      let some saved := jobs[0]? | throw (IO.userError "missing saved model binding")
+      check "manifest preserves the exact model and combination snapshots"
+        ((saved.getObjVal? "txModelId").toOption == some (.str "TxM-001") &&
+         (saved.getObjVal? "transactionModel").toOption == some expectedBinding.txModel.toJson &&
+         (saved.getObjVal? "combinedCheck").toOption == some expectedBinding.combinedCheck.toJson)
+      let modules ← IO.ofExcept do (← manifest.getObjVal? "modules").getArr?
+      let some savedModule := modules[0]? | throw (IO.userError "missing attempted module")
+      check "attempted commands survive success and evidence-write failure"
+        (modules.size == 1 && (savedModule.getObjVal? "invocation").toOption.any (· != .null))
+      let some expectedSource := input.modules[0]? | throw (IO.userError "missing bound source")
+      check "binding metadata leaves emitted Lean unchanged"
+        ((← IO.FS.readFile (directory / "Fixture/Checks.lean")) == expectedSource.source)
+
+  let valid ← boundPlan "valid"
+  let some bound := valid.jobs[0]? | throw (IO.userError "missing bound fixture")
+  for invalid in [
+      { valid with jobs := #[{ bound with binding := none }] },
+      { valid with jobs := #[{ bound with txModelId := some "TxM-002" }] },
+      { valid with jobs := #[{ bound with propertyId := "other-property" }] },
+      { valid with propertyDefinition := none }] do
+    IO.FS.withTempDir fun directory => do
+      let output := directory / "must-not-be-created"
+      match ← Workflow.Executor.run invalid { options with outputRoot := some output } with
+      | .error _ =>
+        check "invalid bindings fail before files or processes are created" (!(← output.pathExists))
+      | .ok _ => throw (IO.userError "invalid model binding reached execution")
+
+private def commandEvidenceChecks (options : Workflow.Executor.Options) : IO Unit := do
+  let expired ← Workflow.Executor.Process.run options 0 #["--must-not-run"] #[]
+  check "an expired deadline invents no attempted command"
+    (expired.state == .timedOut && expired.invocation.isNone)
+  for controlledWrapper in [false, true] do
+    IO.FS.withTempDir fun parent => do
+      let options := { options with
+        outputRoot := some (parent / "output with spaces")
+        timeoutCommand := if controlledWrapper then options.leanCommand else options.timeoutCommand }
+      withResult (plan "trace") options fun result => do
+        check "trace fixture completes" (result.state == .completed)
+        let some module := result.modules[0]? | throw (IO.userError "missing trace module")
+        let some call := module.process.invocation | throw (IO.userError "missing attempted command")
+        let actual ← IO.ofExcept (Json.parse (← IO.FS.readFile (module.path.withExtension "invoked.json")))
+        let leanArgs := #["--json", s!"--root={result.directory.getD parent}", "-o",
+          (module.path.withExtension "olean").toString, module.path.toString]
+        check "timeout wrapper and compiler arguments are preserved without shell joining"
+          (call.command == options.timeoutCommand && call.args[0]? == some "--signal=KILL" &&
+           call.args[2]? == some options.leanCommand && call.args.toList.drop 3 == leanArgs.toList)
+        let received := if controlledWrapper then call.args.toList else leanArgs.toList
+        check "recorded arguments match the array the subprocess actually received"
+          ((actual.getObjVal? "args").toOption == some (toJson received))
+        check "recorded cwd matches the subprocess"
+          (call.cwd == (← IO.currentDir) &&
+           (actual.getObjVal? "cwd").toOption == some (.str call.cwd.toString))
+        let expectedPath := s!"{result.directory.getD parent}:{options.leanPath}"
+        check "explicit search-path override matches the subprocess"
+          (call.environment == #[("LEAN_PATH", some expectedPath)] &&
+           (actual.getObjVal? "leanPath").toOption == some (.str expectedPath))
+        let some directory := result.directory | throw (IO.userError "missing trace directory")
+        let manifest ← IO.ofExcept (Json.parse (← IO.FS.readFile (directory / "execution.json")))
+        let modules ← IO.ofExcept do (← manifest.getObjVal? "modules").getArr?
+        let some saved := modules[0]? | throw (IO.userError "missing saved trace")
+        check "execution manifest retains the exact attempted invocation"
+          ((saved.getObjVal? "invocation").toOption == some call.toJson)
+  let unavailable ← Workflow.Executor.Process.run { options with timeoutCommand := "/missing/timeout" }
+    ((← IO.monoMsNow) + 5000) #["argument with spaces"] #[("LEAN_PATH", some ".")]
+  check "launch failures retain the command that was attempted"
+    ((unavailable.state == .launchError ||
+       (unavailable.state == .finished && unavailable.exitCode.any (· != 0))) &&
+     unavailable.invocation.any (fun call => call.command == "/missing/timeout" &&
+       call.args.toList.drop 3 == ["argument with spaces"]))
+
 def run : IO Unit := do
   let options : Workflow.Executor.Options := { leanPath := ".", leanCommand := (← IO.appPath).toString, budgetMs := 5000 }
+  modelBindingChecks options
+  commandEvidenceChecks options
   for mode in ["valid", "warning", "falsified", "unexpected-valid"] do
     withResult (plan mode) options fun result => do
       let job ← firstJob result
@@ -124,6 +234,9 @@ def run : IO Unit := do
       check "manifest preserves the default property role"
         ((savedJob.getObjVal? "role").toOption == some (.str "property") &&
          (savedJob.getObjVal? "applicability").toOption == some .null)
+      check "metadata-free execution does not invent model snapshots"
+        ((savedJob.getObjVal? "transactionModel").toOption == some .null &&
+         (savedJob.getObjVal? "combinedCheck").toOption == some .null)
   for mode in ["silent", "foreign", "off-range", "malformed-json", "foreign-error", "error-after", "zero-error", "conflict",
       "wrong-detail-position", "wrong-indented-detail-position", "orphan-detail", "sorry", "undetermined", "exit-one"] do
     withResult (plan mode) options fun result => do
@@ -198,6 +311,17 @@ def run : IO Unit := do
     check "manifest preserves the linked prerequisite"
       ((savedSecond.getObjVal? "applicability").toOption ==
         some (Json.mkObj [("module", .str "Fixture.First"), ("name", .str "first")]))
+  let writeFailure := { completedThenTimedOut with modules := #[
+    ⟨"Fixture.First", "-- valid\n\ntheorem first : True := by trivial\n"⟩,
+    ⟨"Fixture.Second", "-- evidence-write-error\n\ntheorem second : True := by trivial\n"⟩,
+    ⟨"Fixture.Third", "-- valid\n\ntheorem third : True := by trivial\n"⟩] }
+  withResult writeFailure options fun result => do
+    check "an evidence-write failure retains prior observations and attempted commands"
+      (result.state == .error && result.modules.size == 2 &&
+       result.modules.all (·.process.invocation.isSome) &&
+       result.jobs.any (fun job => job.job.name == "first" && job.evidenceComplete && job.observed == .valid) &&
+       result.jobs.any (fun job => job.job.name == "second" && !job.evidenceComplete && job.observed == .inconclusive) &&
+       result.jobs.any (fun job => job.job.name == "third" && !job.evidenceComplete && job.observed == .inconclusive))
   IO.FS.withTempDir fun parent => do
     let root := parent / "shared output"
     let retained := { options with outputRoot := some root }

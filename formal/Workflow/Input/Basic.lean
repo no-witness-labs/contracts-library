@@ -1,4 +1,4 @@
-import Workflow.Types
+import Workflow.Types.Target
 import PlutusCore.UPLC.ScriptEncoding.Basic
 
 namespace Workflow.Input
@@ -124,9 +124,13 @@ private def validateCode (code path : String) : Except Error Unit := do
   unless remaining.isEmpty do
     fail .decoding path "unexpected bytes after the compiled script"
 
-/-- Read one validator using the current Aiken-style blueprint title profile.
-    Schema content is preserved, not translated or checked for proof applicability. -/
-def parse (source selector : String) : Except Error InputResult := do
+private structure Document where
+  blueprint : Json
+  preamble : Json
+  version : String
+  entries : Array Entry
+
+private def document (source : String) : Except Error Document := do
   let blueprint ← Json.parse source |>.mapError fun message =>
     ⟨.malformedJson, "$", message⟩
   object blueprint "$"
@@ -139,18 +143,32 @@ def parse (source selector : String) : Except Error InputResult := do
   let values ← validators.getArr?.mapError fun _ =>
     ⟨.malformedField, "validators", "expected an array"⟩
   let mut entries := #[]
-  let mut candidateNames : Array String := #[]
   for i in [:values.size] do
-    let item ← entry values[i]! i
+    entries := entries.push (← entry values[i]! i)
+  return { blueprint, preamble, version, entries }
+
+/-- Discover logical validators without interpreting their compiled code. -/
+def discover (source : String) : Except Error (Array String) := do
+  let parsed ← document source
+  let mut names := #[]
+  for item in parsed.entries do
+    unless names.contains item.target do names := names.push item.target
+  return names
+
+/-- Read one validator using the current Aiken-style blueprint title profile.
+    Schema content is preserved, not translated or checked for proof applicability. -/
+def parse (source selector : String) : Except Error InputResult := do
+  let parsed ← document source
+  let mut candidateNames : Array String := #[]
+  for item in parsed.entries do
     if (item.target == selector || item.shortName == selector) && !candidateNames.contains item.target then
       candidateNames := candidateNames.push item.target
-    entries := entries.push item
   if candidateNames.isEmpty then
     fail .selection "validator" s!"no validator matches '{selector}'"
   if candidateNames.size != 1 then
     fail .selection "validator" s!"ambiguous validator '{selector}': {String.intercalate ", " candidateNames.toList}"
   let name := candidateNames[0]!
-  let selected := entries.filter (·.target == name)
+  let selected := parsed.entries.filter (·.target == name)
   let some first := selected[0]?
     | fail .selection "validator" "the selected validator has no entries"
   let code ← requiredString first.value "compiledCode" s!"{first.path}.compiledCode"
@@ -177,19 +195,24 @@ def parse (source selector : String) : Except Error InputResult := do
       datum := ← optionalArgument item.value "datum" s!"{item.path}.datum"
       declaredHash := ← optionalString item.value "hash" s!"{item.path}.hash" }
   return {
-    target := { name, plutusVersion := version, compiledCode := code, handlers,
+    target := { name, plutusVersion := parsed.version, compiledCode := code, handlers,
                 parameters := params
-                definitions := ← optionalObject blueprint "definitions" "definitions"
-                compiler := ← optionalObject preamble "compiler" "preamble.compiler" }
+                definitions := ← optionalObject parsed.blueprint "definitions" "definitions"
+                compiler := ← optionalObject parsed.preamble "compiler" "preamble.compiler" }
     sourceText := source
     sourcePath := none }
 
-/-- Read without modifying the input; retain the exact text separately from target metadata. -/
-def read (path : System.FilePath) (selector : String) : IO (Except Error InputResult) := do
+/-- Read once and retain readable source text even when validation fails. -/
+def readWithSource (path : System.FilePath) (selector : String) :
+    IO (Option String × Except Error InputResult) := do
   try
     let source ← IO.FS.readFile path
-    return (parse source selector).map fun result => { result with sourcePath := some path }
+    return (some source, (parse source selector).map fun result => { result with sourcePath := some path })
   catch error =>
-    return .error ⟨.io, path.toString, error.toString⟩
+    return (none, .error ⟨.io, path.toString, error.toString⟩)
+
+/-- Read without modifying the input; retain the exact text separately from target metadata. -/
+def read (path : System.FilePath) (selector : String) : IO (Except Error InputResult) := do
+  return (← readWithSource path selector).2
 
 end Workflow.Input
