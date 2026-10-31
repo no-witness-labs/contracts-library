@@ -3,6 +3,7 @@ import Workflow.Metadata.Property
 import Workflow.Tests.UP012.Profile
 import Formal.TxModels.Index
 import Formal.Properties.Index
+import Workflow.Generator.Single
 
 namespace Candidates.Catalogue
 
@@ -12,17 +13,27 @@ private structure Registration where
   provider : Provider
   entry : Formal.Properties.Entry
   modelIds : Array String
+  providerForModel : String → Except Error Provider
   checksPath : System.FilePath
 
 private def registrations : Array Registration := #[
   { provider := Candidates.UP001.provider
     entry := Formal.Properties.Universal.Index.up001
     modelIds := Candidates.UP001.modelIds
+    providerForModel := Candidates.UP001.providerForModel
     checksPath := "Candidates/combined-checks.json" },
   { provider := Workflow.Tests.UP012.Profile.provider
     entry := Formal.Properties.Universal.Index.up012
     modelIds := Candidates.UP012.modelIds
+    providerForModel := Workflow.Tests.UP012.Profile.providerForModel
     checksPath := "Workflow/Tests/UP012/combined-checks.json" }]
+
+def registeredChecks : Array Workflow.CheckId :=
+  registrations.flatMap fun registration =>
+    registration.modelIds.map fun modelId =>
+      { propertyId := registration.entry.id
+        definitionVersion := registration.entry.definitionVersion
+        modelId }
 
 /-- Compose the currently runnable candidate implementations and experimental profiles. -/
 def providers : Array Provider := registrations.map (·.provider)
@@ -97,5 +108,34 @@ def loadProvider (id : Option String) : IO (Except String Provider) := do
       (Workflow.CheckBinding.resolve definition modelId models checks).mapError fun message =>
         s!"Formal.TxModels.Index, {registration.checksPath}: {message}"
     return { provider with bindings := some bindings }
+
+/-- Resolve one exact registered combination without requiring unrelated bindings. -/
+def loadCheck (propertyId : String) (definitionVersion : Int) (modelId : String) :
+    IO (Except String ConfiguredCheck) := do
+  let registration ← match selectRegistration (some propertyId) with
+    | .ok value => pure value
+    | .error message => return .error message
+  unless registration.entry.definitionVersion == definitionVersion do
+    return .error s!"unsupported definition version {definitionVersion} for {propertyId}"
+  unless registration.modelIds.contains modelId do
+    return .error s!"{propertyId} has no registered model {modelId}"
+  let selected ← match registration.providerForModel modelId with
+    | .ok value => pure value
+    | .error error => return .error (toString error)
+  let definition ← match ← Workflow.PropertyDefinition.readRecord registration.entry.metadataPath with
+    | .ok value => pure value
+    | .error message => return .error message
+  let _ ← match withDefinitions (some propertyId) #[definition] with
+    | .ok value => pure value
+    | .error message => return .error s!"{registration.entry.metadataPath}: {message}"
+  let models ← match Workflow.TransactionModel.parseList Formal.TxModels.Index.toJson with
+    | .ok value => pure value
+    | .error message => return .error message
+  let checks ← match ← Workflow.CombinedCheck.read registration.checksPath with
+    | .ok value => pure value
+    | .error message => return .error message
+  return do
+    let binding ← Workflow.CheckBinding.resolve definition modelId models checks
+    return { context := { propertyDefinition := definition, binding }, generate := selected.generate }
 
 end Candidates.Catalogue

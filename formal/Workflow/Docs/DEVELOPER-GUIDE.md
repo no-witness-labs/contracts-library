@@ -20,14 +20,14 @@ types stay at the bank root; the bank imports no workflow modules.
 adapters. UP-001 uses [Candidates/UP001.lean](../../Candidates/UP001.lean); UP-012
 uses [Candidates/UP012.lean](../../Candidates/UP012.lean) with the
 [pinned test profile](../Tests/UP012/Profile.lean). Metadata does not choose code.
-[App/ProductCLI.lean](../App/ProductCLI.lean) supplies the resolver to the generic
-`Workflow.Main.run` declaration in [App/Main.lean](../App/Main.lean).
-[App/CLI.lean](../App/CLI.lean) retains the legacy `universal` executable.
+[App/ProductCLI.lean](../App/ProductCLI.lean) supplies `registeredChecks` and the
+exact `loadCheck` resolver to generic [App/Run.lean](../App/Run.lean).
+[App/CLI.lean](../App/CLI.lean) and [App/Main.lean](../App/Main.lean) retain the
+legacy `universal` executable and its bundled provider path.
 
-Current providers can emit several combinations in a plan. The agreed future
-core separates preparation from verification of one combination; this cleanup
-does not add that API or batch selection. Preserve each definition's actual model
-domain, bounds, and restrictions when adapting it.
+The product app repeats the callable core for exact property/version/model
+identities. Legacy providers can still emit several combinations in a plan.
+Preserve each definition's actual domain, bounds, and restrictions when adapting it.
 
 ## Metadata and schemas
 
@@ -91,10 +91,13 @@ tracks their wider migration and other branches.
 Every* models expose full `TxInfo` and purpose fields; the theorem supplies a raw
 redeemer. [Common.mkCtx](../../Formal/TxModels/Common.lean) assembles the context.
 UP-001 selects only purposes absent from the target's declared handlers, applying
-acceptance within 5,000,000 steps. It adds no ledger-validity premise.
+acceptance within 5,000,000 steps. The registry contains all six purpose models;
+selecting a declared-purpose model produces an empty INCONCLUSIVE attempt with
+an explanation. It adds no ledger-validity premise.
 
 UP-012 applies one primary statement and a supporting applicability predicate to
-Claim and Cancel, producing four obligations. Baseline models have one signer;
+Claim and Cancel. Each of the two combinations has a property and linked
+applicability obligation, for four obligations across both. Baseline models have one signer;
 the property removes it to construct a second context outside that baseline family.
 Its `validScriptContext` conditions are explicit premises, not guarantees of the
 constructor or evidence of ledger reachability. The profile accepts only the
@@ -105,7 +108,7 @@ the expanded formulas. Tests keep kernel-checked equivalences to frozen legacy
 formulas. The retain-signer negative control uses independent legacy formulas and
 clears official metadata when changing the property proposition.
 
-| Generated file | Contents |
+| Per-check generated file | Contents |
 | --- | --- |
 | `Generated/Workflow/Types.lean` | Embedded compiled program, argument conversion, acceptance predicate; UP-012 also aliases native data/redeemer types and defines rejection |
 | `Generated/Workflow/Tx.lean` (UP-012) | Aliases for native Claim/Cancel model types, constructors, and datum helper |
@@ -125,8 +128,9 @@ correspondence beyond the checked model.
 
 ## Attribution, applicability, and failure evidence
 
-The catalogue loads metadata once. The generation plan, execution observations,
-and report preserve exact snapshots. `propertyDefinition` retains the property
+The app resolves each selected binding before looping over validators and reuses
+that configured check. The generation plan, execution observations, and assessed
+result preserve exact snapshots. `propertyDefinition` retains the property
 record. Each job/row retains `txModelId`, `transactionModel`, `combinedCheck`, and
 the submitted `statement`, identified by module/name. Snapshot changes prevent
 the affected evidence from supporting a conclusive result; raw observations remain.
@@ -134,18 +138,20 @@ The theorem expression depends on the imported native definition, so it is not
 a complete source/dependency fingerprint.
 
 An applicability obligation has the same model/combination as its explicitly
-linked property job. Reporter checks the exact module/name link, role, expected
+linked property job. Assessor checks the exact module/name link, role, expected
 Valid result, and snapshot agreement. Successful applicability qualifies only the
 property's own observation. Falsified or unavailable applicability leaves the
 linked property INCONCLUSIVE. Independent trustworthy failures retain precedence;
 untrusted or incomplete module evidence cannot establish a passing property.
 
-Direct API providers can remain explicitly metadata-free. Known property metadata
-survives intake, generation, and execution-preparation failure reports when lookup
-succeeds. If intake and catalogue lookup both fail, intake retains precedence.
-Readable failed input and effective run arguments are retained by the coordinator.
-See the user guide for `input.json`, `invocation.json`, and actual attempted
-compiler command details in `execution.json`.
+Direct legacy providers can remain explicitly metadata-free; the single-check
+core requires the exact configured binding. A preparation error belongs to the
+validator's run-index entry because no prepared target exists for a CheckResult.
+Catalogue/load errors belong to the selected check entry. Generation/execution
+failures after preparation preserve the selected identity in an INCONCLUSIVE
+CheckResult when storage permits. The coordinator retains readable failed input,
+selection snapshots, effective arguments, and available execution files. See the
+user guide for `run.json`, `input.json`, and command details in `execution.json`.
 
 Generated output remains local. Tests that use fixed validators/models are evidence
 of those bounded scenarios; their fixtures are not client onboarding requirements.
@@ -153,7 +159,8 @@ Generalizing UP-012 or redefining its required-signer meaning remains separate w
 
 ## Module paths and validation
 
-Lean declaration namespaces stay unchanged. Update module imports to these paths:
+Existing workflow declaration names remain available. Reporter status/row types
+are compatibility aliases to Assessor. Update module imports to these paths:
 
 | Former import | Current import |
 | --- | --- |
@@ -165,7 +172,7 @@ Lean declaration namespaces stay unchanged. Update module imports to these paths
 | `Workflow.PropertyDefinition` | `Workflow.Metadata.Property` |
 | `Workflow.ModelMetadata` | `Workflow.Metadata.TxModel` |
 
-The four component imports and `import Workflow` remain available. Executables
+Public component imports and `import Workflow` remain available. Executables
 remain `plutus-upv` and `universal`; Lake roots now point into App/. Imports in
 other branches must follow this table when integrating the cleanup.
 
@@ -174,3 +181,107 @@ from `formal/`. The [test index](../Tests/README.md) lists focused commands and
 intentional negative controls. A fresh build must succeed before running test
 executables. New properties/models need an implemented registered binding and
 appropriate applicability/integrity tests; adding metadata alone cannot run a check.
+
+## Callable single-check API
+
+Import `Workflow.App.Verification` for separately callable preparation and one-check
+verification. Preparation returns the source snapshot and an intake result. A
+configured engine holds operational settings once; `verifyOne` takes the prepared
+validator and configured check as its two logical inputs.
+
+```lean
+import Workflow.App.Verification
+import Candidates.Catalogue
+
+open Workflow
+
+def verifyMint (leanPath : String) : IO Assessor.CheckResult := do
+  let preparation ← Verification.prepare "Workflow/Tests/UP001/Inputs/plutus.json" "vault.vault"
+  let prepared ← IO.ofExcept (preparation.result.mapError toString)
+  let check ← IO.ofExcept (← Candidates.Catalogue.loadCheck "UP-001" 1 "TxM-001")
+  let engine : Verification.Engine := {
+    options := { leanPath, budgetMs := 120000, outputRoot := some "output" } }
+  engine.verifyOne prepared check
+```
+
+The caller prepares the Lean dependency search path as it does for Executor.
+Timeout, tool commands, and output location are engine configuration, distinct
+from the CEK bound inside the registered property/model binding. Metadata belongs
+to the configured combo and is retained with the result.
+
+The catalogue resolves only the exact registered property/version/model. A new
+JSON record cannot add executable code. Single-model adapters generate only the
+chosen obligations: one undeclared purpose for UP-001, or one UP-012 main/applicability
+pair. The core rejects mixed bindings, support-only plans, orphan applicability,
+and empty plans containing executable modules. Registered generators remain trusted
+code; metadata checks alone cannot inspect arbitrary Lean semantics. Tests check
+the exact selected theorem set across generated sources.
+
+Each call uses the captured validator source without rereading and returns the
+[Assessor's six-field CheckResult](../Assessor/README.md). It prints nothing.
+An attempt retains `input.json`, `check-result.json`, and execution files when
+available in its own directory. Unsupported or empty attempts keep the selected
+combination and explanation; empty means INCONCLUSIVE. Preparation failure stays
+an intake result because there is no prepared validator to verify.
+
+The result references files found during retention and exposes the prepared-input
+path only after a successful write. If creating/saving evidence fails, the returned
+result is INCONCLUSIVE with reasons. `Executor.Options.directory` lets a configured
+engine reserve one fresh check workspace. The engine rejects an existing
+directory; Executor receives that reserved empty workspace. With this option,
+the core retains raw files in the same place even when Executor cannot save its
+manifest. The app also records the missing/invalid manifest as a retention error.
+
+The executor explicitly flushes source, log, and manifest writes and records
+`retention_errors` in a retained manifest. The app treats these as operational
+errors while keeping the assessed result and its link available.
+
+Without an explicit directory, the older fallback limitation remains: a manifest
+write error can leave the Executor's raw directory without a link from the core's
+separate incomplete attempt. Neither path promises recovery from every filesystem
+failure.
+
+## Callable application orchestration
+
+Import `Workflow.App.Run` to call
+`App.Run.runWith registry load request options`. The arguments supply registered
+`Workflow.CheckId` identities, their exact resolver, a `Workflow.App.Request`, and
+app/executor settings. The result is an `App.RunRecord`; the caller can render its
+terminal `text` and inspect `exitCode`. `App.Run.run` adds argument parsing and
+terminal printing for the product executable.
+
+The app reads the blueprint once, uses `Input.discover` to enumerate logical
+validator groups, and prepares each selected validator once from that snapshot.
+`App.Selection` owns CLI and JSON-switch selection. Defaults choose all logical
+validators and all eight registered combinations. Repeat `--validator` or
+`--check` to narrow them, or use `--checks-file` with a flat property-ID/boolean
+object. With a file, only explicit `true` entries run. Unknown IDs and nonboolean
+values are errors; property flags and a file cannot be combined. An empty enabled
+set is a valid no-op and establishes no property.
+
+Each combination receives its own operational time limit and workspace. The app
+continues independent checks after FAIL, INCONCLUSIVE, or a validator preparation
+error. It preserves the existing core assessment policy, six-field CheckResult,
+native definitions, and CEK bounds. The terminal counts combinations rather than
+supporting obligations and has no overall verification verdict.
+
+`App.Output` stores a checkpointed `run.json` in a fresh
+`output/run.<timestamp>.<unique-id>/` folder. Root input/config snapshots accompany
+validator/check folders containing results, generated modules, and raw files.
+The index retains canonical names, planned identities, run-relative result paths,
+and errors. The app safely encodes names into filesystem components. Existing
+CheckResults preserve their actual evidence paths. The app checks that each saved
+result matches the returned assessment before linking it from the index.
+
+`finished` records completion of orchestration, separately from proof outcomes.
+An interrupted run can leave the last successfully saved index unfinished.
+Product exit `0` means normal app completion/retention, including ordinary FAIL
+or INCONCLUSIVE results. Input, preparation, catalogue, app, or storage errors use
+exit `2`. The legacy `universal` entry point keeps its earlier report formats and
+verdict-based `0`/`1`/`2` exits.
+
+The app owns terminal presentation independently of final reporting. The separate
+human-friendly report consumes retained results in future
+[issue #83](https://github.com/no-witness-labs/contracts-library/issues/83); its
+contents and format remain undecided. UP-012's intended universal redesign stays
+in [issue #33](https://github.com/no-witness-labs/contracts-library/issues/33).
