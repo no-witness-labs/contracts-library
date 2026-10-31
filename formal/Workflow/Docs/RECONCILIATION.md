@@ -21,7 +21,7 @@ the owner approved 5,000,000 steps for UP-001. The [validation history](VALIDATI
 keeps the two checkpoints distinct. Full feature parity remains incomplete;
 deferred items remain visible gaps in issue #39's acceptance scope.
 
-The Lean CLI is the active prototype workflow. Git history at
+The `plutus-upv` Lean app is the active prototype workflow. Git history at
 `2ef7d11d48018fce48dd17de6fa94ff8d0574d7f` retains the legacy Python runner and
 its runner-specific tests. The shared
 `scripts/process_blueprint.py` translator remains for other candidate work.
@@ -32,29 +32,60 @@ and attributed source to demonstrate PASS and FAIL. Input-error and timeout
 examples demonstrate INCONCLUSIVE. See the [delivery checks](VALIDATION.md)
 for their results.
 
+## Current delivery status
+
+The product app now runs all logical validators and all eight registered
+property-definition/model combinations by default: six UP-001 purpose models and
+two experimental UP-012 vesting models. Repeated `--validator` and `--check`
+options filter that work. `--checks-file` instead enables only properties marked
+`true`, selecting all their registered combinations. An empty selection is a no-op
+and establishes no passing property. The registry supplies executable bindings;
+metadata alone cannot add a check or choose executable code.
+
+The callable core is Input → Generator → Executor → Assessor → CheckResult.
+The app captures one blueprint, prepares each selected validator once, and repeats
+that core over the selected combinations. It owns orchestration, per-validator
+PASS/FAIL/INCONCLUSIVE counts, the terminal summary, and local run files/index.
+Counts represent combinations, not supporting applicability obligations. The app
+assigns no overall verification verdict. The separate human-friendly final report
+remains deferred in [issue #83](https://github.com/no-witness-labs/contracts-library/issues/83).
+The legacy `universal` command retains its earlier report files and verdict-based
+exit codes.
+
+[formal/install.sh](../../install.sh) builds the app and installs a launcher linked
+to the retained checkout. `plutus-upv run` defaults to `plutus.json` in the caller's
+directory. Installation requires the existing Lean/proof-tool environment; it does
+not provision a managed runtime or build the caller's Aiken project.
+
 ## Behavior inventory
 
-| Area | PR #47 | Modular prototype | Disposition |
+| Area | PR #47 | Current modular workflow | Disposition |
 | --- | --- | --- | --- |
-| Input selection | Several validators per command; requires a spend handler and `name.name.handler` titles | One validator per request, canonical or unambiguous short name; validates explicit V3 metadata and decodes code | Keep the current Input contract; defer batch orchestration |
-| Schema handling | Translates datum and redeemer schemas into bounded symbolic data | Input preserves schemas; UP-001 uses raw redeemer data without schema translation | Review the translation before adding checks that need it |
-| Parameters | Rejects any entry with a `parameters` field, including an empty array | Input preserves descriptions; Generator accepts absent or empty lists and rejects nonempty lists | Typed parameter generation is separate work, not behavior supplied by PR #47 |
-| Candidate checks | UP-000, UP-001, UP-002, UP-004, UP-005, and UP-011 | UP-001 from PR #49 with the reviewed 5,000,000-step bound; experimental UP-012 vesting suite from PR #55 | Keep the broader UP-001 domains; other PR #47 providers remain deferred |
+| Input selection | Several validators per command; requires a spend handler and `name.name.handler` titles | App defaults to all logical validators; Input prepares each selected validator, accepts canonical or unambiguous short names, validates explicit V3 metadata, and decodes code | App supplies batch orchestration; additional input formats remain separate work |
+| Schema handling | Translates datum and redeemer schemas into bounded symbolic data | Input preserves schemas; UP-001 uses raw redeemer data without schema translation | General schema translation/integration remains open; review the old translation before reuse |
+| Parameters | Rejects any entry with a `parameters` field, including an empty array | Input preserves descriptions; current adapters accept absent or empty lists and reject nonempty lists | Typed parameter generation/application remains open; PR #47 does not supply it |
+| Candidate checks | UP-000, UP-001, UP-002, UP-004, UP-005, and UP-011 | Registry supplies six UP-001 purpose combinations at 5,000,000 steps and two experimental UP-012 vesting combinations; CLI filters registered properties | Keep the reviewed UP-001 domains; additional property families remain open |
+| Metadata and models | Generator-owned check definitions and transaction builders | Native property/model banks, checked metadata, and fixed executable bindings; selected snapshots follow generated obligations and assessed results | Native banks supply metadata/binding integration; general transaction-model authoring remains open |
 | Cases and reachability | Full constructor splits, weaker quick mode, and UNREACHED classification using UP-000 | No schema case splitting or cross-check reachability classification | Review case domains and aggregation before porting spend checks |
-| Generated code | Embeds script bytes in the generated Base module; writes modules in the checkout | Embeds script bytes in generated Types; Executor writes to a fresh evidence directory | Retain embedded artifacts and isolated execution |
-| Execution | Parallel check modules; default four workers and 600 seconds per check module | Sequential modules under one shared budget, default 30,000 ms; scoped JSON observations | Keep the current Executor contract; defer scheduling and budget options |
-| Reports | Expected Valid/Falsified results, witnesses, HOLE/REVIEW labels, waivers, expiry, and off switches | Expected Valid/Falsified results, PASS/FAIL/INCONCLUSIVE, text/JSON summaries, and raw evidence | Keep simple reporting; exceptions and expanded interpretation remain deferred |
-| Command options | Generate-only mode, Nix wrapper, preprocessing, and optional removal of validity hypotheses | Prepared checkout and provider selection; pure generation API, without those CLI options | Defer packaging and convenience options; semantic options require review |
+| Generated code | Embeds script bytes in the generated Base module; writes modules in the checkout | Embeds script bytes in generated Types; each combination uses a fresh evidence directory | Retain embedded artifacts and isolated execution |
+| Execution | Parallel check modules; default four workers and 600 seconds per check module | Sequential combinations; default 30,000 ms per validator/check combination, shared across that combination's generated modules | CLI supplies timeout configuration; parallel scheduling remains open |
+| Assessment and outputs | Expected Valid/Falsified results, witnesses, HOLE/REVIEW labels, waivers, expiry, and off switches | Assessor qualifies one CheckResult; app displays combination counts and retains structured results, raw evidence, and a run index; `--checks-file` controls property selection | Final report #83 and waiver/expiry handling remain open; legacy `universal` keeps `report.json`/`report.txt` |
+| Commands and installation | Generate-only mode, Nix wrapper, preprocessing, and optional removal of validity hypotheses | Checkout-backed installer and launcher, caller-directory `plutus.json` default, run/test commands, pure generation and callable verification APIs | Managed runtime packaging, developer convenience commands, and semantic options remain open |
 
 The [old generator][old-generator] implements the reference behavior. Current
 contracts live in the [Input](../Input/README.md), [Generator](../Generator/README.md),
-[Executor](../Executor/README.md), and [Reporter](../Reporter/README.md) guides.
-The comparison uses source inspection and modular-provider experiments;
-PR #47's original proofs were not rerun.
+[Executor](../Executor/README.md), and [Assessor](../Assessor/README.md) guides.
+The [developer guide](DEVELOPER-GUIDE.md) maps native definitions, models, bindings,
+and app composition. [Reporter](../Reporter/README.md) retains the legacy reporting
+API; final client-report design remains separate. The comparison uses source
+inspection and earlier modular-provider experiments; PR #47's original proofs
+were not rerun. This documentation refresh adds no new proof-suite result.
 
 UP-012 comes from its separate candidate PR #55 and issue #33. It removes the
 first signer in supplied vesting shapes and includes applicability statements.
-It is separate from PR #47's UP-002 no-signature checks.
+It is separate from PR #47's UP-002 no-signature checks. Its current adapters use
+the pinned vesting artifact and fixed Claim/Cancel models; broader applicability
+and its intended universal meaning remain open.
 
 ## Reviewed UP-001 scope
 
@@ -92,6 +123,30 @@ support the stated bounded claims; they do not establish full PR #47 parity.
 
 ## Work split and next checkpoint
 
+### Open follow-up tracking
+
+The following issues track the remaining work. They record proposals and pending
+decisions; listing an option does not approve its implementation or semantic
+changes. The existing definition/foundation issues retain their own scope.
+
+| Remaining work | Open issue |
+| --- | --- |
+| General typed blueprint integration and validator parameters | [#88](https://github.com/no-witness-labs/contracts-library/issues/88); extracted foundation review stays [#46](https://github.com/no-witness-labs/contracts-library/issues/46) |
+| Transaction-model authoring and per-action skeleton proposal | [#89](https://github.com/no-witness-labs/contracts-library/issues/89); composable builders stay [#38](https://github.com/no-witness-labs/contracts-library/issues/38) |
+| Aiken project detection, build, and stable blueprint intake | [#90](https://github.com/no-witness-labs/contracts-library/issues/90) |
+| Managed Linux prerequisites and runtime delivery | [#91](https://github.com/no-witness-labs/contracts-library/issues/91) |
+| Developer commands, counterexample/saved-log inspection, and live progress | [#92](https://github.com/no-witness-labs/contracts-library/issues/92) |
+| Review case domains, reachability, quick/preparation modes, and validity handling | [#93](https://github.com/no-witness-labs/contracts-library/issues/93); UP-000 definition stays [#22](https://github.com/no-witness-labs/contracts-library/issues/22) |
+| Bounded parallel check scheduling | [#94](https://github.com/no-witness-labs/contracts-library/issues/94) |
+| Reviewed exceptions, waivers, and expiry policy | [#95](https://github.com/no-witness-labs/contracts-library/issues/95) |
+| Workflow integration of further reviewed candidate families | [#96](https://github.com/no-witness-labs/contracts-library/issues/96); definitions remain in candidate issues #22 through #37, including [UP-012 #33](https://github.com/no-witness-labs/contracts-library/issues/33) |
+| Final human-friendly report | [#83](https://github.com/no-witness-labs/contracts-library/issues/83) |
+| Wider metadata migration and remaining schema decisions | [#66](https://github.com/no-witness-labs/contracts-library/issues/66), [#65](https://github.com/no-witness-labs/contracts-library/issues/65) |
+| Hosted formal CI and its result policy | [#42](https://github.com/no-witness-labs/contracts-library/issues/42) |
+| Owner acceptance, retained #47 scope, and closure decision | [#39](https://github.com/no-witness-labs/contracts-library/issues/39) |
+
+### Historical checkpoint evidence
+
 | Stage | Scope | Status |
 | --- | --- | --- |
 | Light documentation | Inventory retained behavior, deferred features, and semantic differences | Recorded here |
@@ -105,5 +160,5 @@ owner decisions.
 
 [old-generator]: https://github.com/no-witness-labs/contracts-library/blob/0dde8ae76e3f8a239bf06685f72327aed4a7c3ef/formal/scripts/GenUniversalChecks.lean
 [old-predicates]: https://github.com/no-witness-labs/contracts-library/blob/0dde8ae76e3f8a239bf06685f72327aed4a7c3ef/formal/Formal/Common.lean
-[new-provider]: ../Candidates/UP001.lean
+[new-provider]: ../../Candidates/UP001.lean
 [new-contexts]: https://github.com/no-witness-labs/contracts-library/blob/d3bce414a3417b9227fa92f1e0a33672d2829749/formal/Formal/Universal/Properties.lean
