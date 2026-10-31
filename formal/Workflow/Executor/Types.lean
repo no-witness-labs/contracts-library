@@ -62,6 +62,8 @@ structure Result where
   modules : Array ModuleObservation := #[]
   jobs : Array JobObservation := #[]
   problems : Array String := #[]
+  /-- File retention failures, separate from inconclusive verification outcomes. -/
+  retentionErrors : Array String := #[]
   elapsedMs : Nat := 0
   propertyDefinition : Option PropertyDefinition := none
 
@@ -72,6 +74,8 @@ structure Options where
   timeoutCommand : String := "timeout"
   /-- Parent for fresh run directories; none uses the system temporary directory. -/
   outputRoot : Option System.FilePath := none
+  /-- An existing empty workspace reserved by the coordinator, when supplied. -/
+  directory : Option System.FilePath := none
   /-- One shared wall-clock budget across generated modules. -/
   budgetMs : Nat := 30000
 

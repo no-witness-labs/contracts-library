@@ -56,7 +56,7 @@ private def retainIn (directory : System.FilePath) (prepared : InputResult)
 private def retain (engine : Engine) (prepared : InputResult)
     (directory : Option System.FilePath) (result : Assessor.CheckResult) : IO Assessor.CheckResult := do
   let destination ← try
-    let path ← match directory with
+    let path ← match directory.or engine.options.directory with
       | some value => pure value
       | none => Executor.createRunDirectory engine.options.outputRoot
     pure (.ok path : Except String System.FilePath)
@@ -69,6 +69,18 @@ private def retain (engine : Engine) (prepared : InputResult)
 /-- Verify exactly one combination against an already prepared validator snapshot. -/
 def Engine.verifyOne (engine : Engine) (prepared : InputResult)
     (check : Generator.ConfiguredCheck) : IO Assessor.CheckResult := do
+  -- Reserve a configured workspace once so executor failures retain their raw files.
+  let engine ← match engine.options.directory with
+    | none => pure engine
+    | some path =>
+      try
+        if let some parent := path.parent then IO.FS.createDirAll parent
+        IO.FS.createDir path
+        let directory ← IO.FS.realPath path
+        pure { engine with options := { engine.options with directory := some directory } }
+      catch error =>
+        return retentionFailure (Assessor.failure prepared.target check.context
+          "verification could not reserve its workspace") s!"could not create check evidence directory: {error}"
   match Generator.generateOne check prepared.target "Generated.Workflow" with
   | .error error =>
     retain engine prepared none (Assessor.failure prepared.target check.context (toString error))
