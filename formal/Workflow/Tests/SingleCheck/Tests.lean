@@ -1,4 +1,5 @@
 import Workflow.App.Verification
+import Workflow.App.Run
 import Workflow.Tests.Support
 import Candidates.Catalogue
 
@@ -341,16 +342,25 @@ private def coordinatorChecks (validSource : String) : IO Unit := do
 
 private def realCase (property model blueprint selector : String) (budget : Nat)
     (status : Assessor.Status) (expectedNames : Array String) : IO Unit := do
-  Workflow.Tests.Support.startCase s!"Core: {property} / {model} / {selector}"
+  Workflow.Tests.Support.startCase s!"App/core: {property} / {model} / {selector}"
     s!"{status.label}; {expectedNames.size} selected obligations"
-    "direct API: prepare -> loadCheck -> Engine.verifyOne" budget
-  let input ← prepared blueprint selector
+    "runWith -> captured preparation -> loadCheck -> Engine.verifyOne" budget
   let configured ← loaded property model
   let leanPath := (← IO.getEnv "LEAN_PATH").getD ""
   ensure "real core tests receive a prepared Lean search path" (!leanPath.trim.isEmpty)
-  let engine : Verification.Engine := {
-    options := { leanPath, budgetMs := budget, outputRoot := some "output" } }
-  let result ← engine.verifyOne input configured
+  let id : CheckId := { propertyId := property, definitionVersion := 1, modelId := model }
+  let run ← App.Run.runWith #[id]
+    (fun selected => Candidates.Catalogue.loadCheck selected.propertyId selected.definitionVersion selected.modelId)
+    { path := blueprint, validators := #[selector], timeoutMs := budget }
+    { executorOptions := { leanPath }, outputRoot := "output" }
+  ensure "real app run finishes and stores its selected result" (run.finished && run.exitCode == 0)
+  ensure "real app selection contains one validator and one exact combination"
+    (run.validators.size == 1 && run.validators[0]!.name == selector &&
+     run.validators[0]!.checks.size == 1 && run.validators[0]!.checks[0]!.id == id)
+  let some result := run.validators[0]!.checks[0]!.result
+    | throw (IO.userError "real app case has no assessed result")
+  ensure "real app index matches the retained run"
+    ((← IO.ofExcept (Json.parse (← IO.FS.readFile (run.directory / "run.json")))) == run.toJson)
   let directory ← evidenceDirectory result
   IO.println s!"CheckResult: {directory / "check-result.json"}"
   IO.println s!"Status: {result.status.label}; obligations: {result.obligations.size}"
@@ -382,6 +392,6 @@ def run : IO Unit := do
     120000 .fail #["otherPurpose_mint"]
   realCase "UP-012" "TxM-007" "Workflow/Tests/UP012/Inputs/plutus.json" "linear_vesting.linear_vesting"
     300000 .pass #["dropSigner_claim", "dropSigner_claim_applies"]
-  IO.println "Single-check core checks passed."
+  IO.println "Single-check core and app solver checks passed."
 
 end Workflow.Tests.SingleCheck

@@ -2,8 +2,10 @@
 
 Plutus UPV (Universal Property Verifier) checks universal properties against
 compiled Plutus validators using ordinary Lean code and configured proof tools.
-The prototype supports the documented Aiken-style Plutus V3 blueprint profile,
-one selected validator, UP-001, and an experimental pinned UP-012 vesting suite.
+The prototype supports the documented Aiken-style Plutus V3 blueprint profile.
+The app processes all logical validators and all eight registered property/model
+combinations by default, with optional validator/property filters and a property
+switch file. UP-012 remains an experimental pinned vesting profile.
 
 | Guide | Use |
 | --- | --- |
@@ -18,11 +20,13 @@ one selected validator, UP-001, and an experimental pinned UP-012 vesting suite.
 Input → Generator → Executor → Assessor → CheckResult
 ```
 
-Input selects a validator and validates its embedded compiled program. Generator
+Input discovers logical validators and validates each selected embedded program. Generator
 constructs obligations through a supplied provider. Executor runs Lean under a
-shared execution budget and retains observations. Assessor qualifies them into
-one structured CheckResult. Reporter retains the existing CLI presentation; a
-final client report over multiple CheckResults remains separate work.
+shared budget for one combination and retains observations. Assessor qualifies
+them into one structured CheckResult. The app repeats the core over selected
+validators/combinations, retains run files, and calculates the terminal summary.
+The final human-friendly report remains separate work in
+[issue #83](https://github.com/no-witness-labs/contracts-library/issues/83).
 
 | Location | Responsibility |
 | --- | --- |
@@ -30,8 +34,8 @@ final client report over multiple CheckResults remains separate work.
 | [Generator/](Generator/README.md) | Pure generation of Lean modules and declared check jobs |
 | [Executor/](Executor/README.md) | Isolated runs, process deadlines, diagnostics, and evidence |
 | [Assessor/](Assessor/README.md) | Expected/observed comparison, applicability, and one-check results |
-| [Reporter/](Reporter/README.md) | Existing CLI summaries and the later client-report boundary |
-| `App/` | CLI entry points, candidate resolution, and application coordination |
+| [Reporter/](Reporter/README.md) | Legacy report/CLI compatibility and the later client-report boundary |
+| `App/` | CLI selection, blueprint orchestration, run files/index, and terminal rendering |
 | `Types/` | Shared target/input and generation/job contracts |
 | `Metadata/` | Property/model metadata readers and binding validation |
 | [Tests/](Tests/README.md) | Component controls and the UP001/UP012 workflow scenarios |
@@ -56,28 +60,42 @@ implementations. Application composition supplies those dependencies.
 - UP-012 applies the experimental signer-removal definition to the fixed Claim
   and Cancel models. Its applicability obligations qualify the corresponding
   property obligations. It is not a general required-signer audit for new validators.
-- A qualified, trustworthy FAIL takes aggregate precedence. Missing, interrupted,
-  or untrusted evidence cannot establish PASS. An empty plan is INCONCLUSIVE.
+- Within one combination, a qualified, trustworthy FAIL takes precedence. Missing,
+  interrupted, or untrusted evidence cannot establish PASS. An empty plan is
+  INCONCLUSIVE. The app displays per-validator counts without an overall verdict.
 - Solver observations inherit Blaster's SMT trust boundary. Model validity,
   ledger reachability, source correspondence, and protocol relevance are separate
   questions. Clients assess which reported claims matter to their protocol.
-- Generated sources, inputs, reports, and raw logs appear only in ignored local
-  output directories. Fixed fixtures remain committed for repeatable tests.
+- Each app invocation retains results, inputs, generated sources, and raw logs in
+  a fresh ignored local output folder, grouped by validator and check. A run index
+  links results and records incomplete work/errors. Fixed fixtures stay committed.
 
-## Core boundary and next work
+## Core boundary and application outputs
 
 The [callable core](Docs/DEVELOPER-GUIDE.md#callable-single-check-api) separates
 validator preparation from verification of one property-definition/model combination
 with its linked proof obligations. Engine settings hold operational timeouts and
-tool configuration. Current CLI providers still bundle combinations through the
-legacy path. Later orchestration can repeat single-check calls over validators
-and properties and assemble their results into a client report.
+tool configuration. The app captures the blueprint once, prepares each selected
+validator once, and gives every selected combination its own operational timeout.
+Individual check or validator preparation failures do not stop independent work.
 
-The current command defaults to UP-001. Batch selection, all/list/config syntax,
-outer budget policy, expanded reports, additional input formats, typed parameter
-application, and property-design improvements require separate reviewed work.
-Issue #39 tracks the workflow; #33 tracks UP-012's semantic design and #66 tracks
-the wider catalogue/cross-branch migration.
+The three outputs have separate responsibilities:
+
+| Output | Responsibility |
+| --- | --- |
+| Terminal summary | App-owned counts, timing, useful errors, and output paths |
+| Local run files | The index, captured inputs/configuration, assessed check results, generated Lean, and logs |
+| Final report | Future human-friendly presentation of retained results; contents/format remain undecided |
+
+The product exits `0` when orchestration and retention complete, including ordinary
+FAIL/INCONCLUSIVE outcomes, and `2` for input/preparation/catalogue/app/storage
+errors. An empty enabled selection is a no-op that establishes no property.
+The legacy `universal` executable preserves its bundled providers, report files,
+and verdict-based `0`/`1`/`2` exits for compatibility.
+
+Additional input formats, typed parameter application, and property-design
+improvements remain separate work. Issue #39 tracks the workflow; #33 tracks
+UP-012's intended universal design and #66 tracks wider catalogue migration.
 
 ## Glossary
 
@@ -103,4 +121,7 @@ the wider catalogue/cross-branch migration.
 | Generation plan | Modules, jobs, metadata, and notes for one generation request; currently it can bundle combinations |
 | Job observation | An attributed solver result and diagnostics, before comparison with the declared expectation |
 | Execution evidence | Retained sources, logs, process details, and observations for an attempt |
-| Check report | Qualified expected/observed comparisons, preserving scope and incomplete outcomes |
+| CheckResult | One assessed property/version/model combination, with obligations, scope, reasons, and evidence |
+| Terminal summary | The app's end-of-run table and operational details |
+| Run files | Local retained inputs, results, generated code, logs, and their index |
+| Final report | Human-friendly presentation of retained results, designed separately |

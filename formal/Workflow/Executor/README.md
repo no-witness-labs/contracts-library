@@ -25,10 +25,21 @@ produce errors before execution. The current Generator supplies `Types` before
 
 ## Budget and isolation
 
-Every run receives a new private directory. `Options.outputRoot` selects a parent
+By default, every run receives a new private directory. `Options.outputRoot` selects a parent
 folder; when absent, Executor uses the system temporary directory. A selected
-parent uses GNU `mktemp` to create a fresh `run.XXXXXXXX` folder. The CLI supplies
-`output`, so its reports and generated sources remain under `formal/output/`.
+parent uses GNU `mktemp` to create a fresh `run.XXXXXXXX` folder.
+
+`Options.directory` lets the coordinator supply a reserved, empty workspace.
+Executor rejects a populated workspace before writing sources. The single-check
+coordinator creates that directory once and retains it if execution or manifest
+writing fails. The product app uses this option to group files under
+`formal/output/run.<timestamp>.<unique-id>/validators/<validator>/<check>/`.
+Standalone calls and the legacy CLI retain automatic temporary-directory behavior.
+
+The execution manifest records `retention_errors` separately from verification
+outcomes. The app preserves an INCONCLUSIVE check result and reports an operational
+error when raw log retention fails. Sources, logs, and the manifest use explicit
+flushes so buffered write failures are visible before retention is accepted.
 
 Executor writes only inside the new run directory. Lean receives it as both the package root and the first
 module search path, and elaborates the supplied source directly.

@@ -28,6 +28,13 @@ private def registrations : Array Registration := #[
     providerForModel := Workflow.Tests.UP012.Profile.providerForModel
     checksPath := "Workflow/Tests/UP012/combined-checks.json" }]
 
+def registeredChecks : Array Workflow.CheckId :=
+  registrations.flatMap fun registration =>
+    registration.modelIds.map fun modelId =>
+      { propertyId := registration.entry.id
+        definitionVersion := registration.entry.definitionVersion
+        modelId }
+
 /-- Compose the currently runnable candidate implementations and experimental profiles. -/
 def providers : Array Provider := registrations.map (·.provider)
 

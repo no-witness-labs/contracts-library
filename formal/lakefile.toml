@@ -82,6 +82,18 @@ name = "workflow_single_check_tests"
 root = "Workflow.Tests.SingleCheck.Main"
 
 [[lean_exe]]
+name = "workflow_selection_tests"
+root = "Workflow.Tests.Unit.Selection.Tests"
+
+[[lean_exe]]
+name = "workflow_app_tests"
+root = "Workflow.Tests.Unit.App.Tests"
+
+[[lean_exe]]
+name = "workflow_installation_tests"
+root = "Workflow.Tests.Unit.Installation.Tests"
+
+[[lean_exe]]
 name = "universal"
 root = "Workflow.App.CLI"
 
