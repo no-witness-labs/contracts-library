@@ -3,6 +3,13 @@ import Workflow.Types.Jobs
 
 namespace Workflow
 
+/-- One exact property/version/model identity supported by registered code. -/
+structure CheckId where
+  propertyId : String
+  definitionVersion : Int
+  modelId : String
+  deriving BEq, Repr, Inhabited
+
 /-- Descriptive identity of one configured property/model combination. -/
 structure CheckContext where
   propertyDefinition : PropertyDefinition
