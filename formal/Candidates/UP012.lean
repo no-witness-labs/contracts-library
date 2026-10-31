@@ -109,6 +109,25 @@ def jobs (modulePrefix : String) : Array CheckJob :=
       { job with role := .applicability, applicability := none, txModelId := some cancelModelId }
     | _ => job
 
+/-- The property and applicability obligations for one registered action model. -/
+def jobsForModel (selectedModelId modulePrefix : String) : Except Error (Array CheckJob) := do
+  unless modelIds.contains selectedModelId do
+    throw ⟨.unsupported, s!"UP-012 has no registered model {selectedModelId}"⟩
+  return (jobs modulePrefix).filter (·.txModelId == some selectedModelId)
+
+/-- Generate only the selected action's declarations, using the same shared goals. -/
+def checksForModel (selectedModelId modulePrefix : String) : Except Error GeneratedModule := do
+  let selectedJobs ← jobsForModel selectedModelId modulePrefix
+  let header := ((checksTemplate.splitOn "/--").head?.getD "")
+  let declarations := selectedJobs.map fun job =>
+    let definition := if job.role == .applicability then "applicability" else "statement"
+    s!"theorem {job.name} :\n{job.statement} := by\n" ++
+      s!"  unfold Formal.Properties.Universal.UP012.{definition}\n  blaster\n"
+  return {
+    name := s!"{modulePrefix}.Checks"
+    source := render header modulePrefix ++
+      String.intercalate "\n" declarations.toList ++ s!"\nend {modulePrefix}\n" }
+
 def notes : Array String :=
   #[scope, "Each action's applicability obligation qualifies only its linked property obligation; all jobs retain their declared Valid expectation."]
 

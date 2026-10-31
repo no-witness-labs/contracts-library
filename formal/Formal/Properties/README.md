@@ -39,10 +39,10 @@ Every property folder must contain one metadata file using the shared
 record as an object. Individual-field required/optional and list-cardinality
 policy remain open; runtime use still requires the registered identity and version.
 
-The workflow's former [collection schema](../../Workflow/property-definition.schema.json)
-is a compatibility wrapper referencing this shared record schema. Register both
-schemas with a validator when checking collection documents. The old central
-`Candidates/property-definitions.json` source is replaced by these property files.
+The former workflow collection-schema wrapper is removed. Validate these records
+with the shared schema; array consumers can wrap it using `type: "array"` and
+an `items` reference to its `$id`. The Lean collection reader remains available.
+The old central `Candidates/property-definitions.json` source is replaced by these property files.
 Runtime reports retain the selected record and exact submitted theorem expressions.
 
 The legacy `U-*` catalogue under `Formal/Universal` is a separate set of entries.

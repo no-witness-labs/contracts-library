@@ -1,5 +1,10 @@
 # Validation history
 
+The checkpoints below preserve their original claims, bounds, and measurements.
+They refer to the code layouts and capabilities at those revisions. Consult the
+[overview](../README.md) and [user guide](USER-GUIDE.md) for current operation.
+Local test outputs are evidence of their recorded runs, not performance guarantees.
+
 ## Generated comments and independent unit checks
 
 Generated headers now identify their current Lean emitters while retaining the
@@ -69,7 +74,7 @@ distinct runs, retained source files, and a parent path that is a file.
 
 ## CLI delivery checks
 
-The [quickstart](QUICKSTART.md) uses the compiled vault fixtures from PR #47 at
+The [quickstart](USER-GUIDE.md) uses the compiled vault fixtures from PR #47 at
 `0dde8ae76e3f8a239bf06685f72327aed4a7c3ef`, with their source and dependency
 metadata now preserved under `Workflow/Tests/UP001/Inputs/`. The blueprint SHA-256 is
 `afd375487a56be74f83f60e7c94fc2008f6e79b418a7bde3f1575bb4c6c9b426`.

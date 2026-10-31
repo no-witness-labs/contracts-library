@@ -1,4 +1,4 @@
-import Workflow.PropertyDefinition
+import Workflow.Metadata.Property
 import Candidates.Catalogue
 import Workflow.Tests.Unit.Metadata.Models
 import Workflow.Tests.Unit.Metadata.Bindings

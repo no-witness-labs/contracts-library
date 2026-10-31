@@ -7,7 +7,7 @@ proofs are *about the spec* (the source of truth), not about any one
 implementation. See [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) §2.
 
 For Plutus UPV (Universal Property Verifier), use the
-[CLI quickstart](Workflow/QUICKSTART.md), which uses the installed Lean/Z3 tools
+[CLI quickstart](Workflow/Docs/USER-GUIDE.md), which uses the installed Lean/Z3 tools
 directly. From `formal/`, `./plutus-upv test` runs all workflow tests with verbose
 logs; `./plutus-upv run ...` verifies properties of a supplied compiled validator.
 The guide includes passing, failing, and inconclusive examples.

@@ -1,4 +1,4 @@
-import Workflow.Main
+import Workflow.App.Main
 
 open Lean Workflow
 
