@@ -15,20 +15,22 @@ one selected validator, UP-001, and an experimental pinned UP-012 vesting suite.
 ## Components and ownership
 
 ```text
-Input → Generator → Executor → Reporter
+Input → Generator → Executor → Assessor → CheckResult
 ```
 
 Input selects a validator and validates its embedded compiled program. Generator
 constructs obligations through a supplied provider. Executor runs Lean under a
-shared execution budget and retains observations. Reporter qualifies those
-observations and produces PASS, FAIL, or INCONCLUSIVE results.
+shared execution budget and retains observations. Assessor qualifies them into
+one structured CheckResult. Reporter retains the existing CLI presentation; a
+final client report over multiple CheckResults remains separate work.
 
 | Location | Responsibility |
 | --- | --- |
 | [Input/](Input/README.md) | Supported artifact intake, decoding, and target descriptions |
 | [Generator/](Generator/README.md) | Pure generation of Lean modules and declared check jobs |
 | [Executor/](Executor/README.md) | Isolated runs, process deadlines, diagnostics, and evidence |
-| [Reporter/](Reporter/README.md) | Expected/observed comparison, applicability, and summaries |
+| [Assessor/](Assessor/README.md) | Expected/observed comparison, applicability, and one-check results |
+| [Reporter/](Reporter/README.md) | Existing CLI summaries and the later client-report boundary |
 | `App/` | CLI entry points, candidate resolution, and application coordination |
 | `Types/` | Shared target/input and generation/job contracts |
 | `Metadata/` | Property/model metadata readers and binding validation |
@@ -37,7 +39,7 @@ observations and produces PASS, FAIL, or INCONCLUSIVE results.
 | [Formal/TxModels](../Formal/TxModels/README.md) | Native context constructors and their metadata |
 | `Candidates/` | Registered generation and composition adapters |
 
-The four component entry modules and `Workflow.lean` remain public imports.
+The component entry modules and `Workflow.lean` remain public imports.
 The components receive explicit inputs and do not import candidate or scenario
 implementations. Application composition supplies those dependencies.
 
@@ -64,11 +66,12 @@ implementations. Application composition supplies those dependencies.
 
 ## Core boundary and next work
 
-The agreed next core interface separates validator preparation from verification
-of one property-definition/model combination, with its linked proof obligations.
-That interface is not yet implemented: current providers and the CLI still bundle
-several model combinations for a selected property. Later run orchestration can
-repeat core attempts over validators and properties.
+The [callable core](Docs/DEVELOPER-GUIDE.md#callable-single-check-api) separates
+validator preparation from verification of one property-definition/model combination
+with its linked proof obligations. Engine settings hold operational timeouts and
+tool configuration. Current CLI providers still bundle combinations through the
+legacy path. Later orchestration can repeat single-check calls over validators
+and properties and assemble their results into a client report.
 
 The current command defaults to UP-001. Batch selection, all/list/config syntax,
 outer budget policy, expanded reports, additional input formats, typed parameter

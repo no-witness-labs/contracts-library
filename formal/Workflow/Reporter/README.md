@@ -1,9 +1,10 @@
 # Reporter component
 
-Reporter compares Executor observations with the jobs' declared expectations.
-It produces a plain-text summary, a small JSON report, and an exit code. This
-first version has no branding, rich layouts, expanded narrative, or waiver
-handling.
+Reporter retains the existing CLI's plain-text summary, JSON report, and exit
+code. Assessment of expectations, applicability, and evidence now belongs to
+[Assessor](../Assessor/README.md); `Reporter.build` delegates to that shared policy.
+The callable core returns one CheckResult. A later client Reporter will combine
+those records and provide final branding; that presentation is not implemented here.
 
 ## Outcomes
 

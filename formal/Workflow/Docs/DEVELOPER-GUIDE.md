@@ -153,7 +153,8 @@ Generalizing UP-012 or redefining its required-signer meaning remains separate w
 
 ## Module paths and validation
 
-Lean declaration namespaces stay unchanged. Update module imports to these paths:
+Existing workflow declaration names remain available. Reporter status/row types
+are compatibility aliases to Assessor. Update module imports to these paths:
 
 | Former import | Current import |
 | --- | --- |
@@ -174,3 +175,58 @@ from `formal/`. The [test index](../Tests/README.md) lists focused commands and
 intentional negative controls. A fresh build must succeed before running test
 executables. New properties/models need an implemented registered binding and
 appropriate applicability/integrity tests; adding metadata alone cannot run a check.
+
+## Callable single-check API
+
+Import `Workflow.App.Verification` for separately callable preparation and one-check
+verification. Preparation returns the source snapshot and an intake result. A
+configured engine holds operational settings once; `verifyOne` takes the prepared
+validator and configured check as its two logical inputs.
+
+```lean
+import Workflow.App.Verification
+import Candidates.Catalogue
+
+open Workflow
+
+def verifyMint (leanPath : String) : IO Assessor.CheckResult := do
+  let preparation ← Verification.prepare "Workflow/Tests/UP001/Inputs/plutus.json" "vault.vault"
+  let prepared ← IO.ofExcept (preparation.result.mapError toString)
+  let check ← IO.ofExcept (← Candidates.Catalogue.loadCheck "UP-001" 1 "TxM-001")
+  let engine : Verification.Engine := {
+    options := { leanPath, budgetMs := 120000, outputRoot := some "output" } }
+  engine.verifyOne prepared check
+```
+
+The caller prepares the Lean dependency search path as it does for Executor.
+Timeout, tool commands, and output location are engine configuration, distinct
+from the CEK bound inside the registered property/model binding. Metadata belongs
+to the configured combo and is retained with the result.
+
+The catalogue resolves only the exact registered property/version/model. A new
+JSON record cannot add executable code. Single-model adapters generate only the
+chosen obligations: one undeclared purpose for UP-001, or one UP-012 main/applicability
+pair. The core rejects mixed bindings, support-only plans, orphan applicability,
+and empty plans containing executable modules. Registered generators remain trusted
+code; metadata checks alone cannot inspect arbitrary Lean semantics. Tests check
+the exact selected theorem set across generated sources.
+
+Each call uses the captured validator source without rereading and returns the
+[Assessor's six-field CheckResult](../Assessor/README.md). It prints nothing.
+An attempt retains `input.json`, `check-result.json`, and execution files when
+available in a fresh run directory. Unsupported or empty attempts keep the selected
+combination and explanation; empty means INCONCLUSIVE. Preparation failure stays
+an intake result because there is no prepared validator to verify.
+
+The result references files found during retention and exposes the prepared-input
+path only after a successful write. If creating/saving evidence fails, the returned
+result is INCONCLUSIVE with reasons. One inherited limitation remains: if Executor
+cannot write `execution.json`, it returns an error without its existing directory
+reference. The core saves a separate incomplete attempt; earlier raw files may
+remain local without links in that result. This API does not promise complete
+recovery from every filesystem failure.
+
+Current CLI options, bundled behavior, shared run budgets, and reports remain
+available through the existing path. The callable API is the single-combination
+boundary for later orchestration. Multi-validator/property loops and a final
+branded report are not introduced by this checkpoint.

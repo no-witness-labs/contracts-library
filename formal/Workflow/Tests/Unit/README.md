@@ -9,6 +9,7 @@ lake exe workflow_executor_tests
 lake exe workflow_reporter_tests
 lake exe workflow_metadata_tests
 lake exe workflow_evidence_tests
+lake exe workflow_single_check_tests --unit
 lake exe workflow_runner_tests
 lake exe workflow_executor_integration
 lake exe workflow_reporter_integration
@@ -26,6 +27,9 @@ lake exe workflow_reporter_integration
 
 `workflow_generator_tests` runs only the generic Generator contract checks.
 The UP001 and UP012 workflow suites run their own candidate-specific checks.
+The [single-check suite](../SingleCheck/Tests.lean) provides controlled preparation,
+assessment, binding, isolation, and evidence-failure checks. Its default command
+also runs actual single-model solver cases; `--unit` omits those cases.
 
 The Input fixture preserves its original synthetic metadata and small decodable
 program `480100002221200101`, from the pinned [script-encoding test](https://github.com/input-output-hk/PlutusCoreBlaster/blob/4ef48606303c45225d3ed2e2a87fc50280a763b7/PlutusCore/UPLC/ScriptEncoding/Tests.lean#L12).
