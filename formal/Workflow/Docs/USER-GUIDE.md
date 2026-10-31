@@ -83,7 +83,7 @@ a launch failure retains the attempted command. These records describe the run
 and do not constitute a complete dependency or environment snapshot.
 
 For supporting definitions such as `EveryMint` and `EveryWithdraw`, use the
-[check file map](CHECK-FILES.md). Those definitions live in shared repository
+[check file map](DEVELOPER-GUIDE.md#generated-goals-and-supporting-files). Those definitions live in shared repository
 code that the generated checks import.
 
 ## Check the other outcomes
@@ -147,7 +147,7 @@ This experimental profile runs four original checks: signer removal for Claim
 and Cancel, plus an applicability check for each. It uses the candidate's
 1,000,000-step bound and supplied one-signer shapes. The command accepts only
 the pinned vesting artifact; other validators return INCONCLUSIVE/2. The
-[UP-012 test guide](Tests/UP012/README.md) describes its scope and restrictions.
+[UP-012 test guide](../Tests/UP012/README.md) describes its scope and restrictions.
 
 ## Test the tool
 
@@ -169,6 +169,6 @@ returns zero only when all required suites ran and passed. It continues with
 independent suites after a test failure, but stops on a build failure so stale
 executables cannot produce a false success.
 
-The [test index](Tests/README.md) lists individual commands for focused debugging.
+The [test index](../Tests/README.md) lists individual commands for focused debugging.
 UP-012 retains its fixed vesting scope and includes the intentional signer-identity
 negative control; changing that property definition remains separate work.

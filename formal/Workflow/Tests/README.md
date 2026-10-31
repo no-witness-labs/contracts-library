@@ -42,5 +42,5 @@ existing integration controls.
 
 Inputs and expected declarations are permanent test fixtures. Generated Lean
 sources, compiler artifacts, logs, and reports appear only in the local ignored
-`formal/output/` folders after a CLI run. The [file map](../CHECK-FILES.md) shows
+`formal/output/` folders after a CLI run. The [file map](../Docs/DEVELOPER-GUIDE.md#generated-goals-and-supporting-files) shows
 where supporting definitions live.
