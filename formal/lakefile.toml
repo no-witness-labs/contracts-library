@@ -78,6 +78,10 @@ name = "workflow_evidence_tests"
 root = "Workflow.Tests.Unit.Evidence.Tests"
 
 [[lean_exe]]
+name = "workflow_single_check_tests"
+root = "Workflow.Tests.SingleCheck.Main"
+
+[[lean_exe]]
 name = "universal"
 root = "Workflow.App.CLI"
 

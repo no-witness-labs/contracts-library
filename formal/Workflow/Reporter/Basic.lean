@@ -1,24 +1,16 @@
-import Workflow.Executor.Types
+import Workflow.Assessor.Basic
 
 namespace Workflow.Reporter
 
 open Lean
 
-inductive Status where
-  | pass | fail | inconclusive
-  deriving BEq, Repr
+abbrev Status := Assessor.Status
+abbrev Row := Assessor.Row
 
-def Status.label : Status → String
-  | .pass => "PASS"
-  | .fail => "FAIL"
-  | .inconclusive => "INCONCLUSIVE"
-
-structure Row where
-  job : CheckJob
-  observed : Option Executor.ObservedResult
-  status : Status
-  issues : Array String
-  evidenceComplete : Bool := false
+namespace Status
+export Assessor.Status (pass fail inconclusive)
+def label (status : Status) : String := Assessor.Status.label status
+end Status
 
 structure Report where
   target : String
@@ -35,106 +27,12 @@ def Report.exitCode (report : Report) : UInt32 :=
   | .fail => 1
   | .inconclusive => 2
 
-private def sameIdentity (left right : CheckJob) : Bool :=
-  left.name == right.name && left.moduleName == right.moduleName
-
-private def sameMetadata (left right : CheckJob) : Bool :=
-  sameIdentity left right && left.propertyId == right.propertyId &&
-    left.expected == right.expected && left.statement == right.statement && left.scope == right.scope &&
-    left.role == right.role && left.applicability == right.applicability &&
-    left.txModelId == right.txModelId && left.binding == right.binding
-
-private def matchesRef (reference : JobRef) (job : CheckJob) : Bool :=
-  reference.moduleName == job.moduleName && reference.name == job.name
-
-private structure CheckedObservation where
-  row : Row
-  trustworthy : Bool
-
-private def observe (execution : Executor.Result)
-    (integrityBroken : Bool) (job : CheckJob) : CheckedObservation := Id.run do
-  let found := execution.jobs.filter (fun result => sameIdentity result.job job)
-  let mut issues : Array String := #[]
-  let mut observed := none
-  let mut evidenceComplete := false
-  if integrityBroken then issues := issues.push "run attribution or generation plan is inconsistent"
-  match found.toList with
-  | [result] =>
-    observed := some result.observed
-    evidenceComplete := result.evidenceComplete
-    issues := issues ++ result.issues
-    unless sameMetadata job result.job do issues := issues.push "job metadata changed during execution"
-    unless evidenceComplete do issues := issues.push "execution evidence is incomplete for this obligation"
-  | [] => issues := issues.push "missing job observation"
-  | _ => issues := issues.push "duplicate job observations"
-  if job.role == .applicability then
-    unless job.expected == .valid do issues := issues.push "applicability must expect Valid"
-    unless job.applicability.isNone do issues := issues.push "applicability obligations cannot require another applicability obligation"
-  let trustworthy := issues.isEmpty && evidenceComplete &&
-    (observed == some .valid || observed == some .falsified)
-  let mut status := Status.inconclusive
-  if trustworthy then
-    if job.role == .applicability then
-      if observed == some .valid then status := .pass
-      else issues := issues.push "no applicable scenario in this model"
-    else
-      status := match observed with
-        | some .valid => if job.expected == .valid then .pass else .fail
-        | some .falsified => if job.expected == .falsified then .pass else .fail
-        | _ => .inconclusive
-  else if issues.isEmpty then
-    issues := issues.push (if job.role == .applicability then "applicability was not established"
-      else "no conclusive property observation")
-  return { row := { job, observed, status, issues, evidenceComplete }, trustworthy }
-
-/-- Qualify properties using their explicit applicability links, then aggregate results. -/
-def build (plan : GenerationPlan) (execution : Executor.Result) : Report := Id.run do
-  let mut problems := execution.problems
-  unless execution.state == .completed do
-    problems := problems.push s!"execution did not complete: {reprStr execution.state}"
-  if plan.jobs.isEmpty then problems := problems.push "no obligations were executed"
-  let mut integrityProblems : Array String := #[]
-  if plan.propertyDefinition != execution.propertyDefinition then
-    integrityProblems := integrityProblems.push "property definition metadata changed during execution"
-  if let .error message := plan.validateBindings then
-    integrityProblems := integrityProblems.push s!"invalid model binding: {message}"
-  if plan.jobs.isEmpty != (plan.status == .noObligations) then
-    integrityProblems := integrityProblems.push "generation status and job count disagree"
-  if execution.state == .noObligations && !plan.jobs.isEmpty then
-    integrityProblems := integrityProblems.push "execution reports no obligations for a nonempty plan"
-  if plan.jobs.any (fun job => (plan.jobs.filter (sameIdentity job)).size != 1) then
-    integrityProblems := integrityProblems.push "duplicate requested job"
-  if execution.jobs.any (fun result => !plan.jobs.any (sameIdentity result.job)) then
-    integrityProblems := integrityProblems.push "execution contains observations for unrequested jobs"
-  problems := problems ++ integrityProblems
-  let observations := plan.jobs.map (observe execution (!integrityProblems.isEmpty))
-  let mut rows := #[]
-  for observation in observations do
-    let mut row := observation.row
-    if row.job.role == .property then
-      if let some reference := row.job.applicability then
-        let supports := observations.filter (fun support => matchesRef reference support.row.job)
-        let reason := match supports.toList with
-          | [support] =>
-            if support.row.job.role != .applicability ||
-                support.row.job.propertyId != row.job.propertyId then
-              some "invalid applicability reference: expected an applicability obligation for this property"
-            else if support.row.job.txModelId != row.job.txModelId ||
-                support.row.job.binding != row.job.binding then
-              some "invalid applicability reference: property and support use different model bindings"
-            else if support.trustworthy && support.row.observed == some .valid then none
-            else if support.trustworthy && support.row.observed == some .falsified then
-              some "no applicable scenario in this model"
-            else some "applicability was not established"
-          | _ => some "invalid applicability reference: missing or ambiguous obligation"
-        if let some reason := reason then
-          row := { row with status := .inconclusive, issues := row.issues.push reason }
-    rows := rows.push row
-  let status := if rows.any (·.status == .fail) then Status.fail
-    else if !problems.isEmpty || rows.isEmpty || rows.any (·.status == .inconclusive) then .inconclusive
-    else .pass
-  return { target := plan.targetName, status, rows, problems, notes := plan.notes
-           evidenceDirectory := execution.directory, propertyDefinition := plan.propertyDefinition }
+/-- Retain the existing report interface while assessment belongs to Assessor. -/
+def build (plan : GenerationPlan) (execution : Executor.Result) : Report :=
+  let assessed := Assessor.assessPlan plan execution
+  { target := assessed.target, status := assessed.status, rows := assessed.rows,
+    problems := assessed.problems, notes := assessed.notes,
+    evidenceDirectory := assessed.evidenceDirectory, propertyDefinition := assessed.propertyDefinition }
 
 def failure (target message : String) (propertyDefinition : Option PropertyDefinition := none) : Report :=
   { target, status := .inconclusive, problems := #[message], propertyDefinition }

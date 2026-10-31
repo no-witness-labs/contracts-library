@@ -17,6 +17,7 @@ def defaultSuites : Array Suite := #[
   ⟨"Reporter unit checks", "workflow_reporter_tests"⟩,
   ⟨"Property metadata checks", "workflow_metadata_tests"⟩,
   ⟨"Run evidence checks", "workflow_evidence_tests"⟩,
+  ⟨"Single-check core and solver checks", "workflow_single_check_tests"⟩,
   ⟨"Test-runner controls", "workflow_runner_tests"⟩,
   ⟨"Input-to-Generator integration", "workflow_generator_integration"⟩,
   ⟨"Executor solver integration", "workflow_executor_integration"⟩,
