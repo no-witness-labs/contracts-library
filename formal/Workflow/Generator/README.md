@@ -21,11 +21,13 @@ prefix is internal naming information.
 The application catalogue can attach a parsed property-definition record to the
 provider. Generator preserves that record in the plan without passing metadata
 to the proposition-generating function. Descriptions cannot change the emitted
-statements or their expectations. See the [metadata contract](../METADATA.md).
+statements or their expectations. See the [metadata contract](../Docs/DEVELOPER-GUIDE.md#metadata-and-schemas).
 
-UP-001 binds its definition to generic per-purpose contexts. UP-012's test
-profile binds its four propositions to the typed vesting data and Claim/Cancel
-transaction shapes. Blueprint metadata alone does not supply those transaction
+UP-001 binds its shared definition to generic purpose contexts. UP-012's test
+profile applies one shared definition and its applicability predicate to the
+Claim/Cancel models, producing four obligations. Native statements and metadata
+live in the [property bank](../../Formal/Properties/README.md); model construction
+lives in Formal/TxModels. Blueprint metadata alone does not supply those transaction
 shapes; the current profile supplies them explicitly.
 
 A provider supplies property-specific generation through the common interface.
@@ -46,24 +48,25 @@ these links explicitly, without relying on naming conventions in the engine.
 ## Candidate composition
 
 The current CLI uses [Candidates/Catalogue.lean](../../Candidates/Catalogue.lean)
-through [ProductCLI.lean](../ProductCLI.lean). The generic orchestration entry point receives
+through [App/ProductCLI.lean](../App/ProductCLI.lean). The generic orchestration entry point receives
 the resolver as an argument. Additional catalogue formats and selection modes
 remain design work.
 
-`CLI.lean` retains the legacy `universal` executable as a compatibility entry point.
+`App/CLI.lean` retains the legacy `universal` executable as a compatibility entry point.
 
-UP-001 generation lives in [Candidates/UP001.lean](../../Candidates/UP001.lean).
-The original UP-012 propositions live in
-[Candidates/UP012.lean](../../Candidates/UP012.lean), while their experimental
-vesting model and artifact guard belong to the
-[UP-012 scenario](../Tests/UP012/README.md). Candidate definitions have one source;
-scenario tests reference them.
+Generation adapters live in [Candidates/UP001.lean](../../Candidates/UP001.lean)
+and [Candidates/UP012.lean](../../Candidates/UP012.lean). They instantiate the native
+primary statements and unfold them before invoking Blaster. The experimental
+artifact guard remains in the [UP-012 scenario](../Tests/UP012/README.md).
+Tests retain expanded legacy formulas for kernel-checked equivalence and the
+independent signer-identity negative control.
 
 The agreed direction is to supply reusable models with property definitions and
-accept the validator as an input. Definitions may have several versions and run
-with different models; models may serve several properties. The catalogue and
-report must distinguish those check variants. Identifier formats and job metadata
-changes remain design work.
+accept the validator as an input. Definitions have versions and can run with
+different models; models have stable numbered TxM IDs, with new IDs for changed
+behavior. The catalogue resolves those combinations and reports retain their
+snapshots. Current generation still bundles several combinations; the separately
+callable preparation and single-combination verification API remains future work.
 
 The fixed UP-012 vesting profile supplies an integration test. Generalizing or
 correcting its signer-removal property belongs in a separate property PR, outside
@@ -85,5 +88,5 @@ checks. The second command preserves the Input-to-Generator type-checking check;
 it compiles support and proposition definitions without proving them.
 
 The [test index](../Tests/README.md) lists the two complete workflow scenarios
-and component checks. The [validation history](../VALIDATION.md) keeps generation,
+and component checks. The [validation history](../Docs/VALIDATION.md) keeps generation,
 type-checking, and actual solver observations distinct.
