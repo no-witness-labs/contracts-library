@@ -18,7 +18,7 @@ Only a complete successful test run returns zero. Expected negative controls
 print FAIL or INCONCLUSIVE without making their enclosing suite fail.
 
 The aggregate command includes component units, metadata, run evidence, selection,
-and output controls. It also runs real app/core solver cases, runner failure
+output controls, and installer/launcher checks. It also runs real app/core solver cases, runner failure
 controls, Input-to-Generator type-checking, Executor/Reporter solver controls, and
 both scenarios below. Each scenario invokes its candidate-specific checks.
 Optional manual integration probes are not additional suite runs.
