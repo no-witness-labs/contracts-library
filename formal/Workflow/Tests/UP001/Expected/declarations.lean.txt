@@ -1,19 +1,24 @@
 theorem otherPurpose_mint :
-    ∀ (r : Data) (t : EveryMint),
-      ¬ accepts 5000000 (EveryMint.ctx t r) := by blaster
+    Formal.Properties.Universal.UP001.statement (accepts 5000000) EveryMint.ctx := by
+  unfold Formal.Properties.Universal.UP001.statement
+  blaster
 
 theorem otherPurpose_withdraw :
-    ∀ (r : Data) (t : EveryWithdraw),
-      ¬ accepts 5000000 (EveryWithdraw.ctx t r) := by blaster
+    Formal.Properties.Universal.UP001.statement (accepts 5000000) EveryWithdraw.ctx := by
+  unfold Formal.Properties.Universal.UP001.statement
+  blaster
 
 theorem otherPurpose_publish :
-    ∀ (r : Data) (t : EveryPublish),
-      ¬ accepts 5000000 (EveryPublish.ctx t r) := by blaster
+    Formal.Properties.Universal.UP001.statement (accepts 5000000) EveryPublish.ctx := by
+  unfold Formal.Properties.Universal.UP001.statement
+  blaster
 
 theorem otherPurpose_vote :
-    ∀ (r : Data) (t : EveryVote),
-      ¬ accepts 5000000 (EveryVote.ctx t r) := by blaster
+    Formal.Properties.Universal.UP001.statement (accepts 5000000) EveryVote.ctx := by
+  unfold Formal.Properties.Universal.UP001.statement
+  blaster
 
 theorem otherPurpose_propose :
-    ∀ (r : Data) (t : EveryPropose),
-      ¬ accepts 5000000 (EveryPropose.ctx t r) := by blaster
+    Formal.Properties.Universal.UP001.statement (accepts 5000000) EveryPropose.ctx := by
+  unfold Formal.Properties.Universal.UP001.statement
+  blaster

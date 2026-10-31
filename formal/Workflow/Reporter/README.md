@@ -1,9 +1,10 @@
 # Reporter component
 
-Reporter compares Executor observations with the jobs' declared expectations.
-It produces a plain-text summary, a small JSON report, and an exit code. This
-first version has no branding, rich layouts, expanded narrative, or waiver
-handling.
+Reporter retains the existing CLI's plain-text summary, JSON report, and exit
+code. Assessment of expectations, applicability, and evidence now belongs to
+[Assessor](../Assessor/README.md); `Reporter.build` delegates to that shared policy.
+The callable core returns one CheckResult. A later client Reporter will combine
+those records and provide final branding; that presentation is not implemented here.
 
 ## Outcomes
 
@@ -60,9 +61,13 @@ discipline; it does not certify arbitrary dependencies between proof declaration
 
 ## Planned metadata and run configuration
 
-The report will identify definition/model versions and explain their descriptions,
-assumptions, and limitations. [Issue #65](https://github.com/no-witness-labs/contracts-library/issues/65)
-will define that metadata contract.
+Workflow reports now retain the selected property-definition snapshot, including
+its definition version, explanations, and stated limits. Executor retains the
+same snapshot in its manifest; a mismatch makes the report inconclusive. See the
+[developer guide](../Docs/DEVELOPER-GUIDE.md#metadata-and-schemas). Each job also
+retains its model/combined-check snapshots and submitted statement. Applicability
+must use the same binding as its linked property obligation. The agreed metadata
+contracts remain part of [issue #65](https://github.com/no-witness-labs/contracts-library/issues/65).
 Clients can review protocol relevance afterward. Multiple variants and optional
 enable/disable controls remain later work; current reports retain all job rows.
 
@@ -137,6 +142,6 @@ support row and a linked Valid property INCONCLUSIVE, retaining their raw result
 The four-component vesting command also ran with a 5,000 ms execution budget. All
 five jobs remained INCONCLUSIVE, and the process returned exit code 2. That
 short run supplies no passing result for vesting. The original 1,000,000-step
-[120-second run](../VALIDATION.md) completed all five checks in 82.1 seconds and
+[120-second run](../Docs/VALIDATION.md) completed all five checks in 82.1 seconds and
 returned zero with matching results. The history separately records the later
 5,000,000-step checkpoint and its scope.

@@ -22,6 +22,19 @@ private def rejected (label source selector : String) (kind : ErrorKind)
     check s!"{label}: error location" (error.path == path)
     check s!"{label}: error explanation" (!error.message.isEmpty)
 
+private def discovered (source : String) : IO (Array String) := do
+  match Workflow.Input.discover source with
+  | .ok names => return names
+  | .error error => throw (IO.userError s!"unexpected discovery error: {error}")
+
+private def discoveryRejected (label source : String) (kind : ErrorKind)
+    (path : String) : IO Unit := do
+  match Workflow.Input.discover source with
+  | .ok _ => throw (IO.userError s!"FAIL: {label}: malformed document was discovered")
+  | .error error =>
+    check s!"{label}: discovery error category" (error.kind == kind)
+    check s!"{label}: discovery error location" (error.path == path)
+
 private def dropField (value : Json) (key : String) : Json :=
   match value with
   | .obj fields => .obj (fields.erase key)
@@ -46,6 +59,10 @@ def run : IO Unit := do
   let blueprint ← match Json.parse original with
     | .ok result => pure result
     | .error message => throw (IO.userError message)
+  check "discovery groups handlers and preserves validator order"
+    ((← discovered original) == #["samples.alpha", "other.beta"])
+  check "empty blueprint has no discovered validators"
+    ((← discovered (blueprint.setObjVal! "validators" (.arr #[])).compress) == #[])
   let result ← accepted original "samples.alpha"
   check "canonical selection" (result.target.name == "samples.alpha")
   check "original encoded code" (result.target.compiledCode == "480100002221200101")
@@ -75,8 +92,12 @@ def run : IO Unit := do
   let withoutOther ← accepted onlyAlpha.compress "samples.alpha"
   check "unrelated validator does not change target" (withoutOther.target == result.target)
   let brokenOther := updateEntry blueprint 2 (·.setObjVal! "compiledCode" (.str "zz"))
+  check "invalid validator code does not block discovery"
+    ((← discovered brokenOther.compress) == #["samples.alpha", "other.beta"])
   let independent ← accepted brokenOther.compress "alpha"
   check "unselected code is not interpreted" (independent.target == result.target)
+  rejected "discovered invalid validator fails its own preparation"
+    brokenOther.compress "other.beta" .decoding "validators[2].compiledCode"
   let mint := ((validators blueprint)[2]!.setObjVal! "title" (.str "samples.alpha.mint"))
     |>.setObjVal! "parameters" (((validators blueprint)[0]!.getObjVal? "parameters").toOption.getD .null)
   let multiple := blueprint.setObjVal! "validators" (.arr ((validators blueprint).push mint))
@@ -89,6 +110,8 @@ def run : IO Unit := do
     item.setObjVal! "title" (.str s!"folder/module.alpha.{suffix}")
   let nested ← accepted modulePath.compress "folder/module.alpha"
   check "module paths preserve canonical identity" (nested.target.name == "folder/module.alpha")
+  check "discovery retains canonical module paths"
+    ((← discovered modulePath.compress) == #["folder/module.alpha", "other.beta"])
   let emptyParams := updateAlpha blueprint (·.setObjVal! "parameters" (.arr #[]))
   let empty ← accepted emptyParams.compress "alpha"
   check "empty parameters remain distinct from absence" (empty.target.parameters == some #[])
@@ -102,6 +125,9 @@ def run : IO Unit := do
     (optional.target.compiler.isNone && optional.target.definitions.isNone)
 
   rejected "malformed JSON" "{" "alpha" .malformedJson "$"
+  discoveryRejected "malformed JSON" "{" .malformedJson "$"
+  discoveryRejected "non-array validators" (blueprint.setObjVal! "validators" .null).compress
+    .malformedField "validators"
   rejected "non-object root" "[]" "alpha" .malformedField "$"
   rejected "missing preamble" (dropField blueprint "preamble").compress "alpha"
     .missingField "preamble"
@@ -113,6 +139,9 @@ def run : IO Unit := do
     rejected s!"unsupported version {version}"
       (updateVersion blueprint (·.setObjVal! "plutusVersion" (.str version))).compress
       "alpha" .unsupported "preamble.plutusVersion"
+    discoveryRejected s!"unsupported discovery version {version}"
+      (updateVersion blueprint (·.setObjVal! "plutusVersion" (.str version))).compress
+      .unsupported "preamble.plutusVersion"
   rejected "non-string version"
     (updateVersion blueprint (·.setObjVal! "plutusVersion" (.num 3))).compress
     "alpha" .malformedField "preamble.plutusVersion"
@@ -132,6 +161,9 @@ def run : IO Unit := do
   rejected "unsupported title profile"
     (updateEntry blueprint 0 (·.setObjVal! "title" (.str "alpha"))).compress
     "alpha" .unsupported "validators[0].title"
+  discoveryRejected "unsupported title profile"
+    (updateEntry blueprint 0 (·.setObjVal! "title" (.str "alpha"))).compress
+    .unsupported "validators[0].title"
   rejected "missing code" (updateEntry blueprint 0 (fun item => dropField item "compiledCode")).compress
     "alpha" .missingField "validators[0].compiledCode"
   rejected "empty code" (updateEntry blueprint 0 (·.setObjVal! "compiledCode" (.str ""))).compress
@@ -169,6 +201,8 @@ def run : IO Unit := do
     ((validators blueprint).push (validators blueprint)[0]!))
   rejected "duplicate handler" duplicate.compress "alpha" .inconsistent "validators[3].title"
   let unsupported := updateEntry blueprint 2 (·.setObjVal! "title" (.str "other.beta.unknown"))
+  check "unsupported handler purpose is deferred to selected preparation"
+    ((← discovered unsupported.compress) == #["samples.alpha", "other.beta"])
   rejected "unsupported selected purpose" unsupported.compress "beta"
     .unsupported "validators[2].title"
   let selected ← accepted unsupported.compress "alpha"

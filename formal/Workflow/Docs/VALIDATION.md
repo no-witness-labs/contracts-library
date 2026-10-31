@@ -1,5 +1,10 @@
 # Validation history
 
+The checkpoints below preserve their original claims, bounds, and measurements.
+They refer to the code layouts and capabilities at those revisions. Consult the
+[overview](../README.md) and [user guide](USER-GUIDE.md) for current operation.
+Local test outputs are evidence of their recorded runs, not performance guarantees.
+
 ## Generated comments and independent unit checks
 
 Generated headers now identify their current Lean emitters while retaining the
@@ -69,7 +74,7 @@ distinct runs, retained source files, and a parent path that is a file.
 
 ## CLI delivery checks
 
-The [quickstart](QUICKSTART.md) uses the compiled vault fixtures from PR #47 at
+The [quickstart](USER-GUIDE.md) uses the compiled vault fixtures from PR #47 at
 `0dde8ae76e3f8a239bf06685f72327aed4a7c3ef`, with their source and dependency
 metadata now preserved under `Workflow/Tests/UP001/Inputs/`. The blueprint SHA-256 is
 `afd375487a56be74f83f60e7c94fc2008f6e79b418a7bde3f1575bb4c6c9b426`.
@@ -256,3 +261,23 @@ the signer-identity negative control. The emitted Types/Checks for UP001 and
 Types/Tx/Checks for UP012 matched the previous CLI checkpoint byte for byte.
 Property propositions, transaction models, and CEK bounds did not change.
 The aggregate run retained `output/test.AsIZxSM3/summary.json` and per-suite logs.
+
+## Workflow property-definition metadata
+
+The workflow-scoped metadata checkpoint passed all eleven suites through
+`./formal/plutus-upv test` in 306,824 ms including build. The new suite checks
+shape validation, preserved missing/empty values, integer handling, catalogue
+ID/version association, duplicate or wrong-primary rejection, and unchanged
+generated statements. Reporter tests cover snapshot retention, metadata mismatch,
+safe text display, and existing result-policy behavior.
+
+Both CLI scenarios retain the selected definition in reports and execution
+manifests; preparation failures retain it when lookup succeeds. The emitted
+UP001 Types/Checks and UP012 Types/Tx/Checks match the preceding workflow
+checkpoint byte for byte. The UP012 formulas and model remain unchanged.
+
+An isolated Ajv 8.20.0 validator compiled the workflow JSON Schema and validated
+both maintained records, including the intended acceptance of partial records.
+Legacy catalogue schemas, records, and their validation scripts did not change.
+The aggregate output is `output/test.FUFkwumk/`; issue #66 remains open for the
+later rollout beyond the workflow.

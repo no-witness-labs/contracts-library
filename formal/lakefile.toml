@@ -70,12 +70,36 @@ name = "workflow_runner_tests"
 root = "Workflow.Tests.Unit.Runner.Tests"
 
 [[lean_exe]]
+name = "workflow_metadata_tests"
+root = "Workflow.Tests.Unit.Metadata.Tests"
+
+[[lean_exe]]
+name = "workflow_evidence_tests"
+root = "Workflow.Tests.Unit.Evidence.Tests"
+
+[[lean_exe]]
+name = "workflow_single_check_tests"
+root = "Workflow.Tests.SingleCheck.Main"
+
+[[lean_exe]]
+name = "workflow_selection_tests"
+root = "Workflow.Tests.Unit.Selection.Tests"
+
+[[lean_exe]]
+name = "workflow_app_tests"
+root = "Workflow.Tests.Unit.App.Tests"
+
+[[lean_exe]]
+name = "workflow_installation_tests"
+root = "Workflow.Tests.Unit.Installation.Tests"
+
+[[lean_exe]]
 name = "universal"
-root = "Workflow.CLI"
+root = "Workflow.App.CLI"
 
 [[lean_exe]]
 name = "plutus-upv"
-root = "Workflow.ProductCLI"
+root = "Workflow.App.ProductCLI"
 
 [[lean_exe]]
 name = "workflow_up001_tests"

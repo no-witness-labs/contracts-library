@@ -1,5 +1,5 @@
 import Lean.Data.Json
-import Workflow.Jobs
+import Workflow.Types.Jobs
 
 namespace Workflow.Executor
 
@@ -7,12 +7,26 @@ inductive ProcessState where
   | finished | timedOut | launchError
   deriving BEq, Repr
 
+/-- An attempted process invocation and its explicit environment overrides. -/
+structure Invocation where
+  command : String
+  args : Array String
+  cwd : System.FilePath
+  environment : Array (String × Option String)
+
+def Invocation.toJson (invocation : Invocation) : Lean.Json := Lean.Json.mkObj [
+  ("command", .str invocation.command), ("args", Lean.toJson invocation.args),
+  ("cwd", .str invocation.cwd.toString),
+  ("environment", .arr (invocation.environment.map fun (name, value) => Lean.Json.mkObj [
+    ("name", .str name), ("value", value.map Lean.Json.str |>.getD .null)]))]
+
 structure ProcessObservation where
   state : ProcessState
   exitCode : Option UInt32 := none
   stdout : String := ""
   stderr : String := ""
   elapsedMs : Nat := 0
+  invocation : Option Invocation := none
 
 structure Diagnostic where
   fileName : String
@@ -48,7 +62,10 @@ structure Result where
   modules : Array ModuleObservation := #[]
   jobs : Array JobObservation := #[]
   problems : Array String := #[]
+  /-- File retention failures, separate from inconclusive verification outcomes. -/
+  retentionErrors : Array String := #[]
   elapsedMs : Nat := 0
+  propertyDefinition : Option PropertyDefinition := none
 
 structure Options where
   /-- Prepared dependency/module search path; preparation is the caller's responsibility. -/
@@ -57,6 +74,8 @@ structure Options where
   timeoutCommand : String := "timeout"
   /-- Parent for fresh run directories; none uses the system temporary directory. -/
   outputRoot : Option System.FilePath := none
+  /-- An existing empty workspace reserved by the coordinator, when supplied. -/
+  directory : Option System.FilePath := none
   /-- One shared wall-clock budget across generated modules. -/
   budgetMs : Nat := 30000
 

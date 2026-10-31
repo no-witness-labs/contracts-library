@@ -25,6 +25,13 @@ private def observation (metadata : CheckJob) (observed : Executor.ObservedResul
 private def completed (jobs : Array Executor.JobObservation) : Executor.Result :=
   { state := .completed, jobs }
 
+private def definition (title := "Fixture metadata") : IO PropertyDefinition :=
+  IO.ofExcept (PropertyDefinition.parse (Json.mkObj [
+    ("schema_version", toJson (2 : Nat)),
+    ("identity", Json.mkObj [("id", .str "fixture"),
+      ("definition_version", toJson (1 : Nat)), ("title", .str title)]),
+    ("formalization", Json.mkObj [("primary", .str "Fixture.Checks.proof")])]))
+
 private def rowFor (report : Report) (metadata : CheckJob) : IO Row :=
   match report.rows.find? (fun row => row.job.name == metadata.name &&
       row.job.moduleName == metadata.moduleName) with
@@ -39,7 +46,118 @@ private def jsonRow (report : Report) (metadata : CheckJob) : IO Json := do
     | throw (IO.userError "missing JSON check row")
   return row
 
+private def binding (modelId := "TxM-001") (propertyId := "fixture") (version : Int := 1)
+    (description := "Fixture model") (limitation := "Only the fixture domain.") : IO CheckBinding := do
+  let txModel ← IO.ofExcept (TransactionModel.parse (Json.mkObj [
+    ("id", .str modelId), ("title", .str "Fixture model"), ("plutus_version", .str "v3"),
+    ("description", .str description)]))
+  let combinedCheck ← IO.ofExcept (CombinedCheck.parse (Json.mkObj [
+    ("property", Json.mkObj [("id", .str propertyId), ("definition_version", toJson version)]),
+    ("tx_model", .str modelId), ("limitations", .arr #[.str limitation])]))
+  return { txModel, combinedCheck }
+
+private def modelBindingChecks : IO Unit := do
+  let metadata ← definition
+  let firstBinding ← binding
+  let secondBinding ← binding "TxM-002"
+  let described := fun (jobs : Array CheckJob) =>
+    { plan jobs with propertyDefinition := some metadata, bindingsRequired := true }
+  let executed := fun (rows : Array Executor.JobObservation) =>
+    { completed rows with propertyDefinition := some metadata }
+  let main := { job "bound" with txModelId := some "TxM-001", binding := some firstBinding }
+  let report := build (described #[main]) (executed #[observation main .valid])
+  let saved ← jsonRow report main
+  check "matching model binding preserves a passing result and exact snapshots"
+    (report.exitCode == 0 &&
+     (saved.getObjVal? "txModelId").toOption == some (.str "TxM-001") &&
+     (saved.getObjVal? "transactionModel").toOption == some firstBinding.txModel.toJson &&
+     (saved.getObjVal? "combinedCheck").toOption == some firstBinding.combinedCheck.toJson)
+  let changedModel ← binding "TxM-001" "fixture" 1 "Different model description"
+  let changedCombination ← binding "TxM-001" "fixture" 1 "Fixture model" "Different limitation"
+  for changed in [none, some changedModel, some changedCombination, some secondBinding] do
+    let changedJob := { main with binding := changed }
+    let altered := build (described #[main]) (executed #[observation changedJob .falsified])
+    let row ← rowFor altered main
+    let json ← jsonRow altered main
+    check "changed or lost snapshots cannot qualify raw failure"
+      (altered.exitCode == 2 && row.status == .inconclusive &&
+       row.observed == some .falsified && row.evidenceComplete &&
+       row.issues.contains "job metadata changed during execution" &&
+       (json.getObjVal? "combinedCheck").toOption == some firstBinding.combinedCheck.toJson)
+  let alteredMarker := build (described #[main])
+    (executed #[observation { main with txModelId := some "TxM-002" } .valid])
+  check "changed registered model marker prevents qualification" (alteredMarker.exitCode == 2)
+
+  let wrongProperty ← binding "TxM-001" "other-property"
+  let wrongVersion ← binding "TxM-001" "fixture" 2
+  let wrongModel := { firstBinding with txModel := secondBinding.txModel }
+  for invalidJob in [
+      { main with binding := none },
+      { main with txModelId := none },
+      { main with txModelId := some "TxM-002" },
+      { main with binding := some wrongProperty },
+      { main with binding := some wrongVersion },
+      { main with binding := some wrongModel }] do
+    let requested := described #[invalidJob]
+    check "invalid binding chain fails plan validation" requested.validateBindings.toOption.isNone
+    let invalid := build requested (executed #[observation invalidJob .valid])
+    check "invalid planned binding cannot produce a pass"
+      (invalid.exitCode == 2 && (← rowFor invalid invalidJob).observed == some .valid &&
+       !invalid.problems.isEmpty)
+  let conflicting := { main with name := "conflicting", binding := some changedModel }
+  let conflictingPlan := described #[main, conflicting]
+  check "one model ID cannot carry conflicting snapshots"
+    conflictingPlan.validateBindings.toOption.isNone
+  let conflictingPair := { main with name := "conflicting", binding := some changedCombination }
+  check "one combination cannot carry conflicting snapshots"
+    (described #[main, conflictingPair]).validateBindings.toOption.isNone
+
+  let support := { job "support" with
+    role := .applicability
+    txModelId := some "TxM-001"
+    binding := some firstBinding }
+  let dependent := { main with applicability := some (reference support) }
+  for (observed, expectedCode) in
+      [(Executor.ObservedResult.valid, (0 : UInt32)), (.falsified, 1), (.inconclusive, 2)] do
+    let qualified := build (described #[dependent, support])
+      (executed #[observation dependent observed, observation support .valid])
+    check "same-model applicability qualifies only the property's own result"
+      (qualified.exitCode == expectedCode && (← rowFor qualified dependent).observed == some observed)
+  let foreignSupport := { support with txModelId := some "TxM-002", binding := some secondBinding }
+  let independent := { job "independent" with txModelId := some "TxM-002", binding := some secondBinding }
+  for observed in [Executor.ObservedResult.valid, .falsified] do
+    let crossModel := build (described #[dependent, foreignSupport, independent])
+      (executed #[observation dependent observed, observation foreignSupport .valid,
+        observation independent .falsified])
+    let row ← rowFor crossModel dependent
+    check "valid applicability from another model cannot qualify either main outcome"
+      (row.status == .inconclusive && row.observed == some observed &&
+       row.issues.contains "invalid applicability reference: property and support use different model bindings")
+    check "cross-model support does not hide an independent trusted failure"
+      ((← rowFor crossModel independent).status == .fail && crossModel.exitCode == 1)
+
+  let escapedBinding ← binding "TxM-001" "fixture" 1 "First\nSecond\tThird\rFourth" "Scope\nline"
+  let escapedJob := { main with binding := some escapedBinding }
+  let escaped := build (described #[escapedJob]) (executed #[observation escapedJob .valid])
+  let escapedJson ← jsonRow escaped escapedJob
+  check "model text escapes line and control characters without changing JSON"
+    ((escaped.text.splitOn "Model description: First\\nSecond\\tThird\\rFourth").length == 2 &&
+     (escaped.text.splitOn "First\nSecond").length == 1 &&
+     (escapedJson.getObjVal? "transactionModel").toOption == some escapedBinding.txModel.toJson &&
+     (escapedJson.getObjVal? "combinedCheck").toOption == some escapedBinding.combinedCheck.toJson)
+  check "model and combination fields use simple report labels"
+    ((escaped.text.splitOn "  Model: TxM-001").length == 2 &&
+     (escaped.text.splitOn "  Plutus version: v3").length == 2 &&
+     (escaped.text.splitOn "  Combination limitations:").length == 2)
+  let plain := build (plan #[job]) (completed #[observation job .valid])
+  let plainJson ← jsonRow plain job
+  check "metadata-free API reports invent no model record"
+    ((plainJson.getObjVal? "transactionModel").toOption == some .null &&
+     (plainJson.getObjVal? "combinedCheck").toOption == some .null &&
+     (plain.text.splitOn "  Model:").length == 1)
+
 def run : IO Unit := do
+  modelBindingChecks
   let good := build (plan #[job]) (completed #[observation job .valid])
   check "matching result passes" (good.status == .pass && good.exitCode == 0)
   let bad := build (plan #[job]) (completed #[observation job .falsified])
@@ -54,6 +172,45 @@ def run : IO Unit := do
   let ordinary := job "ordinary_applies"
   let ordinaryFailure := build (plan #[ordinary]) (completed #[observation ordinary .falsified])
   check "job names do not infer applicability roles" (ordinaryFailure.status == .fail)
+
+  let metadata ← definition
+  for (metadataJob, observed, expectedCode) in
+      [(job, Executor.ObservedResult.valid, (0 : UInt32)),
+       (job, .falsified, 1), (witness, .falsified, 0)] do
+    let report := build { plan #[metadataJob] with propertyDefinition := some metadata }
+      { completed #[observation metadataJob observed] with propertyDefinition := some metadata }
+    check "matching property metadata retains actual result policy" (report.exitCode == expectedCode)
+    check "report retains the plan's property metadata snapshot"
+      (report.propertyDefinition == some metadata &&
+       (report.toJson.getObjVal? "propertyDefinition").toOption == some metadata.toJson)
+  let changedMetadata ← definition "Different metadata"
+  for (plannedMetadata, executedMetadata) in
+      [(some metadata, none), (none, some metadata), (some metadata, some changedMetadata)] do
+    for observed in [Executor.ObservedResult.valid, .falsified] do
+      let report := build { plan #[job] with propertyDefinition := plannedMetadata }
+        { completed #[observation job observed] with propertyDefinition := executedMetadata }
+      let row ← rowFor report job
+      check "mismatched property metadata prevents qualification without erasing raw evidence"
+        (report.exitCode == 2 && row.status == .inconclusive &&
+         row.observed == some observed && row.evidenceComplete &&
+         report.problems.contains "property definition metadata changed during execution")
+      check "metadata mismatch keeps the plan snapshot rather than the execution replacement"
+        (report.propertyDefinition == plannedMetadata)
+  let preparationFailure := failure "fixture.target" "unsupported fixture" (some metadata)
+  check "preparation failure retains known property metadata without inventing results"
+    (preparationFailure.exitCode == 2 && preparationFailure.rows.isEmpty &&
+     preparationFailure.propertyDefinition == some metadata &&
+     (preparationFailure.toJson.getObjVal? "propertyDefinition").toOption == some metadata.toJson)
+  check "absent property metadata is explicit and does not invent values"
+    (good.propertyDefinition.isNone &&
+     (good.toJson.getObjVal? "propertyDefinition").toOption == some .null &&
+     (failure "fixture.target" "no selected definition").propertyDefinition.isNone)
+  let multilineMetadata ← definition "Fixture\nmetadata"
+  let escapedMetadata := failure "fixture.target" "unsupported fixture" (some multilineMetadata)
+  check "property metadata text escapes embedded line breaks"
+    ((escapedMetadata.text.splitOn "Fixture\\nmetadata").length == 2 &&
+     (escapedMetadata.text.splitOn "Fixture\nmetadata").length == 1 &&
+     (escapedMetadata.toJson.getObjVal? "propertyDefinition").toOption == some multilineMetadata.toJson)
 
   for state in [Executor.RunState.timedOut, .error, .noObligations] do
     let report := build (plan #[job])
