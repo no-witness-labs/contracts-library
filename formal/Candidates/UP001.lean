@@ -1,5 +1,6 @@
 import Workflow.Generator.Basic
 import Formal.Universal.Properties
+import Formal.Properties.Universal.UP001.Definition
 
 namespace Candidates.UP001
 
@@ -48,7 +49,7 @@ private def checksHeader (modulePrefix : String) : String :=
   String.intercalate "\n" [
     "-- UP-001 domains and predicate from candidate PR #49 at b44b6b0757a75d79b79a4de4712523ee3978760e.",
     "-- Reviewed workflow bound: 5,000,000 CEK steps (candidate: 1,000,000).",
-    "import Blaster", "import Formal.Universal.Properties", s!"import {modulePrefix}.Types", "",
+    "import Blaster", "import Formal.Universal.Properties", "import Formal.Properties.Universal.UP001.Definition", s!"import {modulePrefix}.Types", "",
     "set_option Elab.async false", "", s!"namespace {modulePrefix}", "",
     "open PlutusCore.Data (Data)", "open Formal.Universal.Properties", "",
     "/-! UP-001: no success within 5,000,000 CEK steps for undeclared purposes.",
@@ -59,8 +60,7 @@ private def checksHeader (modulePrefix : String) : String :=
 /-- The bounded nonacceptance proposition for one undeclared purpose. -/
 def statement (purpose : Purpose) : String :=
   let ctx := contextType purpose
-  s!"    ∀ (r : Data) (t : {ctx}),\n" ++
-    s!"      ¬ accepts 5000000 ({ctx}.ctx t r)"
+  s!"    Formal.Properties.Universal.UP001.statement (accepts 5000000) {ctx}.ctx"
 
 private def makeJob (modulePrefix : String) (purpose : Purpose) : CheckJob :=
   { propertyId := "UP-001"
@@ -71,19 +71,24 @@ private def makeJob (modulePrefix : String) (purpose : Purpose) : CheckJob :=
     txModelId := some (modelId purpose)
     scope }
 
-private def build (target : TargetDescription) (modulePrefix : String) : Except Error GenerationPlan := do
+private def buildSelected (target : TargetDescription) (modulePrefix : String)
+    (selected : Option Purpose) : Except Error GenerationPlan := do
   unless target.plutusVersion == "v3" do
     throw ⟨.unsupported, "UP-001 generation currently supports Plutus V3 only"⟩
   unless (target.parameters.getD #[]).isEmpty do
     throw ⟨.unsupported,
       "parameterized UP-001 generation requires the candidate's typed parameter translation"⟩
-  let undeclared := allPurposes.filter fun p => !target.declaredPurposes.contains p
+  let requested := selected.map (fun purpose => #[purpose]) |>.getD allPurposes
+  let undeclared := requested.filter fun p => !target.declaredPurposes.contains p
   if undeclared.isEmpty then
+    let reason := match selected with
+      | none => "All purposes have handlers; UP-001 has no obligations."
+      | some purpose => s!"The selected {purpose.name} purpose has a declared handler; UP-001 has no obligation for this model."
     return { targetName := target.name, modules := #[], jobs := #[],
-             notes := #["All purposes have handlers; UP-001 has no obligations."] }
+             notes := #[reason] }
   let jobs := undeclared.map (makeJob modulePrefix)
   let declarations := jobs.map fun job =>
-    s!"theorem {job.name} :\n{job.statement} := by blaster\n"
+    s!"theorem {job.name} :\n{job.statement} := by\n  unfold Formal.Properties.Universal.UP001.statement\n  blaster\n"
   let checks := checksHeader modulePrefix ++ "\n" ++
     String.intercalate "\n" declarations.toList ++ s!"\nend {modulePrefix}\n"
   return {
@@ -94,6 +99,12 @@ private def build (target : TargetDescription) (modulePrefix : String) : Except 
     notes := #[scope] }
 
 /-- Reuse the candidate's domains and predicate with the reviewed 5,000,000-step bound. -/
-def provider : Provider := { id := "UP-001", generate := build }
+def provider : Provider := { id := "UP-001", generate := fun target modulePrefix => buildSelected target modulePrefix none }
+
+/-- Select one code-owned purpose model before generating its obligation. -/
+def providerForModel (selectedModelId : String) : Except Error Provider := do
+  let some purpose := allPurposes.find? (fun purpose => modelId purpose == selectedModelId)
+    | throw ⟨.unsupported, s!"UP-001 has no registered model {selectedModelId}"⟩
+  return { id := "UP-001", generate := fun target modulePrefix => buildSelected target modulePrefix (some purpose) }
 
 end Candidates.UP001

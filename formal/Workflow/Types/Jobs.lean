@@ -1,4 +1,4 @@
-import Workflow.ModelMetadata
+import Workflow.Metadata.TxModel
 
 namespace Workflow
 

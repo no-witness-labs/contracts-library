@@ -1,3 +1,4 @@
+import Workflow.Tests.UP001.DefinitionEquivalence
 import Workflow.Generator
 import Candidates.UP001
 
@@ -34,13 +35,13 @@ def run : IO Unit := do
   check "scope reports the reviewed bound" ((plan.notes[0]!.splitOn "5,000,000 CEK steps").length == 2)
   let golden ← IO.FS.readFile "Workflow/Tests/UP001/Expected/declarations.lean.txt"
   let declarations := String.intercalate "\n" (plan.jobs.toList.map fun job =>
-    s!"theorem {job.name} :\n{job.statement} := by blaster\n")
-  check "reviewed declarations preserved verbatim" (declarations.trim == golden.trim)
+    s!"theorem {job.name} :\n{job.statement} := by\n  unfold Formal.Properties.Universal.UP001.statement\n  blaster\n")
+  check "shared-definition applications match reviewed declarations" (declarations.trim == golden.trim)
   let some types := plan.modules[0]? | throw (IO.userError "missing types module")
   let some checks := plan.modules[1]? | throw (IO.userError "missing checks module")
   check "encoded artifact embedded" ((types.source.splitOn target.compiledCode).length == 2)
   check "jobs and rendered checks agree" (plan.jobs.all fun job =>
-    (checks.source.splitOn s!"theorem {job.name} :\n{job.statement} := by blaster").length == 2)
+    (checks.source.splitOn s!"theorem {job.name} :\n{job.statement} := by\n  unfold Formal.Properties.Universal.UP001.statement\n  blaster").length == 2)
   check "no statement fixture proof bypass" ((checks.source.splitOn "sorry").length == 1)
 
   let noneDeclared ← accepted (target #[])

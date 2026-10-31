@@ -1,5 +1,10 @@
 # PR #47 reconciliation
 
+This delivery comparison records the referenced checkpoints and remaining gaps.
+Its historical source paths may differ from the current
+[module map](DEVELOPER-GUIDE.md#module-paths-and-validation). Keep the original
+semantic comparisons distinct from later structural cleanup or validation results.
+
 [Issue #39](https://github.com/no-witness-labs/contracts-library/issues/39),
 branch `feat/39-developer-workflow`, and
 [draft PR #52](https://github.com/no-witness-labs/contracts-library/pull/52)
@@ -22,7 +27,7 @@ its runner-specific tests. The shared
 `scripts/process_blueprint.py` translator remains for other candidate work.
 Waiver handling and UP-005/UP-006 integration remain future work for this CLI.
 
-The [CLI quickstart](QUICKSTART.md) also reuses PR #47's compiled vault fixtures
+The [CLI quickstart](USER-GUIDE.md) also reuses PR #47's compiled vault fixtures
 and attributed source to demonstrate PASS and FAIL. Input-error and timeout
 examples demonstrate INCONCLUSIVE. See the [delivery checks](VALIDATION.md)
 for their results.
@@ -42,8 +47,8 @@ for their results.
 | Command options | Generate-only mode, Nix wrapper, preprocessing, and optional removal of validity hypotheses | Prepared checkout and provider selection; pure generation API, without those CLI options | Defer packaging and convenience options; semantic options require review |
 
 The [old generator][old-generator] implements the reference behavior. Current
-contracts live in the [Input](Input/README.md), [Generator](Generator/README.md),
-[Executor](Executor/README.md), and [Reporter](Reporter/README.md) guides.
+contracts live in the [Input](../Input/README.md), [Generator](../Generator/README.md),
+[Executor](../Executor/README.md), and [Reporter](../Reporter/README.md) guides.
 The comparison uses source inspection and modular-provider experiments;
 PR #47's original proofs were not rerun.
 

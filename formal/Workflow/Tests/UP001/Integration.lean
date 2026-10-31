@@ -25,7 +25,8 @@ private def statements (plan : GenerationPlan) (modulePrefix : String) : Generat
     s!"def {job.name}_statement : Prop :=\n{job.statement}\n")
   { name := s!"{modulePrefix}.Statements"
     source := String.intercalate "\n" [
-      s!"import {modulePrefix}.Types", "import Formal.Universal.Properties", "",
+      s!"import {modulePrefix}.Types", "import Formal.Universal.Properties",
+      "import Formal.Properties.Universal.UP001.Definition", "",
       s!"namespace {modulePrefix}", "open PlutusCore.Data (Data)",
       "open Formal.Universal.Properties", body, s!"end {modulePrefix}", ""] }
 

@@ -1,12 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:plutus-upv:workflow:property-definitions:v2",
-  "$comment": "Workflow-scoped shape contract. Required/optional and cardinality policies remain open. Catalogue association and execution integrity are separate checks. Legacy catalogue schemas remain unchanged.",
-  "title": "Plutus UPV workflow property definitions",
-  "type": "array",
-  "items": {
-    "$ref": "#/$defs/propertyDefinition"
-  },
+  "$id": "urn:plutus-upv:property-definition:v2",
+  "$comment": "Shared property record shape. Required/optional and cardinality policy remain open. Runtime association is separate from shape validation.",
+  "title": "Plutus UPV property definition",
+  "$ref": "#/$defs/propertyDefinition",
   "$defs": {
     "propertyDefinition": {
       "type": "object",

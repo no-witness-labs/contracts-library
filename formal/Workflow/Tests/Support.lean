@@ -52,7 +52,7 @@ def showCompilerLogs (directory : System.FilePath) : IO Unit := do
 def invoke (blueprint selector : String) (checkId : Option String) (budgetMs : Nat)
     (label := "CLI workflow") (expected := "") : IO CLIRun := do
   let selection := checkId.map (fun id => #["--check", id]) |>.getD #[]
-  let arguments := #["exe", "plutus-upv", "run", blueprint, selector] ++ selection ++
+  let arguments := #["exe", "universal", blueprint, selector] ++ selection ++
     #["--timeout-ms", toString budgetMs]
   startCase label expected ("lake " ++ String.intercalate " " arguments.toList) budgetMs
   let original ← IO.FS.readFile blueprint
@@ -144,7 +144,7 @@ def expectBindings (label : String) (run : CLIRun)
     check s!"{label}: unique execution observation for {name}" (observations.size == 1)
     let some observation := observations[0]?
       | throw (IO.userError s!"missing execution observation: {name}")
-    for field in #["txModelId", "transactionModel", "combinedCheck"] do
+    for field in #["txModelId", "transactionModel", "combinedCheck", "statement"] do
       check s!"{label}: exact {field} snapshot retained for {name}"
         ((observation.getObjVal? field).toOption == (row.getObjVal? field).toOption)
 

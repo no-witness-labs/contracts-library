@@ -1,4 +1,4 @@
-import Workflow.PropertyDefinition
+import Workflow.Metadata.Property
 import Candidates.Catalogue
 import Workflow.Tests.Unit.Metadata.Models
 import Workflow.Tests.Unit.Metadata.Bindings
@@ -151,6 +151,22 @@ def run : IO Unit := do
     match ← PropertyDefinition.read missing with
     | .error message => check "file error location" (message.startsWith s!"{missing}:")
     | .ok _ => throw (IO.userError "FAIL: missing file was accepted")
+    IO.FS.writeFile path record.pretty
+    check "per-property reader preserves one complete record"
+      ((← PropertyDefinition.readRecord path).toOption == some definition)
+    check "single-record reader does not change the source"
+      ((← IO.FS.readFile path) == record.pretty)
+    IO.FS.writeFile path "{}"
+    check "single-record shape validation keeps partial fields optional"
+      ((← PropertyDefinition.readRecord path).toOption == some incomplete)
+    IO.FS.writeFile path "[]"
+    check "single-record reader rejects a collection wrapper"
+      ((← PropertyDefinition.readRecord path).toOption.isNone)
+    IO.FS.writeFile path "{"
+    check "single-record reader rejects malformed JSON"
+      ((← PropertyDefinition.readRecord path).toOption.isNone)
+    check "single-record reader reports unavailable files"
+      ((← PropertyDefinition.readRecord missing).toOption.isNone)
   let registered ← catalogueRecord
   let selected ← IO.ofExcept (Candidates.Catalogue.withDefinitions none #[registered])
   check "binding accepts a partial descriptive record with the registered identity"
@@ -165,7 +181,7 @@ def run : IO Unit := do
       ((Candidates.Catalogue.withDefinitions (some "UP-001") invalidDefinitions).toOption.isNone)
   check "metadata cannot register a new executable provider"
     ((Candidates.Catalogue.withDefinitions (some "UP-unknown") #[(← catalogueRecord "UP-unknown")]).toOption.isNone)
-  for (id, primary) in [("UP-001", "Candidates.UP001.statement"), ("UP-012", "Candidates.UP012.checks")] do
+  for (id, primary) in [("UP-001", "Formal.Properties.Universal.UP001.statement"), ("UP-012", "Formal.Properties.Universal.UP012.statement")] do
     let provider ← IO.ofExcept (← Candidates.Catalogue.loadProvider (some id))
     check s!"maintained {id} record binds to its registered version and primary"
       (provider.propertyDefinition.any fun metadata => metadata.id? == some id &&
