@@ -1,4 +1,4 @@
-import Workflow.PropertyDefinition
+import Workflow.Metadata.Property
 
 namespace Workflow
 

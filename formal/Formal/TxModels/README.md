@@ -38,6 +38,7 @@ The model IDs and constructors below belong to the `Formal.TxModels` namespace:
 
 Each model maintains four metadata fields: `id`, `title`, `plutus_version`, and
 `description`. Its `metadata` declaration stays in the same file as its constructor.
+The exported array follows [transaction-model.schema.json](transaction-model.schema.json).
 Keep an existing ID's meaning stable; a changed model receives a new numbered ID.
 `plutus_version` identifies the context format, not the full execution environment.
 

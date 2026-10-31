@@ -63,8 +63,10 @@ discipline; it does not certify arbitrary dependencies between proof declaration
 Workflow reports now retain the selected property-definition snapshot, including
 its definition version, explanations, and stated limits. Executor retains the
 same snapshot in its manifest; a mismatch makes the report inconclusive. See the
-[workflow metadata guide](../METADATA.md). Model metadata and combined-check
-records remain design work in [issue #65](https://github.com/no-witness-labs/contracts-library/issues/65).
+[developer guide](../Docs/DEVELOPER-GUIDE.md#metadata-and-schemas). Each job also
+retains its model/combined-check snapshots and submitted statement. Applicability
+must use the same binding as its linked property obligation. The agreed metadata
+contracts remain part of [issue #65](https://github.com/no-witness-labs/contracts-library/issues/65).
 Clients can review protocol relevance afterward. Multiple variants and optional
 enable/disable controls remain later work; current reports retain all job rows.
 
@@ -139,6 +141,6 @@ support row and a linked Valid property INCONCLUSIVE, retaining their raw result
 The four-component vesting command also ran with a 5,000 ms execution budget. All
 five jobs remained INCONCLUSIVE, and the process returned exit code 2. That
 short run supplies no passing result for vesting. The original 1,000,000-step
-[120-second run](../VALIDATION.md) completed all five checks in 82.1 seconds and
+[120-second run](../Docs/VALIDATION.md) completed all five checks in 82.1 seconds and
 returned zero with matching results. The history separately records the later
 5,000,000-step checkpoint and its scope.

@@ -127,7 +127,7 @@ snapshot, logs, and manifest remain available for diagnosis. At that original
 checkpoint, Input and Generator fixture harnesses and all 54 legacy Python
 tests also passed.
 
-The original 1,000,000-step [120-second validation run](../VALIDATION.md)
+The original 1,000,000-step [120-second validation run](../Docs/VALIDATION.md)
 completed all five checks in 82.1 seconds. The history also records the later
 5,000,000-step checkpoint. The earlier timeout remains a valid observation for
 its short budget; it is not a failing property result.

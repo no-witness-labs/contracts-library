@@ -1,5 +1,5 @@
 import Candidates.UP001
-import Workflow.PropertyDefinition
+import Workflow.Metadata.Property
 import Workflow.Tests.UP012.Profile
 import Formal.TxModels.Index
 import Formal.Properties.Index

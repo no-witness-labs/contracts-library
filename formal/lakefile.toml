@@ -79,11 +79,11 @@ root = "Workflow.Tests.Unit.Evidence.Tests"
 
 [[lean_exe]]
 name = "universal"
-root = "Workflow.CLI"
+root = "Workflow.App.CLI"
 
 [[lean_exe]]
 name = "plutus-upv"
-root = "Workflow.ProductCLI"
+root = "Workflow.App.ProductCLI"
 
 [[lean_exe]]
 name = "workflow_up001_tests"

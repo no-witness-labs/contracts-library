@@ -1,4 +1,4 @@
-import Workflow.Main
+import Workflow.App.Main
 import Workflow.Tests.Runner
 import Candidates.Catalogue
 

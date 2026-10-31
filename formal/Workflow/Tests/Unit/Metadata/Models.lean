@@ -1,4 +1,4 @@
-import Workflow.ModelMetadata
+import Workflow.Metadata.TxModel
 
 open Lean Workflow
 
