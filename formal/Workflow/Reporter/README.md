@@ -1,10 +1,15 @@
-# Reporter component
+# Reporter component (legacy)
 
-Reporter retains the existing CLI's plain-text summary, JSON report, and exit
+Reporter retains the legacy `universal` CLI's plain-text summary, JSON report, and exit
 code. Assessment of expectations, applicability, and evidence now belongs to
 [Assessor](../Assessor/README.md); `Reporter.build` delegates to that shared policy.
 The callable core returns one CheckResult. A later client Reporter will combine
 those records and provide final branding; that presentation is not implemented here.
+
+The product `plutus-upv` app uses Assessor results directly for its terminal
+summary and run files. Its combination counts and operational exit codes differ
+from this legacy interface; see the [user guide](../Docs/USER-GUIDE.md).
+The final human-friendly report remains [issue #83](https://github.com/no-witness-labs/contracts-library/issues/83).
 
 ## Outcomes
 
@@ -59,7 +64,7 @@ plan or attribution corruption invalidates the affected run conservatively.
 The completion marker relies on the existing independent generated-obligation
 discipline; it does not certify arbitrary dependencies between proof declarations.
 
-## Planned metadata and run configuration
+## Metadata and run configuration
 
 Workflow reports now retain the selected property-definition snapshot, including
 its definition version, explanations, and stated limits. Executor retains the
@@ -68,8 +73,10 @@ same snapshot in its manifest; a mismatch makes the report inconclusive. See the
 retains its model/combined-check snapshots and submitted statement. Applicability
 must use the same binding as its linked property obligation. The agreed metadata
 contracts remain part of [issue #65](https://github.com/no-witness-labs/contracts-library/issues/65).
-Clients can review protocol relevance afterward. Multiple variants and optional
-enable/disable controls remain later work; current reports retain all job rows.
+
+Clients can review protocol relevance afterward. The product app now selects
+multiple registered combinations and supports property enable/disable switches.
+This legacy report format retains all obligation rows in its supplied plan.
 
 ## API
 
@@ -84,16 +91,16 @@ The component reads no blueprint, starts no process, and queries no solver.
 Writing is explicit; the caller chooses and owns the output directory. Raw
 diagnostics and generated sources remain in Executor's evidence directory.
 
-## Prototype command
+## Legacy command
 
 With the pinned dependencies and tools prepared, run from `formal/`:
 
 ```sh
-lake exe plutus-upv run /path/to/plutus.json module.validator --check UP-001 --timeout-ms 120000
+lake exe universal /path/to/plutus.json module.validator --check UP-001 --timeout-ms 120000
 ```
 
-The thin `Workflow.Main` entry point connects Input, Generator, Executor, and
-Reporter. The application supplies the candidate resolver through its composition index;
+The legacy `Workflow.Main` entry point connects Input, Generator, Executor, and
+Reporter, which delegates assessment to Assessor. The application supplies the candidate resolver through its composition index;
 the default remains UP-001. The first provider supports unparameterized
 UP-001 targets. The command requires the prepared `LEAN_PATH` supplied by
 `lake exe` and performs no dependency installation.
@@ -113,8 +120,8 @@ outputs, logs, and `execution.json`.
 
 Reviewed exceptions and `universal.json` waiver handling remain future work.
 Unknown options return an inconclusive usage error. Standalone CBOR, additional
-properties, typed parameter generation, and portable packaging remain later
-work.
+properties, typed parameter generation, and managed-runtime packaging remain
+separate work. The product app already has a checkout-backed installer.
 
 ## Tests
 
