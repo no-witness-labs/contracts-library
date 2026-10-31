@@ -14,16 +14,33 @@ def run (options : Options) (deadline : Nat) (args : Array String)
   let started ← IO.monoMsNow
   if started ≥ deadline then return { state := .timedOut }
   try
-    let output ← IO.Process.output {
-      cmd := options.timeoutCommand
+    let attempted : Invocation := {
+      command := options.timeoutCommand
       args := #["--signal=KILL", duration (deadline - started), options.leanCommand] ++ args
-      env := environment
-      setsid := true }
-    let finished ← IO.monoMsNow
-    return { state := if finished ≥ deadline then .timedOut else .finished
-             exitCode := some output.exitCode
-             stdout := output.stdout, stderr := output.stderr
-             elapsedMs := finished - started }
+      cwd := ← IO.currentDir
+      environment }
+    let observed : ProcessObservation ← try
+      let output ← IO.Process.output {
+        cmd := attempted.command
+        args := attempted.args
+        cwd := some attempted.cwd
+        env := attempted.environment
+        setsid := true }
+      let finished ← IO.monoMsNow
+      pure {
+        state := if finished ≥ deadline then .timedOut else .finished
+        exitCode := some output.exitCode
+        stdout := output.stdout
+        stderr := output.stderr
+        elapsedMs := finished - started
+        invocation := some attempted }
+    catch error =>
+      pure {
+        state := .launchError
+        stderr := error.toString
+        elapsedMs := (← IO.monoMsNow) - started
+        invocation := some attempted }
+    return observed
   catch error =>
     return { state := .launchError, stderr := error.toString
              elapsedMs := (← IO.monoMsNow) - started }
