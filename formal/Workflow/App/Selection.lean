@@ -42,9 +42,11 @@ private def parseOptions : List String → Request → Bool → Except String Re
 
 /-- Parse selection controls while retaining the original invocation. -/
 def parseRequest (args : List String) : Except String Request := do
-  let path :: rest := args | throw "a blueprint path is required"
+  let initial : Request := { path := "plutus.json", args := args.toArray }
+  let path :: rest := args | return initial
+  if path.startsWith "--" then return ← parseOptions args initial false
   let path ← value "blueprint" path
-  let initial : Request := { path, args := args.toArray }
+  let initial := { initial with path }
   match rest with
   | selector :: options =>
     if selector.startsWith "--" then parseOptions rest initial false

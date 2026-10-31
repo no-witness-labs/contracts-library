@@ -2,6 +2,11 @@
 set -euo pipefail
 
 upv_root=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
+if [[ ${1:-} == run && ${2:-} != --help ]]; then
+  if (( $# == 1 )) || [[ ${2:-} == --* ]]; then
+    set -- run "$PWD/plutus.json" "${@:2}"
+  fi
+fi
 if [[ ${1:-} == run ]]; then
   upv_args=("$@")
   for ((upv_index=1; upv_index<${#upv_args[@]}; upv_index++)); do

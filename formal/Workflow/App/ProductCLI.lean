@@ -9,8 +9,9 @@ private def help : String :=
   "  " ++ Workflow.App.Run.usage ++ "\n" ++
   "  plutus-upv test\n" ++
   "  plutus-upv --help\n\n" ++
+  "run uses plutus.json in the current directory when BLUEPRINT is omitted.\n" ++
   "run defaults to all validators and registered checks. --validator and --check may repeat.\n" ++
-  "--timeout-ms applies separately to each validator/check combination.\n" ++
+  "--timeout-ms defaults to 30000 (30 seconds) per validator/check combination.\n" ++
   "test runs all workflow suites with verbose output and retained logs.\n"
 
 def main (args : List String) : IO UInt32 := do

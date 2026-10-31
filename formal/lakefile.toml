@@ -90,6 +90,10 @@ name = "workflow_app_tests"
 root = "Workflow.Tests.Unit.App.Tests"
 
 [[lean_exe]]
+name = "workflow_installation_tests"
+root = "Workflow.Tests.Unit.Installation.Tests"
+
+[[lean_exe]]
 name = "universal"
 root = "Workflow.App.CLI"
 

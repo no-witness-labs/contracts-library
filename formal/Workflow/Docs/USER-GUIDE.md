@@ -16,22 +16,36 @@ Have Lean **4.24.0**, Z3 **4.15.2**, GNU coreutils (`timeout`, `mktemp`, and
 `date`), and Git on `PATH`. From the repository root:
 
 ```sh
-cd formal
-lake build plutus-upv
-export PATH="$PWD:$PATH"
+./formal/install.sh
 ```
 
-The `PATH` command makes the launcher available in this shell. Alternatively,
-use `./plutus-upv` from `formal/`. The launcher sets the working directory and
-resolves relative blueprint and selection-file paths from your calling directory.
-No global installation is required. From `formal/`, `lake exe plutus-upv ...`
-is equivalent.
+The installer builds the app and links `~/.local/bin/plutus-upv` to this checkout.
+Keep the checkout in place: it supplies the app, metadata, and Lean dependencies.
+If that bin directory is outside your `PATH`, the installer prints the shell
+command to add it. It does not edit shell configuration. Use `--bin-dir DIRECTORY`
+to choose another location. Repeating the installation for the same checkout is
+safe; the installer refuses to replace an unrelated existing command.
+
+You can also use `./plutus-upv` directly from `formal/`. The launcher resolves
+input and selection-file paths from your calling directory, then uses the app's
+Lean environment. From `formal/`, `lake exe plutus-upv ...` also works.
 
 The first build can download and compile dependencies. Lake uses revisions in
 the committed `lake-manifest.json`; reserve `lake update` for intentional upgrades.
 The launcher also builds the command when needed.
 
 ## Run and select work
+
+From a directory containing `plutus.json`, run:
+
+```sh
+plutus-upv run
+```
+
+The default timeout is **30 seconds per validator/check combination**. Input
+defaults also work with selection flags, for example `plutus-upv run --check UP-001`.
+Run files remain under this app checkout's `formal/output/`; the terminal prints
+their location. The command leaves the input project unchanged.
 
 Run all validators and registered combinations:
 

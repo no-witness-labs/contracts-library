@@ -11,6 +11,7 @@ lake exe workflow_metadata_tests
 lake exe workflow_evidence_tests
 lake exe workflow_single_check_tests --unit
 lake exe workflow_selection_tests
+lake exe workflow_installation_tests
 lake exe workflow_app_tests
 lake exe workflow_runner_tests
 lake exe workflow_executor_integration
@@ -21,6 +22,7 @@ lake exe workflow_reporter_integration
 | --- | --- |
 | `Input/Tests.lean` | Selection, metadata preservation, code decoding, and malformed inputs |
 | `Selection/Tests.lean` | CLI controls, canonical selectors, registered model selection, and JSON property switches |
+| `Installation/Tests.lean` | Installed launcher paths, caller-directory defaults, repeat installation, and preservation of existing commands |
 | `App/Tests.lean` | Blueprint-wide orchestration, counts, continuation, checkpointed indexes, isolated files, and storage failures |
 | `Generator/Tests.lean` | Generic contracts with stub providers, namespace validation, and empty plans |
 | `Executor/Tests.lean` | Controlled compiler diagnostics, deadlines, output isolation, and process cleanup |
