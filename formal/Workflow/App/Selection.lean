@@ -9,7 +9,7 @@ structure Request where
   validators : Array String := #[]
   properties : Array String := #[]
   checksFile : Option System.FilePath := none
-  timeoutMs : Nat := 30000
+  timeoutMs : Nat := 300000
   args : Array String := #[]
 
 private def value (option argument : String) : Except String String := do

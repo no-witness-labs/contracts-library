@@ -19,12 +19,12 @@ Use Aiken 1.1.21 and the pinned stdlib 3.0.0 dependency. From this directory:
 
 ```sh
 aiken build
-plutus-upv run --check UP-001 --timeout-ms 120000
+plutus-upv run --check UP-001
 ```
 
 Install the app first with [formal/install.sh](../../../../install.sh) if needed.
-The app uses this directory's newly built `plutus.json`. The explicit timeout
-gives each check up to two minutes; the app's general default remains 30 seconds.
+The app uses this directory's newly built `plutus.json`. Each check uses the
+five-minute default; `--timeout-ms` can override it.
 The demo's blueprint, build cache, and optional generated artifacts stay ignored
 by Git. No automatic Aiken build is added to the app or aggregate workflow tests.
 

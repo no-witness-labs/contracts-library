@@ -12,7 +12,7 @@ The result is `IO (Except String Result)`: invalid plans or configuration return
 an error; executed runs retain a structured result and evidence directory.
 
 `Options.leanPath` supplies the prepared Lean dependency search path. Defaults
-are `lean`, GNU `timeout`, and a 30,000 ms budget. Executor does not install or
+are `lean`, GNU `timeout`, and a 300,000 ms budget. Executor does not install or
 update dependencies. GNU coreutils provides `timeout` and `mktemp`.
 This process-supervision profile targets POSIX environments; the descendant
 cleanup test uses Linux process information.
