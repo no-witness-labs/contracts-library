@@ -22,7 +22,7 @@ private def identity (model : String) (property := "fixture") : CheckId :=
 
 private def registry : Array CheckId := #[
   identity "TxM-support", identity "TxM-fail", identity "TxM-slow",
-  identity "TxM-unsupported", identity "TxM-other" "other"]
+  identity "TxM-unsupported", identity "TxM-empty", identity "TxM-other" "other"]
 
 private def context (id : CheckId) : IO CheckContext := do
   let propertyDefinition ← IO.ofExcept (PropertyDefinition.parse (Json.mkObj [
@@ -53,6 +53,8 @@ private def fixtureCheck (id : CheckId) : IO ConfiguredCheck := do
     generate := fun target modulePrefix => do
       if id.modelId == "TxM-unsupported" then
         throw ⟨.unsupported, "unsupported app fixture"⟩
+      if id.modelId == "TxM-empty" then
+        return { targetName := target.name, modules := #[], jobs := #[] }
       let moduleName := if mode == "log-write-error" || mode == "log-full" then "Other.Checks"
         else s!"{modulePrefix}.Checks"
       let goal := if mode == "falsified" then "False" else "True"
@@ -111,8 +113,22 @@ private def assertSaved (run : RunRecord) : IO Unit := do
     ((index.getObjVal? "status").toOption.isNone &&
      (index.getObjVal? "counts").toOption.isNone &&
      (index.getObjVal? "overall").toOption.isNone)
-  for validator in run.validators do
-    for item in validator.checks do
+  let indexedValidators ← array index "validators"
+  for validatorIndex in [:run.validators.size] do
+    let validator := run.validators[validatorIndex]!
+    let indexedChecks ← array indexedValidators[validatorIndex]! "checks"
+    for checkIndex in [:validator.checks.size] do
+      let item := validator.checks[checkIndex]!
+      let indexedCheck := indexedChecks[checkIndex]!
+      let expectedNotRun := if validator.preparationError.isSome then Json.null else
+        match item.notRunReason with
+        | some .notApplicable => .str "not_applicable"
+        | some .unsupported => .str "unsupported"
+        | none => .null
+      ensure "index persists only the guarded non-execution reason"
+        ((← field indexedCheck "not_run") == expectedNotRun &&
+         (indexedCheck.getObjVal? "status").toOption.isNone &&
+         (indexedCheck.getObjVal? "counts").toOption.isNone)
       if let some result := item.result then
         let some reference := item.resultFile
           | throw (IO.userError "assessed result has no retained reference")
@@ -148,22 +164,37 @@ private def countsAndContinuation (temporary path : System.FilePath) : IO Unit :
       ((← resultAt run name "TxM-fail").status == .fail)
     ensure "timeouts remain inconclusive"
       ((← resultAt run name "TxM-slow").status == .inconclusive)
+    let unsupported ← checkAt run name "TxM-unsupported"
     ensure "unsupported combinations remain explained inconclusive attempts"
-      ((← resultAt run name "TxM-unsupported").status == .inconclusive &&
+      (unsupported.result.any (·.status == .inconclusive) &&
+       unsupported.notRunReason == some .unsupported && unsupported.displayStatus == "UNSUPPORTED" &&
        !(← resultAt run name "TxM-unsupported").reasons.isEmpty)
+    let empty ← checkAt run name "TxM-empty"
+    ensure "empty generation is not applicable without becoming a pass"
+      (empty.result.any (fun result => result.status == .inconclusive && result.obligations.isEmpty) &&
+       empty.notRunReason == some .notApplicable && empty.displayStatus == "NOT APPLICABLE")
+    let slow ← checkAt run name "TxM-slow"
+    ensure "timeouts are never counted as non-execution"
+      (slow.notRunReason.isNone && slow.displayStatus == "INCONCLUSIVE")
     ensure "later checks receive a fresh budget and still run"
       ((← resultAt run name "TxM-other").status == .pass)
   ensure "terminal counts combinations rather than supporting obligations"
-    (contains run.text "Recorded checks: 10/10")
+    (contains run.text "Recorded checks: 12/12")
   for name in #["samples.alpha", "other.beta"] do
     let some row := (run.text.splitOn "\n").find? (·.startsWith name)
       | throw (IO.userError s!"missing terminal row: {name}")
     let columns := (row.splitOn " ").filter (!·.isEmpty)
     ensure "terminal displays one count per assessed combination"
-      (columns == [name, "2", "1", "2"])
+      (columns == [name, "2", "1", "1", "1", "1"])
   ensure "terminal has a count table and output reference without overall verdict"
     (contains run.text "Validator" && contains run.text "INCONCLUSIVE" &&
      contains run.text "Output: " && !contains run.text "Overall:")
+  ensure "terminal defines all five outcomes immediately below the table"
+    (contains run.text "\n\nKey:\n  PASS: met the check expectations within its model, assumptions, and bounds." &&
+     contains run.text "  FAIL: did not meet the check expectations;" &&
+     contains run.text "  NOT APPLICABLE: generated no obligations" &&
+     contains run.text "  UNSUPPORTED: generation does not support" &&
+     contains run.text "  INCONCLUSIVE: no reliable result")
   let later ← checkAt run "samples.alpha" "TxM-other"
   let some reference := later.resultFile | throw (IO.userError "missing later check reference")
   let some folder := (run.directory / reference).parent | throw (IO.userError "missing later check folder")
@@ -173,8 +204,38 @@ private def countsAndContinuation (temporary path : System.FilePath) : IO Unit :
   ensure "index checkpoints earlier outcomes before a later compiler starts"
     ((← field progress "finished") == .bool false &&
      (earlierChecks.filter fun check =>
-       (check.getObjVal? "result").toOption.any (· != .null)).size == 4)
+       (check.getObjVal? "result").toOption.any (· != .null)).size == 5)
   assertSaved run
+
+private def displayGuards (temporary path : System.FilePath) : IO Unit := do
+  let generated ← Run.runWith #[identity "TxM-unsupported"] load (request path)
+    (← options (temporary / "display-guards"))
+  let tagged ← checkAt generated "samples.alpha" "TxM-unsupported"
+  let some result := tagged.result | throw (IO.userError "missing tagged fixture result")
+  let missing : CheckRun := { id := tagged.id }
+  let blank : CheckRun := { tagged with result := some { result with notRun := none, reasons := #[] } }
+  let failed : CheckRun := { tagged with error := some "retention failed" }
+  let passing : CheckRun := { tagged with result := some { result with status := .pass } }
+  for check in #[missing, blank, failed] do
+    ensure "missing, blank, and operationally failed outcomes never become skips"
+      (check.displayStatus == "INCONCLUSIVE" && check.notRunReason.isNone &&
+       (← field check.toJson "not_run") == .null)
+  ensure "non-execution tags cannot override assessed pass or fail"
+    (passing.displayStatus == "PASS" && passing.notRunReason.isNone &&
+     ({ passing with result := some { result with status := .fail } } : CheckRun).displayStatus == "FAIL")
+  let guards : RunRecord := { directory := temporary, finished := true, validators := #[
+    { name := "guards", checks := #[missing, blank, failed] },
+    { name := "preparation", preparationError := some "could not prepare", checks := #[tagged] }] }
+  for (name, expected) in #[("guards", ["guards", "0", "0", "0", "0", "3"]),
+      ("preparation", ["preparation", "0", "0", "0", "0", "1"])] do
+    let some row := (guards.text.splitOn "\n").find? (·.startsWith name)
+      | throw (IO.userError s!"missing guard row: {name}")
+    ensure "unresolved combinations and preparation failures count as inconclusive"
+      ((row.splitOn " ").filter (!·.isEmpty) == expected)
+  let validators ← array guards.toJson "validators"
+  let checks ← array validators[1]! "checks"
+  ensure "preparation failure suppresses non-execution metadata"
+    ((← field checks[0]! "not_run") == .null)
 
 private def preparationIsolation (temporary path : System.FilePath) : IO Unit := do
   IO.FS.writeFile path (blueprint #[
@@ -403,6 +464,7 @@ def run : IO Unit := do
     let path := temporary / "blueprint with spaces.json"
     IO.FS.writeFile path sample
     countsAndContinuation temporary path
+    displayGuards temporary path
     preparationIsolation temporary path
     selectionChecks temporary path
     identityAndSnapshot temporary path

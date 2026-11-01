@@ -45,17 +45,41 @@ structure RunRecord where
   errors : Array String := #[]
   elapsedMs : Nat := 0
 
+/-- Non-execution applies only to inconclusive results without operational errors. -/
+def CheckRun.notRunReason (check : CheckRun) : Option Assessor.NotRunReason := do
+  if check.error.isSome then none else do
+    let result ← check.result
+    if result.status == .inconclusive then result.notRun else none
+
+def CheckRun.displayStatus (check : CheckRun) : String :=
+  if check.error.isSome then "INCONCLUSIVE" else
+    match check.result with
+    | none => "INCONCLUSIVE"
+    | some result => match result.status with
+      | .pass => "PASS"
+      | .fail => "FAIL"
+      | .inconclusive => match check.notRunReason with
+        | some .notApplicable => "NOT APPLICABLE"
+        | some .unsupported => "UNSUPPORTED"
+        | none => "INCONCLUSIVE"
+
 def CheckRun.toJson (check : CheckRun) : Json := Json.mkObj [
   ("property", Json.mkObj [("id", .str check.id.propertyId),
     ("definition_version", Lean.toJson check.id.definitionVersion)]),
   ("tx_model", .str check.id.modelId),
   ("result", check.resultFile.map (fun path => Json.str path.toString) |>.getD .null),
-  ("error", check.error.map Json.str |>.getD .null)]
+  ("error", check.error.map Json.str |>.getD .null),
+  ("not_run", match check.notRunReason with
+    | some .notApplicable => .str "not_applicable"
+    | some .unsupported => .str "unsupported"
+    | none => .null)]
 
 def ValidatorRun.toJson (validator : ValidatorRun) : Json := Json.mkObj [
   ("name", .str validator.name),
   ("preparation_error", validator.preparationError.map Json.str |>.getD .null),
-  ("checks", .arr (validator.checks.map CheckRun.toJson))]
+  ("checks", .arr (validator.checks.map fun check =>
+    let encoded := check.toJson
+    if validator.preparationError.isSome then encoded.setObjVal! "not_run" .null else encoded))]
 
 def RunRecord.toJson (run : RunRecord) : Json := Json.mkObj [
   ("input", run.input.map (fun path => Json.str path.toString) |>.getD .null),
@@ -100,18 +124,25 @@ def RunRecord.text (run : RunRecord) : String := Id.run do
     if label.length > 56 then label.take 53 ++ "..." else label
   let width := labels.foldl (fun width name => max width name.length) 9
   let mut lines := #["Plutus UPV", "",
-    s!"{padRight "Validator" width}  {padLeft "PASS" 5}  {padLeft "FAIL" 5}  {padLeft "INCONCLUSIVE" 12}",
-    String.mk (List.replicate (width + 28) '-')]
+    s!"{padRight "Validator" width}  {padLeft "PASS" 5}  {padLeft "FAIL" 5}  {padLeft "NOT APPLICABLE" 14}  {padLeft "UNSUPPORTED" 11}  {padLeft "INCONCLUSIVE" 12}",
+    String.mk (List.replicate (width + 57) '-')]
   let mut total := 0
   let mut recorded := 0
   for index in [:run.validators.size] do
     let validator := run.validators[index]!
     let count := fun status => (validator.checks.filter fun check =>
-      check.result.any (·.status == status)).size
-    lines := lines.push s!"{padRight labels[index]! width}  {padLeft (toString (count .pass)) 5}  {padLeft (toString (count .fail)) 5}  {padLeft (toString (count .inconclusive)) 12}"
+      (if validator.preparationError.isSome then "INCONCLUSIVE" else check.displayStatus) == status).size
+    lines := lines.push s!"{padRight labels[index]! width}  {padLeft (toString (count "PASS")) 5}  {padLeft (toString (count "FAIL")) 5}  {padLeft (toString (count "NOT APPLICABLE")) 14}  {padLeft (toString (count "UNSUPPORTED")) 11}  {padLeft (toString (count "INCONCLUSIVE")) 12}"
     total := total + validator.checks.size
     recorded := recorded + (validator.checks.filter (·.resultFile.isSome)).size
-  lines := lines ++ #["", s!"Recorded checks: {recorded}/{total}", s!"Elapsed: {run.elapsedMs} ms"]
+  lines := lines ++ #["",
+    "Key:",
+    "  PASS: met the check expectations within its model, assumptions, and bounds.",
+    "  FAIL: did not meet the check expectations; inspect the recorded result.",
+    "  NOT APPLICABLE: generated no obligations for this validator/model combination.",
+    "  UNSUPPORTED: generation does not support this validator/model combination.",
+    "  INCONCLUSIVE: no reliable result, for example because of a timeout or error.",
+    "", s!"Recorded checks: {recorded}/{total}", s!"Elapsed: {run.elapsedMs} ms"]
   if total == 0 && run.errors.isEmpty then
     lines := lines.push "No checks selected; verification was not run."
   for validator in run.validators do

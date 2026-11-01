@@ -142,7 +142,7 @@ private def assessmentChecks (target : TargetDescription) : IO Unit := do
     (execution context #[observation main mainResult, observation support supportResult])
   let emptyDomain := assessed .valid .falsified
   ensure "a valid implication with falsified applicability is inconclusive"
-    (emptyDomain.status == .inconclusive && emptyDomain.obligations.any
+    (emptyDomain.status == .inconclusive && emptyDomain.notRun.isNone && emptyDomain.obligations.any
       (fun row => row.job.name == main.name && row.observed == some .valid && row.status == .inconclusive))
   ensure "a qualified falsified property fails" ((assessed .falsified .valid).status == .fail)
   ensure "a qualified valid property passes" ((assessed .valid .valid).status == .pass)
@@ -254,14 +254,27 @@ private def coordinatorChecks (validSource : String) : IO Unit := do
     let timeout ← { engine with options := { engine.options with budgetMs := 500 } }.verifyOne
       input (mockCheck context "partial")
     ensure "a timed-out positive marker cannot pass"
-      (timeout.status == .inconclusive && timeout.obligations.any
+      (timeout.status == .inconclusive && timeout.notRun.isNone && timeout.obligations.any
         (fun row => !row.evidenceComplete && row.status == .inconclusive))
     let _ ← savedResult timeout
 
     let configured := mockCheck context
     let otherContext ← fixtureContext "TxM-other"
+    let invalidIdentity : ConfiguredCheck := { configured with
+      context := { context with binding := { context.binding with txModel := otherContext.binding.txModel } } }
+    match generateOne invalidIdentity { input.target with plutusVersion := "v2" } "Generated" with
+    | .error error => ensure "invalid metadata precedes unsupported-version classification" (error.kind == .invalidPlan)
+    | .ok _ => throw (IO.userError "invalid configured metadata was accepted")
+    match generateOne configured { input.target with plutusVersion := "v2" } "Generated" with
+    | .error error => ensure "a valid model with an incompatible target is unsupported" (error.kind == .unsupported)
+    | .ok _ => throw (IO.userError "incompatible target was accepted")
+    let invalidTarget := { configured with generate := fun target modulePrefix => do
+      let plan ← configured.generate target modulePrefix
+      return { plan with targetName := "different.target" } }
+    match generateOne invalidTarget input.target "Generated" with
+    | .error error => ensure "a generator plan identity error is invalid rather than unsupported" (error.kind == .invalidPlan)
+    | .ok _ => throw (IO.userError "invalid target identity was accepted")
     let invalidGenerators : Array ConfiguredCheck := #[
-        { configured with generate := fun _ _ => .error ⟨.unsupported, "generation control"⟩ },
         { configured with generate := fun target modulePrefix => do
             let plan ← configured.generate target modulePrefix
             return { plan with targetName := "different.target" } },
@@ -288,7 +301,8 @@ private def coordinatorChecks (validSource : String) : IO Unit := do
     for invalidGenerator in invalidGenerators do
       let failed ← engine.verifyOne input invalidGenerator
       ensure "generation and preparation errors return the requested check identity"
-        (failed.status == .inconclusive && failed.check == context && !failed.reasons.isEmpty)
+        (failed.status == .inconclusive && failed.notRun.isNone &&
+         failed.check == context && !failed.reasons.isEmpty)
       let _ ← savedResult failed
       let directory ← evidenceDirectory failed
       ensure "rejected plans create no execution or attempted compiler evidence"
@@ -304,31 +318,36 @@ private def coordinatorChecks (validSource : String) : IO Unit := do
         notes := #["empty control"] } }
     let emptyResult ← engine.verifyOne input empty
     ensure "an empty attempt is inconclusive and keeps its exact check"
-      (emptyResult.status == .inconclusive && emptyResult.obligations.isEmpty && emptyResult.check == context)
+      (emptyResult.status == .inconclusive && emptyResult.notRun == some .notApplicable &&
+       emptyResult.obligations.isEmpty && emptyResult.check == context)
     let _ ← savedResult emptyResult
     let declared ← loaded "UP-001" "TxM-006"
     let declaredResult ← engine.verifyOne input declared
     ensure "a selected declared purpose retains its reason without executing other purposes"
-      (declaredResult.status == .inconclusive && declaredResult.obligations.isEmpty &&
+      (declaredResult.status == .inconclusive && declaredResult.notRun == some .notApplicable &&
+       declaredResult.obligations.isEmpty &&
        declaredResult.check == declared.context &&
        declaredResult.reasons.any (fun reason => (reason.splitOn "declared").length > 1))
     let _ ← savedResult declaredResult
     let unsupported ← loaded "UP-012" "TxM-007"
     let unsupportedResult ← engine.verifyOne input unsupported
     ensure "unsupported targets return an inconclusive record for the requested combination"
-      (unsupportedResult.status == .inconclusive && unsupportedResult.obligations.isEmpty &&
+      (unsupportedResult.status == .inconclusive && unsupportedResult.notRun == some .unsupported &&
+       unsupportedResult.obligations.isEmpty &&
        unsupportedResult.check == unsupported.context && !unsupportedResult.reasons.isEmpty)
     let _ ← savedResult unsupportedResult
     let inputWriteError ← engine.verifyOne input (mockCheck context "input-write-error")
     ensure "failed input persistence is inconclusive even when its path entry exists"
-      (inputWriteError.status == .inconclusive && !inputWriteError.reasons.isEmpty)
+      (inputWriteError.status == .inconclusive && inputWriteError.notRun.isNone &&
+       !inputWriteError.reasons.isEmpty)
     ensure "failed snapshot paths are not advertised as retained evidence"
       (!inputWriteError.evidence.any (·.fileName == some "input.json") &&
        ((← IO.ofExcept (inputWriteError.toJson.getObjVal? "target")).getObjVal? "prepared_input").toOption == some .null)
     let _ ← savedResult inputWriteError
     let manifestWriteError ← engine.verifyOne input (mockCheck context "manifest-write-error")
     ensure "a manifest-write failure retains identity without inventing executed observations"
-      (manifestWriteError.status == .inconclusive && manifestWriteError.check == context &&
+      (manifestWriteError.status == .inconclusive && manifestWriteError.notRun.isNone &&
+       manifestWriteError.check == context &&
        manifestWriteError.target == input.target && manifestWriteError.obligations.isEmpty &&
        !manifestWriteError.reasons.isEmpty)
     let _ ← savedResult manifestWriteError
@@ -337,7 +356,25 @@ private def coordinatorChecks (validSource : String) : IO Unit := do
     let unretained ← { engine with options := { engine.options with outputRoot := some blocked } }.verifyOne
       input configured
     ensure "unavailable evidence storage produces no false passing record"
-      (unretained.status == .inconclusive && !unretained.reasons.isEmpty && unretained.evidence.isEmpty)
+      (unretained.status == .inconclusive && unretained.notRun.isNone &&
+       !unretained.reasons.isEmpty && unretained.evidence.isEmpty)
+    let unretainedUnsupported ←
+      { engine with options := { engine.options with outputRoot := some blocked } }.verifyOne input unsupported
+    ensure "unsupported classification is cleared when its record cannot be retained"
+      (unretainedUnsupported.status == .inconclusive && unretainedUnsupported.notRun.isNone &&
+       unretainedUnsupported.evidence.isEmpty)
+    let unretainedEmpty ←
+      { engine with options := { engine.options with outputRoot := some blocked } }.verifyOne input empty
+    ensure "not-applicable classification is cleared when its record cannot be retained"
+      (unretainedEmpty.status == .inconclusive && unretainedEmpty.notRun.isNone &&
+       unretainedEmpty.evidence.isEmpty)
+    let occupied := temporary / "occupied"
+    IO.FS.createDir occupied
+    let workspaceError ←
+      { engine with options := { engine.options with directory := some occupied } }.verifyOne input empty
+    ensure "workspace reservation failure cannot be reported as not applicable"
+      (workspaceError.status == .inconclusive && workspaceError.notRun.isNone &&
+       !workspaceError.reasons.isEmpty)
   IO.println "Single-check preparation/coordinator checks passed."
 
 private def realCase (property model blueprint selector : String) (budget : Nat)

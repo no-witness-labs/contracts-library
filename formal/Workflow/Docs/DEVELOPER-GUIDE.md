@@ -288,6 +288,14 @@ error. It preserves the existing core assessment policy, six-field CheckResult,
 native definitions, and CEK bounds. The terminal counts combinations rather than
 supporting obligations and has no overall verification verdict.
 
+The terminal adds NOT APPLICABLE and UNSUPPORTED categories and a key below its
+table. The coordinator supplies typed `CheckResult.notRun` metadata for validated
+empty plans or unsupported generation. Invalid plans, failed applicability,
+timeouts, and retention failures stay INCONCLUSIVE. This internal metadata does
+not alter the six-field check-result JSON or the assessor's three verdicts.
+The app records the guarded `not_run` reason in each run-index check entry;
+operational and validator-preparation errors suppress that classification.
+
 `App.Output` stores a checkpointed `run.json` in a fresh
 `output/run.<timestamp>.<unique-id>/` folder. `App.Review` refreshes a root
 `README.md` at each checkpoint with relative links to retained generated Lean,

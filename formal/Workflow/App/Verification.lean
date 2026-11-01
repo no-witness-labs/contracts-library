@@ -27,7 +27,7 @@ private partial def retainedFiles (directory : System.FilePath) : IO (Array Syst
       files := files.push entry.path
   return files
 private def retentionFailure (result : Assessor.CheckResult) (message : String) : Assessor.CheckResult :=
-  { result with status := .inconclusive, reasons := result.reasons.push message }
+  { result with status := .inconclusive, notRun := none, reasons := result.reasons.push message }
 
 private def writeRetained (path : System.FilePath) (contents : String) : IO Unit := do
   let handle ← IO.FS.Handle.mk path .write
@@ -83,13 +83,19 @@ def Engine.verifyOne (engine : Engine) (prepared : InputResult)
           "verification could not reserve its workspace") s!"could not create check evidence directory: {error}"
   match Generator.generateOne check prepared.target "Generated" with
   | .error error =>
-    retain engine prepared none (Assessor.failure prepared.target check.context (toString error))
+    let result := Assessor.failure prepared.target check.context (toString error)
+    let result := { result with notRun := if error.kind == .unsupported then some .unsupported else none }
+    retain engine prepared none result
   | .ok plan =>
     match ← Executor.run plan engine.options with
     | .error message =>
       retain engine prepared none (Assessor.failure prepared.target check.context message)
     | .ok execution =>
-      retain engine prepared execution.directory
-        (Assessor.assessOne prepared.target check.context plan execution)
+      let result := Assessor.assessOne prepared.target check.context plan execution
+      let notRun := if plan.status == .noObligations && plan.jobs.isEmpty && plan.modules.isEmpty &&
+          execution.state == .noObligations && execution.jobs.isEmpty && execution.modules.isEmpty &&
+          execution.problems.isEmpty && execution.retentionErrors.isEmpty then
+        some Assessor.NotRunReason.notApplicable else none
+      retain engine prepared execution.directory { result with notRun }
 
 end Workflow.Verification

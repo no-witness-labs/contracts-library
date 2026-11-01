@@ -4,7 +4,7 @@ import Workflow.Types.Jobs
 namespace Workflow.Generator
 
 inductive ErrorKind where
-  | invalidNamespace | unsupported
+  | invalidNamespace | invalidPlan | unsupported
   deriving BEq, Repr
 
 structure Error where
@@ -32,15 +32,15 @@ def generate (provider : Provider) (target : TargetDescription) (modulePrefix : 
     | none => pure plan.jobs
     | some bindings => plan.jobs.mapM fun job => do
       let some modelId := job.txModelId
-        | throw ⟨.unsupported, s!"registered model is missing for {job.name}"⟩
+        | throw ⟨.invalidPlan, s!"registered model is missing for {job.name}"⟩
       let matching := bindings.filter (fun binding => binding.combinedCheck.txModelId? == some modelId)
       unless matching.size == 1 do
-        throw ⟨.unsupported, s!"model binding for {job.name} must resolve uniquely"⟩
+        throw ⟨.invalidPlan, s!"model binding for {job.name} must resolve uniquely"⟩
       let some binding := matching[0]?
-        | throw ⟨.unsupported, s!"model binding is missing for {job.name}"⟩
+        | throw ⟨.invalidPlan, s!"model binding is missing for {job.name}"⟩
       if let some existing := job.binding then
         unless existing == binding do
-          throw ⟨.unsupported, s!"generator supplied conflicting metadata for {job.name}"⟩
+          throw ⟨.invalidPlan, s!"generator supplied conflicting metadata for {job.name}"⟩
       return { job with binding := some binding }
   for job in jobs do
     if let some binding := job.binding then
@@ -49,7 +49,7 @@ def generate (provider : Provider) (target : TargetDescription) (modulePrefix : 
   let result := { plan with status := if jobs.isEmpty then .noObligations else .ready
                             jobs, propertyDefinition := provider.propertyDefinition
                             bindingsRequired := provider.bindings.isSome || plan.bindingsRequired }
-  result.validateBindings.mapError (fun message => { kind := .unsupported, message })
+  result.validateBindings.mapError (fun message => { kind := .invalidPlan, message })
   return result
 
 end Workflow.Generator

@@ -103,13 +103,22 @@ claim a pass.
 
 ## Read the terminal and run files
 
-The terminal table shows PASS, FAIL, and INCONCLUSIVE counts per validator.
+The terminal table shows PASS, FAIL, NOT APPLICABLE, UNSUPPORTED, and INCONCLUSIVE
+counts per validator. A key immediately below the table explains each term.
+NOT APPLICABLE means the selected combination generated no proof obligations;
+UNSUPPORTED means the current implementation cannot handle that validator/model
+combination. Timeouts, invalid plans, failed applicability, and operational
+failures remain INCONCLUSIVE.
 Each count represents one property/version/model combination; supporting
 applicability obligations do not add extra checks. The app also prints recorded
 check counts, elapsed time, errors, and output paths. Open the printed `Review`
 path (`README.md`) to browse relative links to generated Lean, check results,
 logs, and shared source snapshots. `Index` points to the machine-readable
 `run.json`. The app assigns no overall verification verdict.
+
+These are terminal categories. The saved check assessment retains its existing
+PASS/FAIL/INCONCLUSIVE status; `run.json` records a separate `not_run` reason for
+NOT APPLICABLE and UNSUPPORTED attempts. Neither category represents a proof.
 
 Each invocation creates a fresh local folder:
 
