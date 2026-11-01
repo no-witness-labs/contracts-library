@@ -333,13 +333,13 @@ private def directDirectoryChecks (temporary : System.FilePath) : IO Unit := do
     (first.status == .pass && (← (workspace / "check-result.json").pathExists))
   let earlierInput ← IO.FS.readFile (workspace / "input.json")
   let earlierResult ← IO.FS.readFile (workspace / "check-result.json")
-  let earlierLog ← IO.FS.readFile (workspace / "Generated/Workflow/Checks.stdout.log")
+  let earlierLog ← IO.FS.readFile (workspace / "Generated/Checks.stdout.log")
   let second ← engine.verifyOne prepared configured
   ensure "reusing an occupied core workspace cannot overwrite earlier evidence"
     (second.status == .inconclusive && !second.reasons.isEmpty &&
      (← IO.FS.readFile (workspace / "input.json")) == earlierInput &&
      (← IO.FS.readFile (workspace / "check-result.json")) == earlierResult &&
-     (← IO.FS.readFile (workspace / "Generated/Workflow/Checks.stdout.log")) == earlierLog)
+     (← IO.FS.readFile (workspace / "Generated/Checks.stdout.log")) == earlierLog)
 
 private def emptyInputChecks (temporary path : System.FilePath) : IO Unit := do
   IO.FS.writeFile path (blueprint #[])

@@ -58,7 +58,7 @@ def run : IO Unit := do
   let input ← IO.ofExcept ((← Input.read "Workflow/Tests/UP012/Inputs/plutus.json"
     "linear_vesting.linear_vesting").mapError toString)
   let legacy ← IO.FS.readFile "Workflow/Tests/UP012/Expected/legacy-declarations.lean.txt"
-  let plan ← IO.ofExcept ((Generator.generate (provider legacy) input.target "Generated.Workflow").mapError toString)
+  let plan ← IO.ofExcept ((Generator.generate (provider legacy) input.target "Generated").mapError toString)
   let execution ← IO.ofExcept (← Executor.run plan {
     leanPath := (← IO.getEnv "LEAN_PATH").getD ""
     outputRoot := some "output"

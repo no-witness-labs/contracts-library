@@ -38,7 +38,7 @@ files: `Types.lean` embeds the compiled script and its evaluation interface;
 `Checks.lean` applies UP-001 to one purpose model. Each pair lives under:
 
 ```text
-validators/<validator>/UP-001-v1-<TxM-ID>/Generated/Workflow/
+validators/<validator>/UP-001-v1-<TxM-ID>/Generated/
 ```
 
 The models are TxM-001 (mint), TxM-002 (withdraw), TxM-003 (publish), TxM-004

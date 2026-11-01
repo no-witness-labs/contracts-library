@@ -119,7 +119,7 @@ output/run.<timestamp>.<unique-id>/
             ├── check-result.json
             ├── input.json
             ├── execution.json
-            └── Generated/Workflow/
+            └── Generated/
                 ├── Types.lean
                 ├── Checks.lean
                 └── compiler outputs and logs
@@ -136,7 +136,7 @@ characters such as `/`; `run.json` preserves canonical validator names.
 | Per-check `check-result.json` | The assessed six-field result, including scope, reasons, and evidence references |
 | Per-check `input.json` | The same captured blueprint used to prepare that validator |
 | Per-check `execution.json` | Attempted commands, timing, raw observations, and diagnostics |
-| `Generated/Workflow/` | Generated Lean, stdout/stderr logs, and successful compiled modules; UP-012 also generates `Tx.lean` |
+| `Generated/` | Generated Lean, stdout/stderr logs, and successful compiled modules; UP-012 also generates `Tx.lean` |
 
 An interrupted run can leave its last saved index unfinished. Files depend on how
 far an attempt progressed: unreadable input has no snapshot, and preparation

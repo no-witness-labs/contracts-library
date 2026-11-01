@@ -70,7 +70,7 @@ private def runRequest (resolveProvider : Option String → IO (Except String Ge
   let provider ← match providerResult with
     | .ok value => pure value
     | .error message => return ← finish (Reporter.failure input.target.name message) invocation source
-  let plan ← match Generator.generate provider input.target "Generated.Workflow" with
+  let plan ← match Generator.generate provider input.target "Generated" with
     | .ok value => pure value
     | .error error => return ← finish (Reporter.failure input.target.name (toString error) definition) invocation source
   let leanPath := (← IO.getEnv "LEAN_PATH").getD ""

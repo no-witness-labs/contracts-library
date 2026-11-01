@@ -81,7 +81,7 @@ def Engine.verifyOne (engine : Engine) (prepared : InputResult)
       catch error =>
         return retentionFailure (Assessor.failure prepared.target check.context
           "verification could not reserve its workspace") s!"could not create check evidence directory: {error}"
-  match Generator.generateOne check prepared.target "Generated.Workflow" with
+  match Generator.generateOne check prepared.target "Generated" with
   | .error error =>
     retain engine prepared none (Assessor.failure prepared.target check.context (toString error))
   | .ok plan =>

@@ -110,9 +110,9 @@ clears official metadata when changing the property proposition.
 
 | Per-check generated file | Contents |
 | --- | --- |
-| `Generated/Workflow/Types.lean` | Embedded compiled program, argument conversion, acceptance predicate; UP-012 also aliases native data/redeemer types and defines rejection |
-| `Generated/Workflow/Tx.lean` (UP-012) | Aliases for native Claim/Cancel model types, constructors, and datum helper |
-| `Generated/Workflow/Checks.lean` | Concrete target/model theorem expressions and tactic calls |
+| `Generated/Types.lean` | Embedded compiled program, argument conversion, acceptance predicate; UP-012 also aliases native data/redeemer types and defines rejection |
+| `Generated/Tx.lean` (UP-012) | Aliases for native Claim/Cancel model types, constructors, and datum helper |
+| `Generated/Checks.lean` | Concrete target/model theorem expressions and tactic calls |
 
 [Formal/Universal/Properties.lean](../../Formal/Universal/Properties.lean) retains
 current context aliases and evaluation/signatory helpers. UP-012 uses its
