@@ -4,6 +4,10 @@ The four reusable components have separate unit coverage. UP001 and UP012 are
 the two complete workflow scenarios; they reference candidate implementations
 instead of defining candidate logic in the engine.
 
+[Aiken test projects](Projects/README.md) provide editable examples for manual
+inspection. Start with [vault-demo](Projects/vault-demo/README.md) to see generated
+UP-001 Lean files for passing and deliberately failing validators.
+
 From `formal/`, run all workflow tests with verbose logs:
 
 ```sh
