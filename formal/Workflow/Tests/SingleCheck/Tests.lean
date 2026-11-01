@@ -142,7 +142,7 @@ private def assessmentChecks (target : TargetDescription) : IO Unit := do
     (execution context #[observation main mainResult, observation support supportResult])
   let emptyDomain := assessed .valid .falsified
   ensure "a valid implication with falsified applicability is inconclusive"
-    (emptyDomain.status == .inconclusive && emptyDomain.notRun.isNone && emptyDomain.obligations.any
+    (emptyDomain.status == .inconclusive && emptyDomain.notRun.isNone && !emptyDomain.timedOut && emptyDomain.obligations.any
       (fun row => row.job.name == main.name && row.observed == some .valid && row.status == .inconclusive))
   ensure "a qualified falsified property fails" ((assessed .falsified .valid).status == .fail)
   ensure "a qualified valid property passes" ((assessed .valid .valid).status == .pass)
@@ -237,7 +237,7 @@ private def coordinatorChecks (validSource : String) : IO Unit := do
         outputRoot := some (temporary / "retained output") } }
     let first ← engine.verifyOne input (mockCheck context)
     ensure "the callable core can pass one complete obligation"
-      (first.status == .pass && first.obligations.size == 1 && first.check == context)
+      (first.status == .pass && !first.timedOut && first.obligations.size == 1 && first.check == context)
     let _ ← savedResult first
     let firstDirectory ← evidenceDirectory first
     ensure "verification saves the prepared input rather than rereading its path"
@@ -245,7 +245,7 @@ private def coordinatorChecks (validSource : String) : IO Unit := do
        (← IO.FS.readFile path) == "changed after preparation")
     let second ← engine.verifyOne input (mockCheck context "falsified")
     ensure "the second verification preserves a qualified failure"
-      (second.status == .fail && second.obligations.any (·.observed == some .falsified))
+      (second.status == .fail && !second.timedOut && second.obligations.any (·.observed == some .falsified))
     let _ ← savedResult second
     let secondDirectory ← evidenceDirectory second
     ensure "separate calls cannot overwrite each other's evidence"
@@ -254,9 +254,26 @@ private def coordinatorChecks (validSource : String) : IO Unit := do
     let timeout ← { engine with options := { engine.options with budgetMs := 500 } }.verifyOne
       input (mockCheck context "partial")
     ensure "a timed-out positive marker cannot pass"
-      (timeout.status == .inconclusive && timeout.notRun.isNone && timeout.obligations.any
+      (timeout.status == .inconclusive && timeout.notRun.isNone && timeout.timedOut && timeout.obligations.any
         (fun row => !row.evidenceComplete && row.status == .inconclusive))
     let _ ← savedResult timeout
+    let blockedResultDirectory := temporary / "timeout-retention-error"
+    let timeoutRetentionEngine := { engine with options := { engine.options with
+      directory := some blockedResultDirectory
+      budgetMs := 500
+      prepareImports := some (fun _ => do
+        IO.FS.createDir (blockedResultDirectory / "check-result.json")
+        pure engine.options.leanPath) } }
+    let timeoutRetentionError ← timeoutRetentionEngine.verifyOne input (mockCheck context "partial")
+    ensure "check-result retention failure overrides a genuine execution timeout"
+      (timeoutRetentionError.status == .inconclusive && timeoutRetentionError.notRun.isNone &&
+       !timeoutRetentionError.timedOut && timeoutRetentionError.reasons.any
+         (fun reason => reason.startsWith "could not retain check result:"))
+    let timeoutRetentionDirectory ← evidenceDirectory timeoutRetentionError
+    let timeoutExecution ← IO.ofExcept (Json.parse
+      (← IO.FS.readFile (timeoutRetentionDirectory / "execution.json")))
+    ensure "retention failure control actually timed out during execution"
+      ((timeoutExecution.getObjVal? "state").toOption == some (.str "timedOut"))
 
     let configured := mockCheck context
     let otherContext ← fixtureContext "TxM-other"
@@ -301,7 +318,7 @@ private def coordinatorChecks (validSource : String) : IO Unit := do
     for invalidGenerator in invalidGenerators do
       let failed ← engine.verifyOne input invalidGenerator
       ensure "generation and preparation errors return the requested check identity"
-        (failed.status == .inconclusive && failed.notRun.isNone &&
+        (failed.status == .inconclusive && !failed.timedOut && failed.notRun.isNone &&
          failed.check == context && !failed.reasons.isEmpty)
       let _ ← savedResult failed
       let directory ← evidenceDirectory failed
@@ -318,13 +335,13 @@ private def coordinatorChecks (validSource : String) : IO Unit := do
         notes := #["empty control"] } }
     let emptyResult ← engine.verifyOne input empty
     ensure "an empty attempt is inconclusive and keeps its exact check"
-      (emptyResult.status == .inconclusive && emptyResult.notRun == some .notApplicable &&
+      (emptyResult.status == .inconclusive && !emptyResult.timedOut && emptyResult.notRun == some .notApplicable &&
        emptyResult.obligations.isEmpty && emptyResult.check == context)
     let _ ← savedResult emptyResult
     let declared ← loaded "UP-001" "TxM-006"
     let declaredResult ← engine.verifyOne input declared
     ensure "a selected declared purpose retains its reason without executing other purposes"
-      (declaredResult.status == .inconclusive && declaredResult.notRun == some .notApplicable &&
+      (declaredResult.status == .inconclusive && !declaredResult.timedOut && declaredResult.notRun == some .notApplicable &&
        declaredResult.obligations.isEmpty &&
        declaredResult.check == declared.context &&
        declaredResult.reasons.any (fun reason => (reason.splitOn "declared").length > 1))
@@ -332,13 +349,13 @@ private def coordinatorChecks (validSource : String) : IO Unit := do
     let unsupported ← loaded "UP-012" "TxM-007"
     let unsupportedResult ← engine.verifyOne input unsupported
     ensure "unsupported targets return an inconclusive record for the requested combination"
-      (unsupportedResult.status == .inconclusive && unsupportedResult.notRun == some .unsupported &&
+      (unsupportedResult.status == .inconclusive && !unsupportedResult.timedOut && unsupportedResult.notRun == some .unsupported &&
        unsupportedResult.obligations.isEmpty &&
        unsupportedResult.check == unsupported.context && !unsupportedResult.reasons.isEmpty)
     let _ ← savedResult unsupportedResult
     let inputWriteError ← engine.verifyOne input (mockCheck context "input-write-error")
     ensure "failed input persistence is inconclusive even when its path entry exists"
-      (inputWriteError.status == .inconclusive && inputWriteError.notRun.isNone &&
+      (inputWriteError.status == .inconclusive && !inputWriteError.timedOut && inputWriteError.notRun.isNone &&
        !inputWriteError.reasons.isEmpty)
     ensure "failed snapshot paths are not advertised as retained evidence"
       (!inputWriteError.evidence.any (·.fileName == some "input.json") &&
@@ -346,7 +363,7 @@ private def coordinatorChecks (validSource : String) : IO Unit := do
     let _ ← savedResult inputWriteError
     let manifestWriteError ← engine.verifyOne input (mockCheck context "manifest-write-error")
     ensure "a manifest-write failure retains identity without inventing executed observations"
-      (manifestWriteError.status == .inconclusive && manifestWriteError.notRun.isNone &&
+      (manifestWriteError.status == .inconclusive && !manifestWriteError.timedOut && manifestWriteError.notRun.isNone &&
        manifestWriteError.check == context &&
        manifestWriteError.target == input.target && manifestWriteError.obligations.isEmpty &&
        !manifestWriteError.reasons.isEmpty)
@@ -356,24 +373,24 @@ private def coordinatorChecks (validSource : String) : IO Unit := do
     let unretained ← { engine with options := { engine.options with outputRoot := some blocked } }.verifyOne
       input configured
     ensure "unavailable evidence storage produces no false passing record"
-      (unretained.status == .inconclusive && unretained.notRun.isNone &&
+      (unretained.status == .inconclusive && !unretained.timedOut && unretained.notRun.isNone &&
        !unretained.reasons.isEmpty && unretained.evidence.isEmpty)
     let unretainedUnsupported ←
       { engine with options := { engine.options with outputRoot := some blocked } }.verifyOne input unsupported
     ensure "unsupported classification is cleared when its record cannot be retained"
-      (unretainedUnsupported.status == .inconclusive && unretainedUnsupported.notRun.isNone &&
+      (unretainedUnsupported.status == .inconclusive && !unretainedUnsupported.timedOut && unretainedUnsupported.notRun.isNone &&
        unretainedUnsupported.evidence.isEmpty)
     let unretainedEmpty ←
       { engine with options := { engine.options with outputRoot := some blocked } }.verifyOne input empty
     ensure "not-applicable classification is cleared when its record cannot be retained"
-      (unretainedEmpty.status == .inconclusive && unretainedEmpty.notRun.isNone &&
+      (unretainedEmpty.status == .inconclusive && !unretainedEmpty.timedOut && unretainedEmpty.notRun.isNone &&
        unretainedEmpty.evidence.isEmpty)
     let occupied := temporary / "occupied"
     IO.FS.createDir occupied
     let workspaceError ←
       { engine with options := { engine.options with directory := some occupied } }.verifyOne input empty
     ensure "workspace reservation failure cannot be reported as not applicable"
-      (workspaceError.status == .inconclusive && workspaceError.notRun.isNone &&
+      (workspaceError.status == .inconclusive && !workspaceError.timedOut && workspaceError.notRun.isNone &&
        !workspaceError.reasons.isEmpty)
   IO.println "Single-check preparation/coordinator checks passed."
 

@@ -4,19 +4,22 @@
 supporting `applicability` predicate. They take a transaction-context family and
 the validity/acceptance/rejection predicates used by a configured check.
 [metadata.json](metadata.json) holds the property's maintained identity, scope,
-and references; Claim and Cancel use that shared property record.
+and references; Claim, Cancel, and key-datum spend use that shared property record.
 
 The statement quantifies over the model's inputs. If the original context passes
 the supplied validity predicate, is accepted, has a nonempty signer list, and the
 context with its first signer removed also passes that predicate, the changed
 context must be rejected. Applicability requires a witness to those premises.
 
-The existing bindings use TxM-007 (Claim) and TxM-008 (Cancel), the model's
+The bindings use TxM-007 (Claim), TxM-008 (Cancel), and TxM-009
+(single-signer key-datum spend), the model's
 `validScriptContext` predicate, and explicit rejection within 1,000,000 CEK steps.
 The runtime adapter allows two exact compiled linear-vesting artifacts: the
 original PR #55 fixture and the reviewed vault-demo build using Aiken 1.1.21 with
-stdlib 3.0.0. Unknown artifacts remain unsupported. These are
-two applications of one property, with separate applicability obligations.
+stdlib 3.0.0. TxM-009 uses a separate profile pinned to two exact vault artifacts.
+Unknown artifacts remain unsupported. These are three applications of one property,
+with separate applicability obligations. Owner, signer, and recipient vary
+independently in TxM-009; no owner-equals-signer premise is added.
 
 The current models contain one signer, so the change removes the sole signer.
 For this example, assume that the baseline contains only the intended required
