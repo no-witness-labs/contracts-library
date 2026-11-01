@@ -3,9 +3,11 @@
 Plutus UPV (Universal Property Verifier) checks universal properties against
 compiled Plutus validators using ordinary Lean code and configured proof tools.
 The prototype supports the documented Aiken-style Plutus V3 blueprint profile.
-The app processes all logical validators and all eight registered property/model
+The app processes all logical validators and all nine registered property/model
 combinations by default, with optional validator/property filters and a property
-switch file. UP-012 remains an experimental pinned vesting profile.
+switch file. UP-012 and UP-015 are experimental profiles of the same pinned
+vesting validator. UP-001, these profiles, and their models support prototype
+testing; their broader definitions and coverage still need review.
 
 | Guide | Use |
 | --- | --- |

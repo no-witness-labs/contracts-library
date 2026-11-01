@@ -27,7 +27,7 @@ def run : IO Unit := do
   let bare ← accepted "bare request" (parseRequest [])
   check "bare request defaults" (bare.path == "plutus.json" &&
     bare.validators.isEmpty && bare.properties.isEmpty &&
-    bare.checksFile.isNone && bare.timeoutMs == 30000 && bare.args.isEmpty)
+    bare.checksFile.isNone && bare.timeoutMs == 300000 && bare.args.isEmpty)
   let flagArgs := ["--validator", "vault", "--check", "UP-001", "--timeout-ms", "5000"]
   let flags ← accepted "flags-only request" (parseRequest flagArgs)
   check "flags-only request controls" (flags.path == "plutus.json" &&
@@ -36,11 +36,11 @@ def run : IO Unit := do
   let flagFile ← accepted "flags-only selection file request"
     (parseRequest ["--checks-file", "checks.json"])
   check "flags-only selection file defaults" (flagFile.path == "plutus.json" &&
-    flagFile.checksFile == some "checks.json" && flagFile.timeoutMs == 30000)
+    flagFile.checksFile == some "checks.json" && flagFile.timeoutMs == 300000)
   let defaults ← accepted "default request" (parseRequest ["blueprint.json"])
   check "default request controls" (defaults.path == "blueprint.json" &&
     defaults.validators.isEmpty && defaults.properties.isEmpty &&
-    defaults.checksFile.isNone && defaults.timeoutMs == 30000)
+    defaults.checksFile.isNone && defaults.timeoutMs == 300000)
   let args := ["blueprint.json", "vault", "--validator", "vesting", "--check", "UP-012",
     "--check", "UP-001", "--timeout-ms", "120000"]
   let explicit ← accepted "explicit request" (parseRequest args)

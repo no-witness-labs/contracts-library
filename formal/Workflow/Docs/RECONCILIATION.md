@@ -34,9 +34,11 @@ for their results.
 
 ## Current delivery status
 
-The product app now runs all logical validators and all eight registered
-property-definition/model combinations by default: six UP-001 purpose models and
-two experimental UP-012 vesting models. Repeated `--validator` and `--check`
+The product app now runs all logical validators and all nine registered
+property-definition/model combinations by default. These comprise six UP-001
+purpose models, two UP-012 vesting models, and one UP-015 Claim reversal binding. These remain
+experimental workflow bindings, with general property/model readiness outside
+this integration. Repeated `--validator` and `--check`
 options filter that work. `--checks-file` instead enables only properties marked
 `true`, selecting all their registered combinations. An empty selection is a no-op
 and establishes no passing property. The registry supplies executable bindings;
@@ -64,11 +66,11 @@ not provision a managed runtime or build the caller's Aiken project.
 | Input selection | Several validators per command; requires a spend handler and `name.name.handler` titles | App defaults to all logical validators; Input prepares each selected validator, accepts canonical or unambiguous short names, validates explicit V3 metadata, and decodes code | App supplies batch orchestration; additional input formats remain separate work |
 | Schema handling | Translates datum and redeemer schemas into bounded symbolic data | Input preserves schemas; UP-001 uses raw redeemer data without schema translation | General schema translation/integration remains open; review the old translation before reuse |
 | Parameters | Rejects any entry with a `parameters` field, including an empty array | Input preserves descriptions; current adapters accept absent or empty lists and reject nonempty lists | Typed parameter generation/application remains open; PR #47 does not supply it |
-| Candidate checks | UP-000, UP-001, UP-002, UP-004, UP-005, and UP-011 | Registry supplies six UP-001 purpose combinations at 5,000,000 steps and two experimental UP-012 vesting combinations; CLI filters registered properties | Keep the reviewed UP-001 domains; additional property families remain open |
+| Candidate checks | UP-000, UP-001, UP-002, UP-004, UP-005, and UP-011 | Registry supplies six UP-001 purpose combinations at 5,000,000 steps, two UP-012 vesting combinations, and one UP-015 Claim reversal combination; CLI filters registered properties | Experimental integration does not establish general readiness; definitions #23/#33/#36, model authoring #89, and further integration #96 remain open |
 | Metadata and models | Generator-owned check definitions and transaction builders | Native property/model banks, checked metadata, and fixed executable bindings; selected snapshots follow generated obligations and assessed results | Native banks supply metadata/binding integration; general transaction-model authoring remains open |
 | Cases and reachability | Full constructor splits, weaker quick mode, and UNREACHED classification using UP-000 | No schema case splitting or cross-check reachability classification | Review case domains and aggregation before porting spend checks |
 | Generated code | Embeds script bytes in the generated Base module; writes modules in the checkout | Embeds script bytes in generated Types; each combination uses a fresh evidence directory | Retain embedded artifacts and isolated execution |
-| Execution | Parallel check modules; default four workers and 600 seconds per check module | Sequential combinations; default 30,000 ms per validator/check combination, shared across that combination's generated modules | CLI supplies timeout configuration; parallel scheduling remains open |
+| Execution | Parallel check modules; default four workers and 600 seconds per check module | Sequential combinations; default 300,000 ms per validator/check combination, shared across that combination's generated modules | CLI supplies timeout configuration; parallel scheduling remains open |
 | Assessment and outputs | Expected Valid/Falsified results, witnesses, HOLE/REVIEW labels, waivers, expiry, and off switches | Assessor qualifies one CheckResult; app displays combination counts and retains structured results, raw evidence, and a run index; `--checks-file` controls property selection | Final report #83 and waiver/expiry handling remain open; legacy `universal` keeps `report.json`/`report.txt` |
 | Commands and installation | Generate-only mode, Nix wrapper, preprocessing, and optional removal of validity hypotheses | Checkout-backed installer and launcher, caller-directory `plutus.json` default, run/test commands, pure generation and callable verification APIs | Managed runtime packaging, developer convenience commands, and semantic options remain open |
 

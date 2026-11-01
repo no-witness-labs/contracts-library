@@ -81,6 +81,6 @@ structure Options where
   /-- An existing empty workspace reserved by the coordinator, when supplied. -/
   directory : Option System.FilePath := none
   /-- One shared wall-clock budget across generated modules. -/
-  budgetMs : Nat := 30000
+  budgetMs : Nat := 300000
 
 end Workflow.Executor
