@@ -29,9 +29,10 @@ the source snapshot was not retained successfully. Evidence is not fabricated fo
 missing files, and a retention failure leaves the returned result INCONCLUSIVE.
 
 The coordinator also carries an internal typed `notRun` reason for unsupported
-generation or validated empty plans. The app uses it for terminal categories and
-the run index. It is separate from the assessed verdict and six-field JSON, and
-retention failures clear it. No proof is established by a non-execution reason.
+generation or validated empty plans, plus a `timedOut` flag from the executor's
+state. The app uses these for terminal groups and the run index. They are separate
+from the assessed verdict and six-field JSON, and retention failures clear them.
+No proof is established by a non-execution reason or timeout flag.
 
 ## Qualification rules
 

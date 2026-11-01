@@ -33,18 +33,18 @@ The default command selects all three validators and all ten registered
 property/model combinations. The expected terminal counts, when every supported
 check finishes conclusively, are:
 
-| Validator | PASS | FAIL | NOT APPLICABLE | UNSUPPORTED | INCONCLUSIVE |
+| Validator | PASS | FAIL | SKIPPED | ERROR | TIMEOUT |
 | --- | --- | --- | --- | --- | --- |
-| `vault.vault` | 6 | 0 | 1 | 3 | 0 |
-| `vault_buggy.vault_buggy` | 0 | 6 | 1 | 3 | 0 |
-| `linear_vesting.linear_vesting` | 8 | 0 | 1 | 1 | 0 |
+| `vault.vault` | 6 | 0 | 4 | 0 | 0 |
+| `vault_buggy.vault_buggy` | 0 | 6 | 4 | 0 | 0 |
+| `linear_vesting.linear_vesting` | 8 | 0 | 2 | 0 | 0 |
 
 These are expected counts for 30 selected combinations, pending a complete run.
-The declared spend-purpose UP-001 combination is NOT APPLICABLE.
-UP-012's two vesting combinations and UP-015's one combination are UNSUPPORTED for the
+The declared spend-purpose UP-001 combination is SKIPPED with a not-applicable reason.
+UP-012's two vesting combinations and UP-015's one combination are SKIPPED for the
 vaults because their compiled artifacts are outside the vesting allowlist.
 TxM-009 adds one UP-012 signer-removal combination for each vault: normal PASS
-and buggy FAIL, each qualified by applicability. That combination is UNSUPPORTED
+and buggy FAIL, each qualified by applicability. That combination is SKIPPED
 for vesting. The property does not establish correct-owner authorization.
 
 ## Inspect the output
@@ -64,7 +64,7 @@ validators/<validator>/UP-001-v1-<TxM-ID>/Generated/
 
 The models are TxM-001 (mint), TxM-002 (withdraw), TxM-003 (publish), TxM-004
 (vote), and TxM-005 (propose). TxM-006 selects the declared spend purpose and
-therefore produces no Lean check. The terminal calls this NOT APPLICABLE; the
+therefore produces no Lean check. The terminal calls this SKIPPED; the
 saved core assessment retains INCONCLUSIVE with a separate nonexecution reason.
 The fifteen UP-001 combinations with obligations generate 30 `.lean` files.
 The vesting validator's two UP-012 combinations and one UP-015 combination each
@@ -73,7 +73,8 @@ The two supported TxM-009 vault combinations add three files each.
 Expect 45 generated `.lean` files across all three validators when generation succeeds,
 plus shared source snapshots, result JSON, execution manifests, input snapshots,
 and compiler logs.
-A timed-out check keeps its generated sources and reports INCONCLUSIVE.
+A timed-out check keeps its generated sources and displays TIMEOUT when no
+operational error takes precedence. The saved core status remains INCONCLUSIVE.
 
 UP-001 imports its models directly; the vesting combinations use `Tx.lean` aliases
 for native TxM-007 (Claim) and TxM-008 (Cancel). The vault UP-012
