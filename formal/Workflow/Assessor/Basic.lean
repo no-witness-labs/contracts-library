@@ -149,6 +149,7 @@ structure CheckResult where
   obligations : Array Row
   evidence : Array System.FilePath := #[]
   notRun : Option NotRunReason := none
+  timedOut : Bool := false
 
 private def expectedText : ExpectedResult → String
   | .valid => "valid"

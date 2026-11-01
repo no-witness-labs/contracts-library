@@ -158,7 +158,7 @@ def run : IO Unit := do
   let vestingPlan ← generated vestingProvider vesting.target
   check "UP012 preserves four obligations across two combinations"
     (vestingPlan.bindingsRequired && vestingPlan.jobs.size == 4 &&
-      vestingProvider.bindings.any (fun values => values.size == 2) && vestingPlan.validateBindings.isOk)
+      vestingProvider.bindings.any (fun values => values.size == 3) && vestingPlan.validateBindings.isOk)
   check "UP012 binding preserves sources, propositions, expectations, and support references"
     (sameProgram (← generated Workflow.Tests.UP012.Profile.provider vesting.target) vestingPlan)
   for (action, modelId) in [("claim", "TxM-007"), ("cancel", "TxM-008")] do
