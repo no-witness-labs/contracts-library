@@ -64,7 +64,7 @@ def run : IO Unit := do
         let saved ← runCase [path.toString, "vault.vault"]
         snapshot saved source
         check "default settings are recorded after successful option parsing"
-          ((saved.invocation.getObjVal? "timeoutMs").toOption == some (toJson (30000 : Nat)) &&
+          ((saved.invocation.getObjVal? "timeoutMs").toOption == some (toJson (300000 : Nat)) &&
            (saved.invocation.getObjVal? "requestedCheck").toOption == some .null &&
            (saved.invocation.getObjVal? "resolvedCheck").toOption == some (.str "fixture"))
 

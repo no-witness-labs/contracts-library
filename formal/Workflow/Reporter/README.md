@@ -107,7 +107,7 @@ UP-001 targets. The command requires the prepared `LEAN_PATH` supplied by
 `--check UP-012` selects the experimental pinned vesting suite, including its
 two signer-removal and two applicability statements.
 
-The default execution budget is 30,000 ms. The option controls Executor's shared
+The default execution budget is 300,000 ms. The option controls Executor's shared
 module budget; package builds, input reading, generation, and reporting add
 overhead. The command prints the summary and JSON path, saves both report
 formats, and preserves the input snapshot. It writes an inconclusive report for

@@ -44,7 +44,7 @@ From a directory containing `plutus.json`, run:
 plutus-upv run
 ```
 
-The default timeout is **30 seconds per validator/check combination**. Input
+The default timeout is **5 minutes per validator/check combination**. Input
 defaults also work with selection flags, for example `plutus-upv run --check UP-001`.
 Run files remain under this app checkout's `formal/output/`; the terminal prints
 their location. The command leaves the input project unchanged.
@@ -172,7 +172,7 @@ command does not generate legacy `report.json`/`report.txt` files.
 
 ## Time limits and exit codes
 
-The default execution limit is 30 seconds **per validator/check combination**.
+The default execution limit is 5 minutes **per validator/check combination**.
 `--timeout-ms 120000` gives each combination up to 120 seconds across its generated
 modules. Supporting-source preparation has a separate compilation budget of the
 greater of the selected timeout and 30 seconds. It does not consume the proof

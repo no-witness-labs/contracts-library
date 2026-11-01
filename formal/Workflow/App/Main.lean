@@ -13,7 +13,7 @@ private structure Request where
   path : System.FilePath
   selector : String
   checkId : Option String := none
-  budgetMs : Nat := 30000
+  budgetMs : Nat := 300000
 
 private structure Invocation where
   args : List String
