@@ -1,9 +1,10 @@
-# UP-012 vesting workflow scenario
+# UP-012 signer-removal workflow scenarios
 
 [UP012/Definition.lean](../../../Formal/Properties/Universal/UP012/Definition.lean)
 owns the shared signer-removal statement and applicability predicate.
 [Candidates/UP012.lean](../../../Candidates/UP012.lean) instantiates them for Claim
-and Cancel, preserving the four claims from PR #55 at
+and Cancel, plus native TxM-009 key-datum spend. The original vesting API
+preserves the four claims from PR #55 at
 `f5cbda7df624f2496dd2e6fe354a0cd15365b923`. [Profile.lean](Profile.lean) composes
 these obligations with [shared test-only preparation](../Profiles/LinearVesting.lean),
 which owns the pinned artifact guard and imports the native types/models from Formal/TxModels.
@@ -13,9 +14,16 @@ From `formal/`:
 
 ```sh
 lake exe workflow_up012_tests
+lake exe workflow_up012_tests --unit
 ```
 
-The suite uses the public CLI and expects Valid for Claim signer removal,
+`--unit` runs only unit coverage. The default suite also runs
+[VaultTests.lean](VaultTests.lean), which checks the two pinned real vault
+artifacts through TxM-009: normal vault PASS, buggy vault FAIL, and
+applicability PASS for both are the expected outcomes. These expectations do not
+replace execution evidence. The existing vesting identity control remains.
+
+The vesting suite uses the public CLI and expects Valid for Claim signer removal,
 Claim applicability, Cancel signer removal, and Cancel applicability. It also
 checks explicit rejection of an unsupported artifact. Generated files and
 reports stay under `formal/output/`.
@@ -30,13 +38,34 @@ It leaves the actual candidate, artifact guard, and model unchanged.
 
 ## Scope and fixtures
 
-The profile remains restricted to the original unparameterized vesting artifact.
+TxM-007/008 preparation remains restricted to two exact unparameterized vesting artifacts.
+These are the original PR #55 fixture and the reviewed vault-demo build using
+Aiken 1.1.21 with stdlib 3.0.0. Unknown compiled artifacts remain unsupported. This extends the
+adapter's allowlist without changing the property claims, native transaction
+models, or bounds.
 Its supplied Claim and Cancel shapes each have one signer; the operation removes
 the first key. The original bound is 1,000,000 steps, and `rejectedWithin` requires
 an error or non-unit halt within the bound. Exhaustion does not establish rejection.
-Both applicability statements remain separate required jobs.
+Both vesting applicability statements remain separate required jobs.
 
-The generated `Tx.lean` imports and aliases the native Claim and Cancel models,
+[Profiles/Vault.lean](../Profiles/Vault.lean) separately prepares two exact vault
+artifacts for native TxM-009. It uses the same shared property and validity predicate,
+with the same 1,000,000-step bound and one property/applicability pair. Its one script
+input has an inline key datum and only ADA; its single key-recipient output
+receives input ADA minus the fee. The redeemer is `Constr 0 []`. Owner, signer,
+and recipient vary independently. Selecting TxM-009 requires this profile;
+selecting TxM-007/008 requires the vesting profile. The legacy provider selects
+the supported family, while the original four-vesting-job `checks`/`jobs` API stays unchanged.
+
+For this example, assume the baseline contains only the intended required signer,
+with no unrelated extra signers. The models enforce one signer, but do not infer
+who the protocol should authorize. This assumption is descriptive and adds no
+Lean premise. Passing the removal check does not establish correct-owner
+authorization. The [property scope](../../../Formal/Properties/Universal/UP012/README.md)
+and combination metadata retain this limitation; broader required-signer semantics
+and universal applicability remain open in [issue #33](https://github.com/no-witness-labs/contracts-library/issues/33).
+
+The generated `Tx.lean` imports and aliases the selected native Claim, Cancel, or spend model,
 including their inputs, outputs, and signer.
 Blueprint schemas describe datum and redeemer encoding; they do not determine
 those transaction contexts. These remain experimental test models. Other
@@ -49,6 +78,12 @@ compiled code and selected handler metadata. `Inputs/compiled-code.txt` and
 The current declarations fixture records applications of the shared definition;
 DefinitionEquivalence.lean checks their equivalence to the expanded formulas.
 `Inputs/unsupported.json` exercises the profile guard.
+
+The independent second-artifact snapshot is
+[Profiles/Inputs/linear-vesting-aiken-1.1.21.json](../Profiles/Inputs/linear-vesting-aiken-1.1.21.json).
+The original inputs and frozen declarations remain unchanged. The editable
+[vault-demo project](../Projects/vault-demo/README.md) builds this second artifact
+manually; aggregate workflow tests do not invoke Aiken.
 
 Generated headers identify the current Lean emitter and the original PR/SHA
 provenance. Runtime generation uses the profile and candidate module. Edit the

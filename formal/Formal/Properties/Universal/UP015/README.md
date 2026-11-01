@@ -7,13 +7,18 @@ context field. The statement takes a context family and validity/acceptance
 predicates. A valid accepted original must remain accepted when its reversal is
 also valid.
 
-The workflow binds this property only to TxM-007 and the pinned unparameterized
-linear-vesting validator shared with UP-012. The Claim model contains two outputs,
+The workflow binds this property only to TxM-007 and two exact unparameterized
+linear-vesting artifacts shared with UP-012. These are the original PR #55 fixture
+and the reviewed vault-demo build using Aiken 1.1.21 with stdlib 3.0.0. Unknown compiled
+artifacts remain unsupported. The Claim model contains two outputs,
 one signer, and one vested asset. Reversal therefore swaps the continuation and
 payout outputs. Acceptance uses the existing 1,000,000 CEK-step allowance; this is
 not a ledger CPU or memory budget.
-The input is `Workflow/Tests/UP012/Inputs/plutus.json`; shared test-only artifact
+The original input remains `Workflow/Tests/UP012/Inputs/plutus.json`; the second
+snapshot is `Workflow/Tests/Profiles/Inputs/linear-vesting-aiken-1.1.21.json`.
+Shared test-only artifact
 validation and model preparation live in `Workflow/Tests/Profiles/LinearVesting.lean`.
+The property definition, native model, and evaluation bound remain unchanged.
 
 The applicability obligation requires a valid accepted original, a valid reversed
 context, and an output list that differs after reversal. This last

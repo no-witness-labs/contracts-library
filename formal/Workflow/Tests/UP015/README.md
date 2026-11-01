@@ -6,7 +6,12 @@ the pinned vesting Claim model. It reuses UP-012's exact compiled validator from
 [TxM-007](../../../Formal/TxModels/Definitions/TxM007.lean) constructor. Shared
 test-only preparation lives in
 [Profiles/LinearVesting.lean](../Profiles/LinearVesting.lean); [Profile.lean](Profile.lean)
-adds UP-015's generated obligations without another artifact or model copy.
+adds UP-015's generated obligations without a model copy. The shared adapter also
+allows the reviewed vault-demo build using Aiken 1.1.21 with stdlib 3.0.0, retained
+independently in
+[Profiles/Inputs/linear-vesting-aiken-1.1.21.json](../Profiles/Inputs/linear-vesting-aiken-1.1.21.json).
+The allowlist recognizes these two exact artifacts; unknown compiled code remains
+unsupported. Property claims, native models, and bounds remain unchanged.
 
 From `formal/`:
 

@@ -1,11 +1,15 @@
 import Workflow.Tests.Support
 import Workflow.Tests.UP012.Tests
 import Workflow.Tests.UP012.NegativeControl
+import Workflow.Tests.UP012.VaultTests
 
 open Workflow.Tests.Support
 
-def main : IO Unit := do
+def main (args : List String) : IO Unit := do
   Workflow.Tests.UP012.Tests.run
+  if args == ["--unit"] then
+    Workflow.Tests.UP012.VaultTests.runUnit
+    return ()
   let passing ← invoke "Workflow/Tests/UP012/Inputs/plutus.json" "linear_vesting.linear_vesting"
     (some "UP-012") 300000
     "UP012: original vesting suite" "PASS/0; four Valid results, including both applicability obligations"
@@ -31,4 +35,5 @@ def main : IO Unit := do
   expectProblem "UP012 rejects unsupported profile" unsupported "original unparameterized"
   check "UP012 attempts have separate output directories" (passing.directory != unsupported.directory)
   Workflow.Tests.UP012.NegativeControl.run
+  Workflow.Tests.UP012.VaultTests.run
   IO.println "UP012 whole-workflow checks passed."

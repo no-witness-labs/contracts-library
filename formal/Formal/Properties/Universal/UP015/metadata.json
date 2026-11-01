@@ -22,7 +22,7 @@
       "The separate applicability witness must have an output list that differs after reversal."
     ],
     "limitations": [
-      "The current binding accepts only the original unparameterized Plutus V3 linear-vesting artifact shared with the UP-012 workflow fixture.",
+      "The current adapter shares UP-012's two exact unparameterized Plutus V3 linear-vesting artifacts: the original PR #55 fixture and the reviewed vault-demo build using Aiken 1.1.21 with stdlib 3.0.0. Unknown compiled artifacts remain unsupported; this is not a generic validator adapter.",
       "TxM-007 has two outputs, one signer, and one vested asset. Reversal swaps those two outputs; wider permutations and arbitrary transaction shapes are outside this check.",
       "The 1,000,000 CEK-step allowance is not a ledger CPU or memory budget.",
       "Applicability strengthens the original PR #62 support goal by requiring the output list to change. The primary acceptance proposition is unchanged.",
