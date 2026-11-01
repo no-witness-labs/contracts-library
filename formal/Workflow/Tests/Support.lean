@@ -166,12 +166,12 @@ def expectProblem (label : String) (run : CLIRun) (fragment : String) : IO Unit 
 def expectArtifacts (label : String) (run : CLIRun) (sources : Array String) : IO Unit := do
   check s!"{label}: exact input snapshot" ((← IO.FS.readFile (run.directory / "input.json")) == run.input)
   for source in sources do
-    check s!"{label}: retained {source}" (← (run.directory / "Generated/Workflow" / source).pathExists)
+    check s!"{label}: retained {source}" (← (run.directory / "Generated" / source).pathExists)
   let manifest ← IO.ofExcept (Json.parse (← IO.FS.readFile (run.directory / "execution.json")))
   let modules ← IO.ofExcept do (← manifest.getObjVal? "modules").getArr?
   for item in modules do
     let path := System.FilePath.mk (← stringField item "path")
-    check s!"{label}: recorded module location" (path.parent == some (run.directory / "Generated/Workflow"))
+    check s!"{label}: recorded module location" (path.parent == some (run.directory / "Generated"))
     check s!"{label}: recorded module exists" (← path.pathExists)
     check s!"{label}: compiler stdout retained" (← (path.withExtension "stdout.log").pathExists)
     check s!"{label}: compiler stderr retained" (← (path.withExtension "stderr.log").pathExists)

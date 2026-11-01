@@ -3,8 +3,10 @@
 Plutus UPV (Universal Property Verifier) checks universal properties against
 compiled Plutus validators using Lean and configured proof tools. The prototype
 accepts the documented Aiken-style Plutus V3 blueprint profile. By default, one
-command processes all logical validators and all eight registered property/model
-combinations: six for UP-001 and two experimental UP-012 vesting combinations.
+command processes all logical validators and all nine registered property/model
+combinations. They comprise six for UP-001, two for UP-012, and one for UP-015. These are
+experimental workflow bindings; registration does not establish general readiness
+of the properties or models.
 
 The app prints a terminal summary and retains local run files. The separate
 human-friendly final report remains future work in
@@ -12,8 +14,8 @@ human-friendly final report remains future work in
 
 ## Prepare once
 
-Have Lean **4.24.0**, Z3 **4.15.2**, GNU coreutils (`timeout`, `mktemp`, and
-`date`), and Git on `PATH`. From the repository root:
+Have Lean **4.24.0**, Z3 **4.15.2**, GNU coreutils (`timeout`, `mktemp`,
+`date`, and `sha256sum`), and Git on `PATH`. From the repository root:
 
 ```sh
 ./formal/install.sh
@@ -42,7 +44,7 @@ From a directory containing `plutus.json`, run:
 plutus-upv run
 ```
 
-The default timeout is **30 seconds per validator/check combination**. Input
+The default timeout is **5 minutes per validator/check combination**. Input
 defaults also work with selection flags, for example `plutus-upv run --check UP-001`.
 Run files remain under this app checkout's `formal/output/`; the terminal prints
 their location. The command leaves the input project unchanged.
@@ -74,13 +76,14 @@ other validators continue. Invalid shared JSON/title structure stops discovery.
 
 ## Select properties with a file
 
-Start with [checks.example.json](../../checks.example.json), which enables both
-registered properties, or save your own `checks.json`. For example, disable UP-012:
+Start with [checks.example.json](../../checks.example.json), which enables all three
+registered properties, or save your own `checks.json`. For example, enable only UP-001:
 
 ```json
 {
   "UP-001": true,
-  "UP-012": false
+  "UP-012": false,
+  "UP-015": false
 }
 ```
 
@@ -103,14 +106,24 @@ claim a pass.
 The terminal table shows PASS, FAIL, and INCONCLUSIVE counts per validator.
 Each count represents one property/version/model combination; supporting
 applicability obligations do not add extra checks. The app also prints recorded
-check counts, elapsed time, errors, and output/index paths. It assigns no overall
-verification verdict.
+check counts, elapsed time, errors, and output paths. Open the printed `Review`
+path (`README.md`) to browse relative links to generated Lean, check results,
+logs, and shared source snapshots. `Index` points to the machine-readable
+`run.json`. The app assigns no overall verification verdict.
 
 Each invocation creates a fresh local folder:
 
 ```text
 output/run.<timestamp>.<unique-id>/
+├── README.md
 ├── run.json
+├── sources/
+│   ├── index.json
+│   ├── Formal/                          # imported project Lean sources and compiled modules
+│   ├── _logs/                           # supporting-source compilation
+│   ├── lean-toolchain
+│   ├── lake-manifest.json
+│   └── lakefile.toml
 ├── input.json
 ├── checks.json                         # when a selection file was supplied
 └── validators/
@@ -119,7 +132,7 @@ output/run.<timestamp>.<unique-id>/
             ├── check-result.json
             ├── input.json
             ├── execution.json
-            └── Generated/Workflow/
+            └── Generated/
                 ├── Types.lean
                 ├── Checks.lean
                 └── compiler outputs and logs
@@ -130,30 +143,49 @@ characters such as `/`; `run.json` preserves canonical validator names.
 
 | File | Contents |
 | --- | --- |
+| Root `README.md` | Relative links to retained files and recorded results; refreshed at each checkpoint |
+| `sources/` | Shared imported project sources, compiled modules, source-compilation logs, and environment records |
+| `sources/index.json` | Source hashes, imports, compilation state, toolchain/configuration hashes, and dependency revision/dirty-state records |
 | `run.json` | Invocation/options, selected work, result-file references, errors, elapsed time, and completion marker; updated as work progresses |
 | Root `input.json` | Captured readable blueprint, including input that later fails validation |
 | Root `checks.json` | Supplied selection-file snapshot, when present |
 | Per-check `check-result.json` | The assessed six-field result, including scope, reasons, and evidence references |
 | Per-check `input.json` | The same captured blueprint used to prepare that validator |
 | Per-check `execution.json` | Attempted commands, timing, raw observations, and diagnostics |
-| `Generated/Workflow/` | Generated Lean, stdout/stderr logs, and successful compiled modules; UP-012 also generates `Tx.lean` |
+| `Generated/` | Generated Lean, stdout/stderr logs, and successful compiled modules; UP-012 and UP-015 also generate `Tx.lean` |
 
 An interrupted run can leave its last saved index unfinished. Files depend on how
-far an attempt progressed: unreadable input has no snapshot, and preparation
-errors have no generated proof files. The records do not include a complete
-dependency/environment snapshot. Supporting definitions such as `EveryMint` and
-`EveryWithdraw` remain in the repository; use the
+far an attempt progressed: unreadable input has no snapshot, and validator
+preparation errors have no generated proof files.
+
+The app captures and compiles supporting project definitions such as `EveryMint`
+and `EveryWithdraw`, including their transitive project imports, once per run as
+needed. Generated checks use those captured modules. External libraries still
+use the installed Lean environment. The records include their configured pins,
+actual checkout revisions, and tracked dirty state. Dependency sources and the
+runtime remain outside the bundle.
+
+Independent replay remains future work. See the
 [check file map](DEVELOPER-GUIDE.md#generated-goals-and-supporting-files).
-The new command does not generate final client reports or legacy
-`report.json`/`report.txt` files.
+The navigation README is separate from the future final client report. The new
+command does not generate legacy `report.json`/`report.txt` files.
 
 ## Time limits and exit codes
 
-The default execution limit is 30 seconds **per validator/check combination**.
+The default execution limit is 5 minutes **per validator/check combination**.
 `--timeout-ms 120000` gives each combination up to 120 seconds across its generated
-modules. Setup and file retention add overhead. This limit is separate from the
-property's CEK-step bound. Individual failures, unsupported checks, and timeouts
-retain their outcomes while independent checks continue.
+modules. Supporting-source preparation has a separate compilation budget of the
+greater of the selected timeout and 30 seconds. It does not consume the proof
+budget. Setup and file retention add overhead. These limits are separate from
+the property's CEK-step bound.
+
+Individual failures, unsupported checks, and timeouts
+retain their outcomes while independent checks continue. A supporting-source
+capture or compilation failure retains available generated sources, source logs,
+and the source index, records INCONCLUSIVE, and counts as an app operational error.
+Because the source bundle is shared, a preparation failure prevents later generated
+checks from executing in that run. Their generated files and explained INCONCLUSIVE
+results are still retained; start a fresh run after correcting the source problem.
 
 | Product exit | Meaning |
 | --- | --- |
@@ -191,6 +223,28 @@ and linked applicability obligation. They use the **1,000,000-step** bound and
 fixed one-signer models, and accept only the pinned vesting artifact. Other targets
 produce explained INCONCLUSIVE outcomes. Its intended universal meaning remains
 separate work in [issue #33](https://github.com/no-witness-labs/contracts-library/issues/33).
+
+UP-015 uses the same validator input and native Claim model, TxM-007:
+
+```sh
+plutus-upv run Workflow/Tests/UP012/Inputs/plutus.json linear_vesting.linear_vesting --check UP-015 --timeout-ms 300000
+```
+
+Its single combination checks acceptance after reversing the two Claim outputs
+within 1,000,000 CEK steps. Linked applicability requires a valid accepted original,
+a valid reversal, and an output list that changes. The vesting profiles share
+the pinned artifact guard and model preparation. This supplies no general
+output-permutation model. See the
+[UP-015 scenario](../Tests/UP015/README.md).
+
+The three scenarios test workflow behavior. They do not establish general
+property or model readiness. Definition work remains open in
+[UP-001 #23](https://github.com/no-witness-labs/contracts-library/issues/23),
+[UP-012 #33](https://github.com/no-witness-labs/contracts-library/issues/33), and
+[UP-015 #36](https://github.com/no-witness-labs/contracts-library/issues/36).
+[Model authoring #89](https://github.com/no-witness-labs/contracts-library/issues/89)
+and [candidate integration #96](https://github.com/no-witness-labs/contracts-library/issues/96)
+remain separate work.
 
 Solver results inherit Blaster's SMT trust boundary. Model validity, ledger
 reachability, source correspondence, and protocol relevance remain separate

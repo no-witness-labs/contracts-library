@@ -3,9 +3,11 @@
 Plutus UPV (Universal Property Verifier) checks universal properties against
 compiled Plutus validators using ordinary Lean code and configured proof tools.
 The prototype supports the documented Aiken-style Plutus V3 blueprint profile.
-The app processes all logical validators and all eight registered property/model
+The app processes all logical validators and all nine registered property/model
 combinations by default, with optional validator/property filters and a property
-switch file. UP-012 remains an experimental pinned vesting profile.
+switch file. UP-012 and UP-015 are experimental profiles of the same pinned
+vesting validator. UP-001, these profiles, and their models support prototype
+testing; their broader definitions and coverage still need review.
 
 | Guide | Use |
 | --- | --- |
@@ -24,7 +26,8 @@ Input discovers logical validators and validates each selected embedded program.
 constructs obligations through a supplied provider. Executor runs Lean under a
 shared budget for one combination and retains observations. Assessor qualifies
 them into one structured CheckResult. The app repeats the core over selected
-validators/combinations, retains run files, and calculates the terminal summary.
+validators/combinations, retains run files with a navigation README, and calculates
+the terminal summary.
 The final human-friendly report remains separate work in
 [issue #83](https://github.com/no-witness-labs/contracts-library/issues/83).
 
@@ -67,8 +70,12 @@ implementations. Application composition supplies those dependencies.
   ledger reachability, source correspondence, and protocol relevance are separate
   questions. Clients assess which reported claims matter to their protocol.
 - Each app invocation retains results, inputs, generated sources, and raw logs in
-  a fresh ignored local output folder, grouped by validator and check. A run index
-  links results and records incomplete work/errors. Fixed fixtures stay committed.
+  a fresh ignored local output folder, grouped by validator and check. A root
+  README links retained files; the run index records incomplete work/errors.
+  The app captures and compiles shared imported project sources once per run as
+  needed and records dependency identities. External libraries still use the
+  installed environment; independent replay remains deferred. Fixed fixtures
+  stay committed.
 
 ## Core boundary and application outputs
 
@@ -84,7 +91,7 @@ The three outputs have separate responsibilities:
 | Output | Responsibility |
 | --- | --- |
 | Terminal summary | App-owned counts, timing, useful errors, and output paths |
-| Local run files | The index, captured inputs/configuration, assessed check results, generated Lean, and logs |
+| Local run files | Navigation README, index, captured inputs/configuration and imported project sources, assessed check results, generated Lean, and logs |
 | Final report | Future human-friendly presentation of retained results; contents/format remain undecided |
 
 The product exits `0` when orchestration and retention complete, including ordinary

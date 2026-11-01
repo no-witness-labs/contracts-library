@@ -109,7 +109,7 @@ private def fixtureContext (modelId := "TxM-fixture") : IO CheckContext := do
 private def fixtureJob (context : CheckContext) (name := "property") : CheckJob := {
   propertyId := "fixture"
   name
-  moduleName := "Generated.Workflow.Checks"
+  moduleName := "Generated.Checks"
   statement := "True"
   expected := .valid
   scope := "controlled test obligation"
@@ -121,7 +121,7 @@ private def fixturePlan (context : CheckContext) (target : TargetDescription) : 
   let main := { fixtureJob context with
     applicability := some { moduleName := support.moduleName, name := support.name } }
   { targetName := target.name
-    modules := #[⟨"Generated.Workflow.Checks", "-- assessment fixture\n\ntheorem property : True := by trivial\ntheorem support : True := by trivial\n"⟩]
+    modules := #[⟨"Generated.Checks", "-- assessment fixture\n\ntheorem property : True := by trivial\ntheorem support : True := by trivial\n"⟩]
     jobs := #[main, support]
     propertyDefinition := some context.propertyDefinition
     bindingsRequired := true }

@@ -4,6 +4,24 @@ namespace Workflow.App
 
 open Lean
 
+/-- Encode a logical name as one filesystem component without losing identity. -/
+def safeName (name : String) : String :=
+  String.join (name.toUTF8.toList.map fun byte =>
+    let value := byte.toNat
+    let ordinary := (value >= 48 && value <= 57) || (value >= 65 && value <= 90) ||
+      (value >= 97 && value <= 122) || value == 45 || value == 95 ||
+      (value == 46 && name != "." && name != "..")
+    if ordinary then (Char.ofNat value).toString
+    else
+      let hex := "0123456789ABCDEF".toList.toArray
+      "%" ++ (hex[value / 16]!).toString ++ (hex[value % 16]!).toString)
+
+def checkFolder (id : CheckId) : String :=
+  s!"{safeName id.propertyId}-v{id.definitionVersion}-{safeName id.modelId}"
+
+def checkDirectory (name : String) (id : CheckId) : System.FilePath :=
+  System.FilePath.mk "validators" / safeName name / checkFolder id
+
 structure CheckRun where
   id : CheckId
   resultFile : Option System.FilePath := none
@@ -20,6 +38,7 @@ structure ValidatorRun where
 structure RunRecord where
   directory : System.FilePath
   input : Option System.FilePath := none
+  sourceIndex : Option System.FilePath := none
   options : Json := .null
   validators : Array ValidatorRun := #[]
   finished : Bool := false
@@ -40,6 +59,7 @@ def ValidatorRun.toJson (validator : ValidatorRun) : Json := Json.mkObj [
 
 def RunRecord.toJson (run : RunRecord) : Json := Json.mkObj [
   ("input", run.input.map (fun path => Json.str path.toString) |>.getD .null),
+  ("source_index", run.sourceIndex.map (fun path => Json.str path.toString) |>.getD .null),
   ("options", run.options), ("validators", .arr (run.validators.map ValidatorRun.toJson)),
   ("finished", .bool run.finished), ("errors", Lean.toJson run.errors),
   ("elapsed_ms", Lean.toJson run.elapsedMs)]
@@ -102,7 +122,8 @@ def RunRecord.text (run : RunRecord) : String := Id.run do
         lines := lines.push s!"Error ({terminalText validator.name}, {terminalText check.id.propertyId}, {terminalText check.id.modelId}): {terminalText message}"
   for message in run.errors do lines := lines.push s!"Error: {terminalText message}"
   if !run.finished then lines := lines.push "Run did not finish; inspect the saved index and files."
-  lines := lines ++ #[s!"Output: {run.directory}", s!"Index: {run.directory / "run.json"}"]
+  lines := lines ++ #[s!"Output: {run.directory}", s!"Review: {run.directory / "README.md"}",
+    s!"Index: {run.directory / "run.json"}"]
   return String.intercalate "\n" lines.toList ++ "\n"
 
 end Workflow.App

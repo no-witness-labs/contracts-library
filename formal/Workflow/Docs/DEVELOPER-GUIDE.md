@@ -19,7 +19,11 @@ types stay at the bank root; the bank imports no workflow modules.
 [Candidates/Catalogue.lean](../../Candidates/Catalogue.lean) composes fixed executable
 adapters. UP-001 uses [Candidates/UP001.lean](../../Candidates/UP001.lean); UP-012
 uses [Candidates/UP012.lean](../../Candidates/UP012.lean) with the
-[pinned test profile](../Tests/UP012/Profile.lean). Metadata does not choose code.
+[pinned test profile](../Tests/UP012/Profile.lean). UP-015 uses
+[Candidates/UP015.lean](../../Candidates/UP015.lean) with its
+[Claim reversal profile](../Tests/UP015/Profile.lean). The vesting profiles share
+the same artifact guard and support generation in
+[Profiles/LinearVesting.lean](../Tests/Profiles/LinearVesting.lean). Metadata does not choose code.
 [App/ProductCLI.lean](../App/ProductCLI.lean) supplies `registeredChecks` and the
 exact `loadCheck` resolver to generic [App/Run.lean](../App/Run.lean).
 [App/CLI.lean](../App/CLI.lean) and [App/Main.lean](../App/Main.lean) retain the
@@ -35,7 +39,7 @@ Preserve each definition's actual domain, bounds, and restrictions when adapting
 | --- | --- | --- |
 | Property | Each property's `metadata.json` in Formal/Properties | [Record schema](../../Formal/Properties/property-definition.schema.json), [Metadata/Property.lean](../Metadata/Property.lean) |
 | Transaction model | Metadata beside its native constructor, exported through the model index | [Model schema](../../Formal/TxModels/transaction-model.schema.json), [Metadata/TxModel.lean](../Metadata/TxModel.lean) |
-| Combined check | [Generic bindings](../../Candidates/combined-checks.json) or [experimental vesting bindings](../Tests/UP012/combined-checks.json) | [Combined-check schema](../Metadata/combined-check.schema.json), [Metadata/TxModel.lean](../Metadata/TxModel.lean) |
+| Combined check | [Generic bindings](../../Candidates/combined-checks.json), [UP-012 vesting bindings](../Tests/UP012/combined-checks.json), or [UP-015 Claim binding](../Tests/UP015/combined-checks.json) | [Combined-check schema](../Metadata/combined-check.schema.json), [Metadata/TxModel.lean](../Metadata/TxModel.lean) |
 
 The property record groups identity (`id`, `definition_version`, `title`,
 `category`), explanation (`summary`, `claim`, `purpose`), scope
@@ -87,6 +91,7 @@ tracks their wider migration and other branches.
 | UP-001 spend, when undeclared | [TxM-006 / EverySpend](../../Formal/TxModels/Definitions/TxM006.lean) |
 | UP-012 Claim | [Shared UP012 definition](../../Formal/Properties/Universal/UP012/Definition.lean), [TxM-007](../../Formal/TxModels/Definitions/TxM007.lean) |
 | UP-012 Cancel | [TxM-008](../../Formal/TxModels/Definitions/TxM008.lean) |
+| UP-015 Claim output reversal | [UP015 definition](../../Formal/Properties/Universal/UP015/Definition.lean), the same [TxM-007](../../Formal/TxModels/Definitions/TxM007.lean) |
 
 Every* models expose full `TxInfo` and purpose fields; the theorem supplies a raw
 redeemer. [Common.mkCtx](../../Formal/TxModels/Common.lean) assembles the context.
@@ -103,6 +108,13 @@ Its `validScriptContext` conditions are explicit premises, not guarantees of the
 constructor or evidence of ledger reachability. The profile accepts only the
 original unparameterized vesting artifact.
 
+UP-015 reuses that exact artifact from `Workflow/Tests/UP012/Inputs/plutus.json`
+and the same native Claim constructor. Its primary proposition preserves bounded
+acceptance after output reversal. Applicability also requires the output list to
+change, excluding identity-mutation witnesses. The two-output model makes reversal
+a swap. Shared vesting preparation stays test-only; it supplies no general model
+authoring or broader validator support.
+
 Adapters unfold shared definitions before Blaster, preserving goal polarity and
 the expanded formulas. Tests keep kernel-checked equivalences to frozen legacy
 formulas. The retain-signer negative control uses independent legacy formulas and
@@ -110,14 +122,18 @@ clears official metadata when changing the property proposition.
 
 | Per-check generated file | Contents |
 | --- | --- |
-| `Generated/Workflow/Types.lean` | Embedded compiled program, argument conversion, acceptance predicate; UP-012 also aliases native data/redeemer types and defines rejection |
-| `Generated/Workflow/Tx.lean` (UP-012) | Aliases for native Claim/Cancel model types, constructors, and datum helper |
-| `Generated/Workflow/Checks.lean` | Concrete target/model theorem expressions and tactic calls |
+| `Generated/Types.lean` | Embedded compiled program, argument conversion, acceptance predicate; the vesting profiles also alias native data/redeemer types and define rejection |
+| `Generated/Tx.lean` (UP-012/UP-015) | Aliases for the selected native Claim/Cancel model types, constructors, and datum helper |
+| `Generated/Checks.lean` | Concrete target/model theorem expressions and tactic calls |
 
 [Formal/Universal/Properties.lean](../../Formal/Universal/Properties.lean) retains
 current context aliases and evaluation/signatory helpers. UP-012 uses its
 `rejectedWithin` predicate and 1,000,000-step `ledgerFuel`; UP-001 supplies literal
 5,000,000 to its acceptance predicate. These are distinct rejection meanings.
+UP-015 uses the same 1,000,000-step allowance for acceptance. Its test-only negative
+control substitutes rejection after the swap while preserving validator, model,
+premises, and applicability. The control clears official property/binding metadata
+and is not registered as a candidate.
 
 Pinned dependencies are identified by [lake-manifest.json](../../lake-manifest.json).
 Local sources under `.lake/packages/` include `CardanoLedgerApi/V3/Contexts.lean`,
@@ -134,8 +150,9 @@ result preserve exact snapshots. `propertyDefinition` retains the property
 record. Each job/row retains `txModelId`, `transactionModel`, `combinedCheck`, and
 the submitted `statement`, identified by module/name. Snapshot changes prevent
 the affected evidence from supporting a conclusive result; raw observations remain.
-The theorem expression depends on the imported native definition, so it is not
-a complete source/dependency fingerprint.
+The theorem expression depends on imported native definitions. The app records
+its captured project import closure separately in `sources/index.json`; the
+statement alone is not a complete source/dependency fingerprint.
 
 An applicability obligation has the same model/combination as its explicitly
 linked property job. Assessor checks the exact module/name link, role, expected
@@ -155,7 +172,9 @@ user guide for `run.json`, `input.json`, and command details in `execution.json`
 
 Generated output remains local. Tests that use fixed validators/models are evidence
 of those bounded scenarios; their fixtures are not client onboarding requirements.
-Generalizing UP-012 or redefining its required-signer meaning remains separate work.
+UP-001, UP-012, UP-015, and their models remain experimental; these tests do not
+establish general readiness. Definition work stays in issues #23, #33, and #36;
+general model authoring and candidate integration stay in #89 and #96.
 
 ## Module paths and validation
 
@@ -205,13 +224,17 @@ def verifyMint (leanPath : String) : IO Assessor.CheckResult := do
 ```
 
 The caller prepares the Lean dependency search path as it does for Executor.
+`Executor.Options.prepareImports` optionally prepares imports after generated
+source retention and returns the search path to use before the proof budget
+starts. The app supplies its shared source session through this operational
+callback; `verifyOne` still takes only the prepared validator and configured check.
 Timeout, tool commands, and output location are engine configuration, distinct
 from the CEK bound inside the registered property/model binding. Metadata belongs
 to the configured combo and is retained with the result.
 
 The catalogue resolves only the exact registered property/version/model. A new
 JSON record cannot add executable code. Single-model adapters generate only the
-chosen obligations: one undeclared purpose for UP-001, or one UP-012 main/applicability
+chosen obligations: one undeclared purpose for UP-001, or one UP-012/UP-015 main/applicability
 pair. The core rejects mixed bindings, support-only plans, orphan applicability,
 and empty plans containing executable modules. Registered generators remain trusted
 code; metadata checks alone cannot inspect arbitrary Lean semantics. Tests check
@@ -253,7 +276,7 @@ terminal printing for the product executable.
 The app reads the blueprint once, uses `Input.discover` to enumerate logical
 validator groups, and prepares each selected validator once from that snapshot.
 `App.Selection` owns CLI and JSON-switch selection. Defaults choose all logical
-validators and all eight registered combinations. Repeat `--validator` or
+validators and all nine registered combinations (six UP-001, two UP-012, and one UP-015). Repeat `--validator` or
 `--check` to narrow them, or use `--checks-file` with a flat property-ID/boolean
 object. With a file, only explicit `true` entries run. Unknown IDs and nonboolean
 values are errors; property flags and a file cannot be combined. An empty enabled
@@ -266,12 +289,34 @@ native definitions, and CEK bounds. The terminal counts combinations rather than
 supporting obligations and has no overall verification verdict.
 
 `App.Output` stores a checkpointed `run.json` in a fresh
-`output/run.<timestamp>.<unique-id>/` folder. Root input/config snapshots accompany
-validator/check folders containing results, generated modules, and raw files.
+`output/run.<timestamp>.<unique-id>/` folder. `App.Review` refreshes a root
+`README.md` at each checkpoint with relative links to retained generated Lean,
+results, logs, and shared sources. The terminal prints both `Review` and `Index`
+paths. Root input/config snapshots accompany validator/check folders containing
+results, generated modules, and raw files.
+
 The index retains canonical names, planned identities, run-relative result paths,
 and errors. The app safely encodes names into filesystem components. Existing
 CheckResults preserve their actual evidence paths. The app checks that each saved
 result matches the returned assessment before linking it from the index.
+
+`App.Sources` captures the transitive project imports of generated modules under
+one shared `sources/` directory. It compiles each captured module once per run
+as needed, checks saved source/compiled hashes before reuse, and puts that
+directory first in `LEAN_PATH` for generated checks. `sources/index.json` records
+source hashes, imports, compilation state, and external import names. It also
+records Lean version output, copied toolchain/Lake configuration and hashes,
+and configured dependency pins alongside actual checkout revisions and
+`tracked_dirty` state. Source compilation commands, results, stdout, and stderr
+live under `sources/_logs/`.
+
+Source compilation has a separate budget of `max(timeoutMs, 30000)` for each
+preparation call; the check's generated-module proof budget remains unchanged.
+A source capture or compilation failure leaves available generated sources and
+source diagnostics, produces an INCONCLUSIVE check, and adds an app operational
+error. External compiled libraries still come from the prepared environment.
+Dependency sources and the runtime remain outside the bundle; independent
+replay remains deferred.
 
 `finished` records completion of orchestration, separately from proof outcomes.
 An interrupted run can leave the last successfully saved index unfinished.
