@@ -30,7 +30,11 @@ It leaves the actual candidate, artifact guard, and model unchanged.
 
 ## Scope and fixtures
 
-The profile remains restricted to the original unparameterized vesting artifact.
+The adapter remains restricted to two exact unparameterized vesting artifacts.
+These are the original PR #55 fixture and the reviewed vault-demo build using
+Aiken 1.1.21 with stdlib 3.0.0. Unknown compiled artifacts remain unsupported. This extends the
+adapter's allowlist without changing the property claims, native transaction
+models, or bounds.
 Its supplied Claim and Cancel shapes each have one signer; the operation removes
 the first key. The original bound is 1,000,000 steps, and `rejectedWithin` requires
 an error or non-unit halt within the bound. Exhaustion does not establish rejection.
@@ -49,6 +53,12 @@ compiled code and selected handler metadata. `Inputs/compiled-code.txt` and
 The current declarations fixture records applications of the shared definition;
 DefinitionEquivalence.lean checks their equivalence to the expanded formulas.
 `Inputs/unsupported.json` exercises the profile guard.
+
+The independent second-artifact snapshot is
+[Profiles/Inputs/linear-vesting-aiken-1.1.21.json](../Profiles/Inputs/linear-vesting-aiken-1.1.21.json).
+The original inputs and frozen declarations remain unchanged. The editable
+[vault-demo project](../Projects/vault-demo/README.md) builds this second artifact
+manually; aggregate workflow tests do not invoke Aiken.
 
 Generated headers identify the current Lean emitter and the original PR/SHA
 provenance. Runtime generation uses the profile and candidate module. Edit the

@@ -1,13 +1,14 @@
 # Vault demo
 
 A small Aiken project for inspecting Plutus UPV's generated Lean files and
-execution evidence. Both validators have no script parameters and declare a
+execution evidence. All three validators have no script parameters and declare a
 spending handler.
 
 | Validator | Behavior | UP-001 result when the five obligations complete |
 | --- | --- | --- |
 | `vault.vault` | Requires the datum's owner to sign spending; rejects other purposes | Five PASS |
 | `vault_buggy.vault_buggy` | Deliberately accepts spending and other purposes | Five FAIL |
+| `linear_vesting.linear_vesting` | Linear vesting with Claim and Cancel actions | Five PASS |
 
 UP-001 checks undeclared purposes. These checks do not establish the spending
 handler's authorization correctness. The buggy validator is a negative control
@@ -19,7 +20,7 @@ Use Aiken 1.1.21 and the pinned stdlib 3.0.0 dependency. From this directory:
 
 ```sh
 aiken build
-plutus-upv run --check UP-001
+plutus-upv run
 ```
 
 Install the app first with [formal/install.sh](../../../../install.sh) if needed.
@@ -27,6 +28,21 @@ The app uses this directory's newly built `plutus.json`. Each check uses the
 five-minute default; `--timeout-ms` can override it.
 The demo's blueprint, build cache, and optional generated artifacts stay ignored
 by Git. No automatic Aiken build is added to the app or aggregate workflow tests.
+
+The default command selects all three validators and all nine registered
+property/model combinations. The expected terminal counts, when every supported
+check finishes conclusively, are:
+
+| Validator | PASS | FAIL | NOT APPLICABLE | UNSUPPORTED | INCONCLUSIVE |
+| --- | --- | --- | --- | --- | --- |
+| `vault.vault` | 5 | 0 | 1 | 3 | 0 |
+| `vault_buggy.vault_buggy` | 0 | 5 | 1 | 3 | 0 |
+| `linear_vesting.linear_vesting` | 8 | 0 | 1 | 0 | 0 |
+
+The combined demo run produced these counts during validation.
+The declared spend-purpose UP-001 combination is NOT APPLICABLE.
+UP-012's two combinations and UP-015's one combination are UNSUPPORTED for the
+vaults because their compiled artifacts are outside the vesting allowlist.
 
 ## Inspect the output
 
@@ -45,18 +61,27 @@ validators/<validator>/UP-001-v1-<TxM-ID>/Generated/
 
 The models are TxM-001 (mint), TxM-002 (withdraw), TxM-003 (publish), TxM-004
 (vote), and TxM-005 (propose). TxM-006 selects the declared spend purpose and
-therefore produces an INCONCLUSIVE no-obligation result with no Lean check.
-Expect 20 generated `.lean` files across both validators when generation succeeds,
+therefore produces no Lean check. The terminal calls this NOT APPLICABLE; the
+saved core assessment retains INCONCLUSIVE with a separate nonexecution reason.
+The fifteen UP-001 combinations with obligations generate 30 `.lean` files.
+The vesting validator's two UP-012 combinations and one UP-015 combination each
+add `Types.lean`, `Tx.lean`, and `Checks.lean`, for nine more files.
+Expect 39 generated `.lean` files across all three validators when generation succeeds,
 plus shared source snapshots, result JSON, execution manifests, input snapshots,
 and compiler logs.
 A timed-out check keeps its generated sources and reports INCONCLUSIVE.
 
-This example does not produce `Tx.lean`; current UP-001 models are imported
-directly. The app captures and compiles their transitive project imports once
+UP-001 imports its models directly; the vesting combinations use `Tx.lean` aliases
+for native TxM-007 (Claim) and TxM-008 (Cancel). The app captures and compiles
+transitive project imports once
 per run under `sources/`; `sources/index.json` records hashes, imports, compilation
 state, and environment identities. External compiled libraries still come from
 the installed environment, so the folder is not an independent replay bundle.
-The existing UP-012 vesting scenario demonstrates the optional `Tx.lean` adapter.
+The properties, native models, and artifact-specific adapters remain distinct.
+The vesting adapter recognizes two exact compiled artifacts: the original PR #55
+fixture and this reviewed Aiken 1.1.21/stdlib 3.0.0 build. Other compiled code stays
+unsupported. This allowlist does not make the adapter generic or establish general
+readiness of UP-001, UP-012, UP-015, or their models.
 
 The app's exit code describes completion and retention. A deliberately failing
 vault check can therefore appear in a completed run with exit code 0; inspect
@@ -64,9 +89,19 @@ the individual results and logs.
 
 ## Provenance and regression fixtures
 
-The two validator sources are copied unchanged from the pinned
+The two vault validator sources are copied unchanged from the pinned
 [UP-001 fixture project](../../UP001/Inputs/), originally attributed to
 [PR #47's demo](https://github.com/no-witness-labs/contracts-library/tree/0dde8ae76e3f8a239bf06685f72327aed4a7c3ef/formal/Universal/Demo/aiken).
 The source snapshot records Apache-2.0 licensing. This editable project has its
 own package name and compiler setting; building it does not update the pinned
 fixture's sources, dependency lock, or `plutus.json`.
+
+The vesting source comes from `onchain/` at
+`f5cbda7df624f2496dd2e6fe354a0cd15365b923`: `validators/linear_vesting.ak`,
+`lib/vesting/linear.ak`, `lib/vesting/types.ak`, and `lib/authorization.ak`.
+Only `lib/vesting/linear.ak` has formatting changes; the other three files are
+byte-identical to that source revision. The demo keeps Aiken 1.1.21 and stdlib
+3.0.0. Its resulting compiled artifact is a second exact supported test artifact.
+[Profiles/Inputs/linear-vesting-aiken-1.1.21.json](../../Profiles/Inputs/linear-vesting-aiken-1.1.21.json)
+retains an independent regression snapshot. The original
+[UP012/Inputs/plutus.json](../../UP012/Inputs/plutus.json) remains unchanged.

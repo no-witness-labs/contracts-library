@@ -105,8 +105,10 @@ Claim and Cancel. Each of the two combinations has a property and linked
 applicability obligation, for four obligations across both. Baseline models have one signer;
 the property removes it to construct a second context outside that baseline family.
 Its `validScriptContext` conditions are explicit premises, not guarantees of the
-constructor or evidence of ledger reachability. The profile accepts only the
-original unparameterized vesting artifact.
+constructor or evidence of ledger reachability. The adapter accepts two exact
+unparameterized vesting artifacts: the original PR #55 fixture and the reviewed
+vault-demo build using Aiken 1.1.21 with stdlib 3.0.0. Unknown compiled code remains
+unsupported.
 
 UP-015 reuses that exact artifact from `Workflow/Tests/UP012/Inputs/plutus.json`
 and the same native Claim constructor. Its primary proposition preserves bounded
@@ -114,6 +116,15 @@ acceptance after output reversal. Applicability also requires the output list to
 change, excluding identity-mutation witnesses. The two-output model makes reversal
 a swap. Shared vesting preparation stays test-only; it supplies no general model
 authoring or broader validator support.
+
+Both vesting properties share the two-artifact allowlist. The reviewed demo build
+has an independent snapshot at
+`Workflow/Tests/Profiles/Inputs/linear-vesting-aiken-1.1.21.json`; the original
+UP-012 input remains unchanged. The shared adapter emits the correct script hash
+for each recognized artifact. This artifact-specific preparation is distinct from
+the generic native property definitions and the fixed native transaction models.
+It changes neither their claims nor their bounds and supplies no generic adapter.
+The editable source project remains manual; workflow tests do not invoke Aiken.
 
 Adapters unfold shared definitions before Blaster, preserving goal polarity and
 the expanded formulas. Tests keep kernel-checked equivalences to frozen legacy

@@ -1,5 +1,6 @@
 import Workflow.Tests.UP012.DefinitionEquivalence
 import Workflow.Generator
+import Workflow.Input
 import Workflow.Tests.UP012.Profile
 import Candidates.Catalogue
 
@@ -55,6 +56,35 @@ def run : IO Unit := do
     match generate Workflow.Tests.UP012.Profile.provider unsupported "Generated.Unsupported" with
     | .error error => check "UP-012 profile restrictions are explicit" (error.kind == .unsupported)
     | .ok _ => throw (IO.userError "UP-012 accepted an unsupported profile")
+  for (fixture, expectedHash) in [
+      ("Workflow/Tests/UP012/Inputs/plutus.json",
+       "95da21788eb1f59f51aad9669eb8c8b7081ab618c1f29b871925894a"),
+      ("Workflow/Tests/Profiles/Inputs/linear-vesting-aiken-1.1.21.json",
+       "114e35c85d59745cb61ba73e1a9192467a4dae666a286a45f97a15f8")] do
+    let input ← IO.ofExcept ((← Input.read fixture "linear_vesting.linear_vesting").mapError toString)
+    -- Supplied metadata must not choose the generated script hash.
+    let accepted := { input.target with
+      handlers := input.target.handlers.map fun h => { h with declaredHash := some "untrusted" } }
+    let plan ← IO.ofExcept ((generate Workflow.Tests.UP012.Profile.provider accepted
+      "Generated.Known").mapError toString)
+    let some types := plan.modules[0]? | throw (IO.userError "missing known artifact types")
+    check s!"{fixture}: embeds exact known code"
+      ((types.source.splitOn s!"def program : Program := singleCborEncodedScriptFromHexM {reprStr input.target.compiledCode}").length == 2)
+    check s!"{fixture}: emits hash bound to code"
+      ((types.source.splitOn s!"def scriptHashHex : String := {reprStr expectedHash}").length == 2)
+    let emptyParameters := { accepted with parameters := some #[] }
+    check s!"{fixture}: accepts explicit empty parameters"
+      ((generate Workflow.Tests.UP012.Profile.provider emptyParameters "Generated.Empty").toOption.isSome)
+    for unsupported in [
+        { accepted with compiledCode := accepted.compiledCode ++ "00" },
+        { accepted with compiledCode := "480100002221200101" },
+        { accepted with parameters := some #[parameter] },
+        { accepted with plutusVersion := "v2" },
+        { accepted with handlers := #[] },
+        { accepted with handlers := (target #[.spend, .mint]).handlers }] do
+      match generate Workflow.Tests.UP012.Profile.provider unsupported "Generated.Unsupported" with
+      | .error error => check s!"{fixture}: exact artifact and purpose guards" (error.kind == .unsupported)
+      | .ok _ => throw (IO.userError s!"UP-012 accepted unsupported mutation of {fixture}")
   IO.println "UP-012 generator checks passed."
 
 end Workflow.Tests.UP012.Tests

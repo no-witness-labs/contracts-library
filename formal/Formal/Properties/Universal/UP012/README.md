@@ -13,7 +13,9 @@ context must be rejected. Applicability requires a witness to those premises.
 
 The existing bindings use TxM-007 (Claim) and TxM-008 (Cancel), the model's
 `validScriptContext` predicate, and explicit rejection within 1,000,000 CEK steps.
-The runtime profile retains its pinned linear-vesting artifact guard. These are
+The runtime adapter allows two exact compiled linear-vesting artifacts: the
+original PR #55 fixture and the reviewed vault-demo build using Aiken 1.1.21 with
+stdlib 3.0.0. Unknown artifacts remain unsupported. These are
 two applications of one property, with separate applicability obligations.
 
 The current models contain one signer, so the change removes the sole signer.

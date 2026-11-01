@@ -229,7 +229,9 @@ plutus-upv run Workflow/Tests/UP012/Inputs/plutus.json linear_vesting.linear_ves
 
 UP-012 has two registered combinations, Claim and Cancel. Each contains a property
 and linked applicability obligation. They use the **1,000,000-step** bound and
-fixed one-signer models, and accept only the pinned vesting artifact. Other targets
+fixed one-signer models. The adapter accepts two exact vesting artifacts: the original
+PR #55 fixture and the reviewed vault-demo build using Aiken 1.1.21 with stdlib
+3.0.0. Unknown compiled artifacts remain unsupported. Other targets
 produce explained INCONCLUSIVE outcomes. Its intended universal meaning remains
 separate work in [issue #33](https://github.com/no-witness-labs/contracts-library/issues/33).
 
@@ -242,9 +244,16 @@ plutus-upv run Workflow/Tests/UP012/Inputs/plutus.json linear_vesting.linear_ves
 Its single combination checks acceptance after reversing the two Claim outputs
 within 1,000,000 CEK steps. Linked applicability requires a valid accepted original,
 a valid reversal, and an output list that changes. The vesting profiles share
-the pinned artifact guard and model preparation. This supplies no general
+the two-artifact allowlist and model preparation. This supplies no general
 output-permutation model. See the
 [UP-015 scenario](../Tests/UP015/README.md).
+
+The editable [vault-demo project](../Tests/Projects/vault-demo/README.md) combines
+the normal vault, buggy vault, and linear vesting in one manually built blueprint.
+Its default `aiken build` then `plutus-upv run` path selects all three validators
+and all registered combinations. The app and test command do not build Aiken
+sources automatically. The original UP-012 regression input remains unchanged;
+the reviewed demo build has an independent shared regression snapshot.
 
 The three scenarios test workflow behavior. They do not establish general
 property or model readiness. Definition work remains open in
