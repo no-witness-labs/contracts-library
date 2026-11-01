@@ -1,34 +1,49 @@
 import Workflow.Tests.Profiles.LinearVesting
+import Workflow.Tests.Profiles.Vault
 import Candidates.UP012
 
 namespace Workflow.Tests.UP012.Profile
 
 open Workflow Workflow.Generator
 
-/-! Experimental vesting scenario from PR #55 at f5cbda7df624f2496dd2e6fe354a0cd15365b923.
-Shared test preparation guards the original artifact and emits native type and model aliases.
-The candidate module supplies the single authoritative set of four propositions.
+/-! Pinned vesting and vault scenarios use the shared UP-012 property and applicability goals.
+Preparation accepts exact supported artifacts and emits native transaction aliases.
 -/
 
 private def buildSelected (target : TargetDescription) (modulePrefix : String)
     (selectedModelId : Option String) : Except Error GenerationPlan := do
-  let modules ← Workflow.Tests.Profiles.LinearVesting.support target modulePrefix selectedModelId
-  let checks ← match selectedModelId with
+  let (modules, modelId) ← match selectedModelId with
+    | some modelId => do
+      let modules ← if modelId == Formal.TxModels.TxM009.metadata.id then
+          Workflow.Tests.Profiles.Vault.support target modulePrefix
+        else Workflow.Tests.Profiles.LinearVesting.support target modulePrefix (some modelId)
+      pure (modules, some modelId)
+    | none =>
+      match Workflow.Tests.Profiles.Vault.support target modulePrefix with
+      | .ok modules => pure (modules, some Formal.TxModels.TxM009.metadata.id)
+      | .error vaultError =>
+        match Workflow.Tests.Profiles.LinearVesting.support target modulePrefix none with
+        | .ok modules => pure (modules, none)
+        | .error vestingError =>
+          throw ⟨.unsupported, s!"{vestingError.message}; {vaultError.message}"⟩
+  let checks ← match modelId with
     | none => pure (Candidates.UP012.checks modulePrefix)
-    | some modelId => Candidates.UP012.checksForModel modelId modulePrefix
-  let jobs ← match selectedModelId with
+    | some id => Candidates.UP012.checksForModel id modulePrefix
+  let jobs ← match modelId with
     | none => pure (Candidates.UP012.jobs modulePrefix)
-    | some modelId => Candidates.UP012.jobsForModel modelId modulePrefix
+    | some id => Candidates.UP012.jobsForModel id modulePrefix
   return {
     targetName := target.name
     modules := modules.push checks
     jobs
-    notes := Candidates.UP012.notes }
+    notes := match modelId with
+      | none => Candidates.UP012.notes
+      | some id => Candidates.UP012.notesForModel id }
 
-/-- Run the original vesting candidate as a bounded experimental profile. -/
+/-- Select the exact supported artifact family and its bounded experimental checks. -/
 def provider : Provider := { id := "UP-012", generate := fun target modulePrefix => buildSelected target modulePrefix none }
 
-/-- Bind the pinned fixture to one action model without changing its target guard. -/
+/-- Bind one native action model to its exact artifact guard. -/
 def providerForModel (selectedModelId : String) : Except Error Provider := do
   unless Candidates.UP012.modelIds.contains selectedModelId do
     throw ⟨.unsupported, s!"UP-012 has no registered model {selectedModelId}"⟩

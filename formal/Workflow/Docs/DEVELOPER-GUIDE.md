@@ -91,6 +91,7 @@ tracks their wider migration and other branches.
 | UP-001 spend, when undeclared | [TxM-006 / EverySpend](../../Formal/TxModels/Definitions/TxM006.lean) |
 | UP-012 Claim | [Shared UP012 definition](../../Formal/Properties/Universal/UP012/Definition.lean), [TxM-007](../../Formal/TxModels/Definitions/TxM007.lean) |
 | UP-012 Cancel | [TxM-008](../../Formal/TxModels/Definitions/TxM008.lean) |
+| UP-012 key-datum spend | [TxM-009](../../Formal/TxModels/Definitions/TxM009.lean), [exact vault preparation](../Tests/Profiles/Vault.lean) |
 | UP-015 Claim output reversal | [UP015 definition](../../Formal/Properties/Universal/UP015/Definition.lean), the same [TxM-007](../../Formal/TxModels/Definitions/TxM007.lean) |
 
 Every* models expose full `TxInfo` and purpose fields; the theorem supplies a raw
@@ -101,14 +102,18 @@ selecting a declared-purpose model produces an empty INCONCLUSIVE attempt with
 an explanation. It adds no ledger-validity premise.
 
 UP-012 applies one primary statement and a supporting applicability predicate to
-Claim and Cancel. Each of the two combinations has a property and linked
-applicability obligation, for four obligations across both. Baseline models have one signer;
+Claim, Cancel, and key-datum spend. Each of the three combinations has a property
+and linked applicability obligation, for six obligations across all three. Baseline models have one signer;
 the property removes it to construct a second context outside that baseline family.
 Its `validScriptContext` conditions are explicit premises, not guarantees of the
 constructor or evidence of ledger reachability. The adapter accepts two exact
 unparameterized vesting artifacts: the original PR #55 fixture and the reviewed
 vault-demo build using Aiken 1.1.21 with stdlib 3.0.0. Unknown compiled code remains
-unsupported.
+unsupported for those models. TxM-009 uses separate exact two-vault preparation
+in `Tests/Profiles/Vault.lean`, with the same validity predicate and 1,000,000-step
+bound. Owner, signer, and recipient remain independent. The selected model chooses
+the profile; the legacy provider chooses the supported family and preserves the
+original four-vesting-job `checks`/`jobs` API. The catalogue remains Lean-owned.
 
 UP-015 reuses that exact artifact from `Workflow/Tests/UP012/Inputs/plutus.json`
 and the same native Claim constructor. Its primary proposition preserves bounded
@@ -134,7 +139,7 @@ clears official metadata when changing the property proposition.
 | Per-check generated file | Contents |
 | --- | --- |
 | `Generated/Types.lean` | Embedded compiled program, argument conversion, acceptance predicate; the vesting profiles also alias native data/redeemer types and define rejection |
-| `Generated/Tx.lean` (UP-012/UP-015) | Aliases for the selected native Claim/Cancel model types, constructors, and datum helper |
+| `Generated/Tx.lean` (UP-012/UP-015) | Aliases for the selected native Claim/Cancel or key-datum spend model types and constructors |
 | `Generated/Checks.lean` | Concrete target/model theorem expressions and tactic calls |
 
 [Formal/Universal/Properties.lean](../../Formal/Universal/Properties.lean) retains
@@ -287,7 +292,7 @@ terminal printing for the product executable.
 The app reads the blueprint once, uses `Input.discover` to enumerate logical
 validator groups, and prepares each selected validator once from that snapshot.
 `App.Selection` owns CLI and JSON-switch selection. Defaults choose all logical
-validators and all nine registered combinations (six UP-001, two UP-012, and one UP-015). Repeat `--validator` or
+validators and all ten registered combinations (six UP-001, three UP-012, and one UP-015). Repeat `--validator` or
 `--check` to narrow them, or use `--checks-file` with a flat property-ID/boolean
 object. With a file, only explicit `true` entries run. Unknown IDs and nonboolean
 values are errors; property flags and a file cannot be combined. An empty enabled

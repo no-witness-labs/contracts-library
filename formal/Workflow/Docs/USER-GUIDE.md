@@ -3,8 +3,8 @@
 Plutus UPV (Universal Property Verifier) checks universal properties against
 compiled Plutus validators using Lean and configured proof tools. The prototype
 accepts the documented Aiken-style Plutus V3 blueprint profile. By default, one
-command processes all logical validators and all nine registered property/model
-combinations. They comprise six for UP-001, two for UP-012, and one for UP-015. These are
+command processes all logical validators and all ten registered property/model
+combinations. They comprise six for UP-001, three for UP-012, and one for UP-015. These are
 experimental workflow bindings; registration does not establish general readiness
 of the properties or models.
 
@@ -227,12 +227,15 @@ Run the experimental vesting profile with:
 plutus-upv run Workflow/Tests/UP012/Inputs/plutus.json linear_vesting.linear_vesting --check UP-012 --timeout-ms 300000
 ```
 
-UP-012 has two registered combinations, Claim and Cancel. Each contains a property
+UP-012 has three registered combinations: Claim (TxM-007), Cancel (TxM-008),
+and key-datum spend (TxM-009). Each contains a property
 and linked applicability obligation. They use the **1,000,000-step** bound and
 fixed one-signer models. The adapter accepts two exact vesting artifacts: the original
 PR #55 fixture and the reviewed vault-demo build using Aiken 1.1.21 with stdlib
-3.0.0. Unknown compiled artifacts remain unsupported. Other targets
-produce explained INCONCLUSIVE outcomes. Its intended universal meaning remains
+3.0.0 for TxM-007/008. TxM-009 separately accepts the two exact vault artifacts
+from the UP-001 fixtures and demo. Unsupported artifact/model pairs appear as
+UNSUPPORTED in the app. Owner, signer, and recipient vary independently in
+TxM-009; passing does not establish correct-owner authorization. Its intended universal meaning remains
 separate work in [issue #33](https://github.com/no-witness-labs/contracts-library/issues/33).
 
 UP-015 uses the same validator input and native Claim model, TxM-007:

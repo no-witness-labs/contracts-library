@@ -29,20 +29,23 @@ five-minute default; `--timeout-ms` can override it.
 The demo's blueprint, build cache, and optional generated artifacts stay ignored
 by Git. No automatic Aiken build is added to the app or aggregate workflow tests.
 
-The default command selects all three validators and all nine registered
+The default command selects all three validators and all ten registered
 property/model combinations. The expected terminal counts, when every supported
 check finishes conclusively, are:
 
 | Validator | PASS | FAIL | NOT APPLICABLE | UNSUPPORTED | INCONCLUSIVE |
 | --- | --- | --- | --- | --- | --- |
-| `vault.vault` | 5 | 0 | 1 | 3 | 0 |
-| `vault_buggy.vault_buggy` | 0 | 5 | 1 | 3 | 0 |
-| `linear_vesting.linear_vesting` | 8 | 0 | 1 | 0 | 0 |
+| `vault.vault` | 6 | 0 | 1 | 3 | 0 |
+| `vault_buggy.vault_buggy` | 0 | 6 | 1 | 3 | 0 |
+| `linear_vesting.linear_vesting` | 8 | 0 | 1 | 1 | 0 |
 
-The combined demo run produced these counts during validation.
+These are expected counts for 30 selected combinations, pending a complete run.
 The declared spend-purpose UP-001 combination is NOT APPLICABLE.
-UP-012's two combinations and UP-015's one combination are UNSUPPORTED for the
+UP-012's two vesting combinations and UP-015's one combination are UNSUPPORTED for the
 vaults because their compiled artifacts are outside the vesting allowlist.
+TxM-009 adds one UP-012 signer-removal combination for each vault: normal PASS
+and buggy FAIL, each qualified by applicability. That combination is UNSUPPORTED
+for vesting. The property does not establish correct-owner authorization.
 
 ## Inspect the output
 
@@ -66,13 +69,15 @@ saved core assessment retains INCONCLUSIVE with a separate nonexecution reason.
 The fifteen UP-001 combinations with obligations generate 30 `.lean` files.
 The vesting validator's two UP-012 combinations and one UP-015 combination each
 add `Types.lean`, `Tx.lean`, and `Checks.lean`, for nine more files.
-Expect 39 generated `.lean` files across all three validators when generation succeeds,
+The two supported TxM-009 vault combinations add three files each.
+Expect 45 generated `.lean` files across all three validators when generation succeeds,
 plus shared source snapshots, result JSON, execution manifests, input snapshots,
 and compiler logs.
 A timed-out check keeps its generated sources and reports INCONCLUSIVE.
 
 UP-001 imports its models directly; the vesting combinations use `Tx.lean` aliases
-for native TxM-007 (Claim) and TxM-008 (Cancel). The app captures and compiles
+for native TxM-007 (Claim) and TxM-008 (Cancel). The vault UP-012
+combinations alias native TxM-009 through their own `Tx.lean`. The app captures and compiles
 transitive project imports once
 per run under `sources/`; `sources/index.json` records hashes, imports, compilation
 state, and environment identities. External compiled libraries still come from

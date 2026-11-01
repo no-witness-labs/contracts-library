@@ -37,6 +37,7 @@ For focused scenario debugging:
 
 ```sh
 lake exe workflow_up001_tests
+lake exe workflow_up012_tests --unit
 lake exe workflow_up012_tests
 lake exe workflow_up015_tests --unit
 lake exe workflow_up015_tests
@@ -50,13 +51,13 @@ lake exe workflow_review_tests
 | Scenario | Coverage | Definition/model source |
 | --- | --- | --- |
 | [UP001](UP001/README.md) | Passing and failing vaults, invalid input, and timeout | `Candidates.UP001` and fixed demo inputs |
-| [UP012](UP012/README.md) | Four original vesting propositions, unsupported-profile handling, and a semantic negative control | `Candidates.UP012` plus the test-owned vesting profile |
+| [UP012](UP012/README.md) | Four original vesting propositions, native TxM-009 normal/buggy vault checks, unsupported-profile handling, and a semantic negative control | `Candidates.UP012` plus test-owned vesting and vault profiles |
 | [UP015](UP015/README.md) | Claim output swap, nonidentity applicability, shared-model app scenarios, unsupported-profile handling, and a counterfactual rejection control | `Candidates.UP015`, native TxM-007, and shared test-only linear-vesting preparation |
 
 The UP001/UP012 scenario harnesses preserve the legacy `universal` CLI contract.
 UP015 reuses `UP012/Inputs/plutus.json`, the same compiled validator, and TxM-007.
-Its `--unit` mode skips solver cases; its default run includes app scenarios and
-the test-only negative control. [Profiles/LinearVesting.lean](Profiles/LinearVesting.lean)
+UP012 and UP015 `--unit` modes skip solver cases. Their default runs include
+app scenarios and test-only negative controls. [Profiles/LinearVesting.lean](Profiles/LinearVesting.lean)
 owns shared vesting preparation for UP012 and UP015.
 The app control suite checks orchestration and terminal/index behavior. The
 single-check suite runs actual compiled-validator goals through the app and core.
