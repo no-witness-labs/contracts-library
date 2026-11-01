@@ -341,6 +341,51 @@ private def directDirectoryChecks (temporary : System.FilePath) : IO Unit := do
      (← IO.FS.readFile (workspace / "check-result.json")) == earlierResult &&
      (← IO.FS.readFile (workspace / "Generated/Checks.stdout.log")) == earlierLog)
 
+private def bundleFailures (temporary path : System.FilePath) : IO Unit := do
+  let selected := #[identity "TxM-support"]
+  let single := { request path with validators := #["alpha"] }
+  let missingSource := fun id => do
+    let configured ← fixtureCheck id
+    if id.modelId != "TxM-support" then return .ok configured
+    return .ok { configured with generate := fun target modulePrefix => do
+      let plan ← configured.generate target modulePrefix
+      return { plan with modules := plan.modules.map fun module =>
+        { module with source := "import Formal.MissingReviewFixture\n" ++ module.source } } }
+  let failed ← Run.runWith (selected.push (identity "TxM-later")) missingSource single
+    (← options (temporary / "missing-source"))
+  let row ← checkAt failed "samples.alpha" "TxM-support"
+  ensure "source preparation failure is visible and retains the generated plan"
+    (failed.finished && failed.exitCode == 2 && row.error.isSome &&
+      row.result.any fun result => result.status == .inconclusive &&
+        result.evidence.any (·.extension == some "lean"))
+  let directory := failed.directory / checkDirectory "samples.alpha" selected[0]!
+  ensure "source preparation failure never starts the check compiler"
+    (!(← (directory / "Generated/Checks.attempted").pathExists))
+  ensure "source and execution failures remain inspectable"
+    ((← (directory / "execution.json").pathExists) &&
+      (← (failed.directory / "sources/index.json").pathExists) &&
+      contains (← IO.FS.readFile (failed.directory / "README.md")) "could not")
+  let later ← checkAt failed "samples.alpha" "TxM-later"
+  ensure "shared-source failure prevents later checks from using a partial bundle"
+    (later.error.isSome && later.result.any fun result =>
+      result.status == .inconclusive && result.evidence.any (·.extension == some "lean"))
+  ensure "later checks do not execute after a shared-source failure"
+    (!(← (failed.directory / checkDirectory "samples.alpha" (identity "TxM-later") /
+      "Generated/Checks.attempted").pathExists))
+  assertSaved failed
+  for blocked in #["sources", "README.md.tmp"] do
+    let root := temporary / (if blocked == "sources" then "blocked-sources" else "blocked-readme")
+    let loadBlocked := fun id => do
+      let entries ← root.readDir
+      let some directory := entries[0]? | throw (IO.userError "missing run directory")
+      if blocked == "sources" then
+        IO.FS.writeFile (directory.path / blocked) "source destination is blocked"
+      else IO.FS.createDir (directory.path / blocked)
+      load id
+    let run ← Run.runWith selected loadBlocked single (← options root)
+    ensure s!"{blocked} retention failure cannot appear successful" (run.exitCode == 2)
+    assertSaved run
+
 private def emptyInputChecks (temporary path : System.FilePath) : IO Unit := do
   IO.FS.writeFile path (blueprint #[])
   let emptyBlueprint ← Run.runWith registry load (request path) (← options (temporary / "empty-blueprint"))
@@ -364,6 +409,7 @@ def run : IO Unit := do
     outputIsolation temporary path
     storageChecks temporary path
     directDirectoryChecks temporary
+    bundleFailures temporary path
     emptyInputChecks temporary path
   IO.println "App orchestration checks passed."
 
@@ -412,6 +458,9 @@ def compiler (args : List String) : IO UInt32 := do
 end Workflow.Tests.Unit.App
 
 def main (args : List String) : IO UInt32 := do
+  if args == ["--version"] then
+    IO.println "Controlled app compiler fixture"
+    return 0
   if args.contains "--json" then Workflow.Tests.Unit.App.compiler args
   else
     Workflow.Tests.Unit.App.run

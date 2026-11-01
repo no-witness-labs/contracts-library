@@ -21,7 +21,8 @@ stops the run; a suite failure allows the remaining independent suites to run.
 Only a complete successful test run returns zero. Expected negative controls
 print FAIL or INCONCLUSIVE without making their enclosing suite fail.
 
-The aggregate command includes component units, metadata, run evidence, selection,
+The aggregate command registers 18 suites, including component units, metadata,
+run evidence, selection, shared source capture/compilation, relative review links,
 output controls, and installer/launcher checks. It also runs real app/core solver cases, runner failure
 controls, Input-to-Generator type-checking, Executor/Reporter solver controls, and
 both scenarios below. Each scenario invokes its candidate-specific checks.
@@ -37,6 +38,8 @@ lake exe workflow_up012_tests
 lake exe workflow_single_check_tests
 lake exe workflow_app_tests
 lake exe workflow_selection_tests
+lake exe workflow_sources_tests
+lake exe workflow_review_tests
 ```
 
 | Scenario | Coverage | Definition/model source |

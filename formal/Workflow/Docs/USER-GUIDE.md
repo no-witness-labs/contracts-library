@@ -12,8 +12,8 @@ human-friendly final report remains future work in
 
 ## Prepare once
 
-Have Lean **4.24.0**, Z3 **4.15.2**, GNU coreutils (`timeout`, `mktemp`, and
-`date`), and Git on `PATH`. From the repository root:
+Have Lean **4.24.0**, Z3 **4.15.2**, GNU coreutils (`timeout`, `mktemp`,
+`date`, and `sha256sum`), and Git on `PATH`. From the repository root:
 
 ```sh
 ./formal/install.sh
@@ -103,14 +103,24 @@ claim a pass.
 The terminal table shows PASS, FAIL, and INCONCLUSIVE counts per validator.
 Each count represents one property/version/model combination; supporting
 applicability obligations do not add extra checks. The app also prints recorded
-check counts, elapsed time, errors, and output/index paths. It assigns no overall
-verification verdict.
+check counts, elapsed time, errors, and output paths. Open the printed `Review`
+path (`README.md`) to browse relative links to generated Lean, check results,
+logs, and shared source snapshots. `Index` points to the machine-readable
+`run.json`. The app assigns no overall verification verdict.
 
 Each invocation creates a fresh local folder:
 
 ```text
 output/run.<timestamp>.<unique-id>/
+├── README.md
 ├── run.json
+├── sources/
+│   ├── index.json
+│   ├── Formal/                          # imported project Lean sources and compiled modules
+│   ├── _logs/                           # supporting-source compilation
+│   ├── lean-toolchain
+│   ├── lake-manifest.json
+│   └── lakefile.toml
 ├── input.json
 ├── checks.json                         # when a selection file was supplied
 └── validators/
@@ -130,6 +140,9 @@ characters such as `/`; `run.json` preserves canonical validator names.
 
 | File | Contents |
 | --- | --- |
+| Root `README.md` | Relative links to retained files and recorded results; refreshed at each checkpoint |
+| `sources/` | Shared imported project sources, compiled modules, source-compilation logs, and environment records |
+| `sources/index.json` | Source hashes, imports, compilation state, toolchain/configuration hashes, and dependency revision/dirty-state records |
 | `run.json` | Invocation/options, selected work, result-file references, errors, elapsed time, and completion marker; updated as work progresses |
 | Root `input.json` | Captured readable blueprint, including input that later fails validation |
 | Root `checks.json` | Supplied selection-file snapshot, when present |
@@ -139,21 +152,37 @@ characters such as `/`; `run.json` preserves canonical validator names.
 | `Generated/` | Generated Lean, stdout/stderr logs, and successful compiled modules; UP-012 also generates `Tx.lean` |
 
 An interrupted run can leave its last saved index unfinished. Files depend on how
-far an attempt progressed: unreadable input has no snapshot, and preparation
-errors have no generated proof files. The records do not include a complete
-dependency/environment snapshot. Supporting definitions such as `EveryMint` and
-`EveryWithdraw` remain in the repository; use the
+far an attempt progressed: unreadable input has no snapshot, and validator
+preparation errors have no generated proof files.
+
+The app captures and compiles supporting project definitions such as `EveryMint`
+and `EveryWithdraw`, including their transitive project imports, once per run as
+needed. Generated checks use those captured modules. External libraries still
+use the installed Lean environment. The records include their configured pins,
+actual checkout revisions, and tracked dirty state. Dependency sources and the
+runtime remain outside the bundle.
+
+Independent replay remains future work. See the
 [check file map](DEVELOPER-GUIDE.md#generated-goals-and-supporting-files).
-The new command does not generate final client reports or legacy
-`report.json`/`report.txt` files.
+The navigation README is separate from the future final client report. The new
+command does not generate legacy `report.json`/`report.txt` files.
 
 ## Time limits and exit codes
 
 The default execution limit is 30 seconds **per validator/check combination**.
 `--timeout-ms 120000` gives each combination up to 120 seconds across its generated
-modules. Setup and file retention add overhead. This limit is separate from the
-property's CEK-step bound. Individual failures, unsupported checks, and timeouts
-retain their outcomes while independent checks continue.
+modules. Supporting-source preparation has a separate compilation budget of the
+greater of the selected timeout and 30 seconds. It does not consume the proof
+budget. Setup and file retention add overhead. These limits are separate from
+the property's CEK-step bound.
+
+Individual failures, unsupported checks, and timeouts
+retain their outcomes while independent checks continue. A supporting-source
+capture or compilation failure retains available generated sources, source logs,
+and the source index, records INCONCLUSIVE, and counts as an app operational error.
+Because the source bundle is shared, a preparation failure prevents later generated
+checks from executing in that run. Their generated files and explained INCONCLUSIVE
+results are still retained; start a fresh run after correcting the source problem.
 
 | Product exit | Meaning |
 | --- | --- |

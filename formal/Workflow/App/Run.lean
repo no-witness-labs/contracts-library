@@ -1,6 +1,8 @@
 import Workflow.App.Selection
 import Workflow.App.Output
 import Workflow.App.Verification
+import Workflow.App.Sources
+import Workflow.App.Review
 
 namespace Workflow.App.Run
 
@@ -10,20 +12,11 @@ structure Options where
   executorOptions : Executor.Options
   outputRoot : System.FilePath := "output"
 
-/-- Encode a logical name as one filesystem component without losing identity. -/
-def safeName (name : String) : String :=
-  String.join (name.toUTF8.toList.map fun byte =>
-    let value := byte.toNat
-    let ordinary := (value >= 48 && value <= 57) || (value >= 65 && value <= 90) ||
-      (value >= 97 && value <= 122) || value == 45 || value == 95 ||
-      (value == 46 && name != "." && name != "..")
-    if ordinary then (Char.ofNat value).toString
-    else
-      let hex := "0123456789ABCDEF".toList.toArray
-      "%" ++ (hex[value / 16]!).toString ++ (hex[value % 16]!).toString)
+abbrev safeName := Workflow.App.safeName
 
-private def checkFolder (id : CheckId) : String :=
-  s!"{safeName id.propertyId}-v{id.definitionVersion}-{safeName id.modelId}"
+private def save (run : RunRecord) : IO Unit := do
+  run.save
+  Review.write run
 
 private def createDirectory (root : System.FilePath) : IO System.FilePath := do
   IO.FS.createDirAll root
@@ -39,6 +32,7 @@ private def createDirectory (root : System.FilePath) : IO System.FilePath := do
 private def optionsJson (request : Request) (cwd : System.FilePath) : Json := Json.mkObj [
   ("args", toJson request.args), ("cwd", .str cwd.toString),
   ("blueprint", .str request.path.toString), ("timeout_ms", toJson request.timeoutMs),
+  ("source_preparation_timeout_ms", toJson (max request.timeoutMs 30000)),
   ("validator_selectors", toJson request.validators), ("property_selectors", toJson request.properties),
   ("selection_file", request.checksFile.map (fun path => Json.str path.toString) |>.getD .null)]
 
@@ -60,13 +54,15 @@ private def loadOne (load : CheckId → IO (Except String Generator.ConfiguredCh
   catch error => return .error s!"could not load check: {error}"
 
 private def verify (options : Options) (request : Request) (run : RunRecord)
+    (prepareImports : GenerationPlan → IO String)
     (name : String) (prepared : InputResult) (id : CheckId)
     (check : Generator.ConfiguredCheck) : IO CheckRun := do
-  let relative := System.FilePath.mk "validators" / safeName name / checkFolder id
+  let relative := checkDirectory name id
   let directory := run.directory / relative
   try
     let engine : Verification.Engine := {
       options := { options.executorOptions with
+        prepareImports := some prepareImports
         budgetMs := request.timeoutMs
         directory := some directory } }
     let result ← engine.verifyOne prepared check
@@ -99,12 +95,32 @@ def runWith (registry : Array CheckId)
   let started ← IO.monoMsNow
   let directory ← createDirectory options.outputRoot
   let mut run : RunRecord := { directory, options := optionsJson request (← IO.currentDir) }
+  let sourceSession ← IO.mkRef (none : Option Sources.Session)
+  let sourceCreationError ← IO.mkRef (none : Option String)
+  let projectRoot ← IO.currentDir
+  let prepareImports := fun plan => do
+    if let some message ← sourceCreationError.get then throw (IO.userError message)
+    let session ← match ← sourceSession.get with
+      | some session => pure session
+      | none => do
+        try
+          let session ← Sources.create directory {
+            projectRoot, leanPath := options.executorOptions.leanPath
+            leanCommand := options.executorOptions.leanCommand
+            timeoutCommand := options.executorOptions.timeoutCommand
+            budgetMs := max request.timeoutMs 30000 }
+          sourceSession.set (some session)
+          pure session
+        catch error =>
+          sourceCreationError.set (some error.toString)
+          throw error
+    Sources.prepare session plan
   try
-    run.save
+    save run
     let source ← IO.FS.readFile request.path
     writeText (directory / "input.json") source
     run := { run with input := some "input.json" }
-    run.save
+    save run
     let fileSource ← match request.checksFile with
       | none => pure none
       | some path => do
@@ -122,7 +138,7 @@ def runWith (registry : Array CheckId)
     let names ← IO.ofExcept (selectValidators request.validators names)
     run := { run with validators := names.map fun name =>
       { name, checks := selected.map fun id => { id } } }
-    run.save
+    save run
     let configured ← selected.mapM (loadOne load)
     for index in [:run.validators.size] do
       let validator := run.validators[index]!
@@ -131,7 +147,7 @@ def runWith (registry : Array CheckId)
       | .error error =>
         let updated := { validator with preparationError := some (toString error) }
         run := { run with validators := run.validators.set! index updated }
-        run.save
+        save run
       | .ok value =>
         let prepared := { value with sourcePath := some request.path }
         for checkIndex in [:selected.size] do
@@ -140,21 +156,23 @@ def runWith (registry : Array CheckId)
             | throw (IO.userError "configured check list is incomplete")
           let result ← match loaded with
             | .error message => pure { id, error := some message : CheckRun }
-            | .ok check => verify options request run validator.name prepared id check
+            | .ok check => verify options request run prepareImports validator.name prepared id check
           let current := run.validators[index]!
           let updated := { current with checks := current.checks.set! checkIndex result }
           run := { run with validators := run.validators.set! index updated }
+          if ← (directory / "sources/index.json").pathExists then
+            run := { run with sourceIndex := some "sources/index.json" }
           run := { run with elapsedMs := (← IO.monoMsNow) - started }
-          run.save
+          save run
     run := { run with finished := true, elapsedMs := (← IO.monoMsNow) - started }
-    run.save
+    save run
     return run
   catch error =>
     run := { run with
       finished := false
       errors := run.errors.push error.toString
       elapsedMs := (← IO.monoMsNow) - started }
-    try run.save catch _ => pure ()
+    try save run catch _ => pure ()
     return run
 
 def usage : String :=

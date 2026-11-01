@@ -58,6 +58,8 @@ inductive RunState where
 
 structure Result where
   state : RunState
+  /-- Search path actually used after optional shared import preparation. -/
+  leanPath : Option String := none
   directory : Option System.FilePath := none
   modules : Array ModuleObservation := #[]
   jobs : Array JobObservation := #[]
@@ -70,6 +72,8 @@ structure Result where
 structure Options where
   /-- Prepared dependency/module search path; preparation is the caller's responsibility. -/
   leanPath : String
+  /-- Optional shared import preparation after source retention, before the proof budget. -/
+  prepareImports : Option (GenerationPlan → IO String) := none
   leanCommand : String := "lean"
   timeoutCommand : String := "timeout"
   /-- Parent for fresh run directories; none uses the system temporary directory. -/

@@ -74,7 +74,7 @@ private def manifest (plan : GenerationPlan) (options : Options) (result : Resul
     ("target", .str plan.targetName), ("state", .str (runStateText result.state)),
     ("propertyDefinition", result.propertyDefinition.map (·.toJson) |>.getD .null),
     ("budgetMs", toJson options.budgetMs), ("elapsedMs", toJson result.elapsedMs),
-    ("leanCommand", .str options.leanCommand), ("leanPath", .str options.leanPath),
+    ("leanCommand", .str options.leanCommand), ("leanPath", .str (result.leanPath.getD options.leanPath)),
     ("timeoutCommand", .str options.timeoutCommand), ("problems", toJson result.problems),
     ("retention_errors", toJson result.retentionErrors),
     ("notes", toJson plan.notes), ("modules", .arr modules), ("jobs", .arr jobs)]
@@ -94,13 +94,28 @@ def createRunDirectory (outputRoot : Option System.FilePath := none) : IO System
 
 private def execute (plan : GenerationPlan) (options : Options) (directory : System.FilePath)
     (started : Nat) : IO Result := do
-  let deadline := started + options.budgetMs
   for source in plan.modules do
     let path := directory / (source.name.replace "." "/" ++ ".lean")
     IO.FS.createDirAll (path.parent.getD directory)
     writeEvidence path source.source
+  let configuration ← try
+    let leanPath ← match options.prepareImports with
+      | none => pure options.leanPath
+      | some prepare => prepare plan
+    pure (.ok { options with leanPath } : Except String Executor.Options)
+    catch error => pure (.error s!"could not prepare supporting sources: {error}")
+  let options ← match configuration with
+    | .ok options => pure options
+    | .error message => return {
+        state := .error, directory := some directory, propertyDefinition := plan.propertyDefinition
+        problems := #[message], retentionErrors := #[message]
+        elapsedMs := (← IO.monoMsNow) - started
+        jobs := plan.jobs.map fun job => { job, issues := #[message] } }
+  let started ← if options.prepareImports.isSome then IO.monoMsNow else pure started
+  let deadline := started + options.budgetMs
   let mut result : Result := {
     state := .completed, directory := some directory
+    leanPath := some options.leanPath
     propertyDefinition := plan.propertyDefinition }
   let mut stopped := false
   for source in plan.modules do

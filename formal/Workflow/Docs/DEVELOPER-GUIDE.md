@@ -134,8 +134,9 @@ result preserve exact snapshots. `propertyDefinition` retains the property
 record. Each job/row retains `txModelId`, `transactionModel`, `combinedCheck`, and
 the submitted `statement`, identified by module/name. Snapshot changes prevent
 the affected evidence from supporting a conclusive result; raw observations remain.
-The theorem expression depends on the imported native definition, so it is not
-a complete source/dependency fingerprint.
+The theorem expression depends on imported native definitions. The app records
+its captured project import closure separately in `sources/index.json`; the
+statement alone is not a complete source/dependency fingerprint.
 
 An applicability obligation has the same model/combination as its explicitly
 linked property job. Assessor checks the exact module/name link, role, expected
@@ -205,6 +206,10 @@ def verifyMint (leanPath : String) : IO Assessor.CheckResult := do
 ```
 
 The caller prepares the Lean dependency search path as it does for Executor.
+`Executor.Options.prepareImports` optionally prepares imports after generated
+source retention and returns the search path to use before the proof budget
+starts. The app supplies its shared source session through this operational
+callback; `verifyOne` still takes only the prepared validator and configured check.
 Timeout, tool commands, and output location are engine configuration, distinct
 from the CEK bound inside the registered property/model binding. Metadata belongs
 to the configured combo and is retained with the result.
@@ -266,12 +271,34 @@ native definitions, and CEK bounds. The terminal counts combinations rather than
 supporting obligations and has no overall verification verdict.
 
 `App.Output` stores a checkpointed `run.json` in a fresh
-`output/run.<timestamp>.<unique-id>/` folder. Root input/config snapshots accompany
-validator/check folders containing results, generated modules, and raw files.
+`output/run.<timestamp>.<unique-id>/` folder. `App.Review` refreshes a root
+`README.md` at each checkpoint with relative links to retained generated Lean,
+results, logs, and shared sources. The terminal prints both `Review` and `Index`
+paths. Root input/config snapshots accompany validator/check folders containing
+results, generated modules, and raw files.
+
 The index retains canonical names, planned identities, run-relative result paths,
 and errors. The app safely encodes names into filesystem components. Existing
 CheckResults preserve their actual evidence paths. The app checks that each saved
 result matches the returned assessment before linking it from the index.
+
+`App.Sources` captures the transitive project imports of generated modules under
+one shared `sources/` directory. It compiles each captured module once per run
+as needed, checks saved source/compiled hashes before reuse, and puts that
+directory first in `LEAN_PATH` for generated checks. `sources/index.json` records
+source hashes, imports, compilation state, and external import names. It also
+records Lean version output, copied toolchain/Lake configuration and hashes,
+and configured dependency pins alongside actual checkout revisions and
+`tracked_dirty` state. Source compilation commands, results, stdout, and stderr
+live under `sources/_logs/`.
+
+Source compilation has a separate budget of `max(timeoutMs, 30000)` for each
+preparation call; the check's generated-module proof budget remains unchanged.
+A source capture or compilation failure leaves available generated sources and
+source diagnostics, produces an INCONCLUSIVE check, and adds an app operational
+error. External compiled libraries still come from the prepared environment.
+Dependency sources and the runtime remain outside the bundle; independent
+replay remains deferred.
 
 `finished` records completion of orchestration, separately from proof outcomes.
 An interrupted run can leave the last successfully saved index unfinished.

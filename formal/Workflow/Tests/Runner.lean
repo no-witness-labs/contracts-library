@@ -21,6 +21,8 @@ def defaultSuites : Array Suite := #[
   ⟨"CLI selection checks", "workflow_selection_tests"⟩,
   ⟨"Installer and launcher checks", "workflow_installation_tests"⟩,
   ⟨"Blueprint orchestration and output checks", "workflow_app_tests"⟩,
+  ⟨"Shared source capture and compilation checks", "workflow_sources_tests"⟩,
+  ⟨"Review index and portable links", "workflow_review_tests"⟩,
   ⟨"Test-runner controls", "workflow_runner_tests"⟩,
   ⟨"Input-to-Generator integration", "workflow_generator_integration"⟩,
   ⟨"Executor solver integration", "workflow_executor_integration"⟩,

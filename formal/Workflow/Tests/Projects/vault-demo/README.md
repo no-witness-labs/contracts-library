@@ -30,8 +30,10 @@ by Git. No automatic Aiken build is added to the app or aggregate workflow tests
 
 ## Inspect the output
 
-The terminal prints the run folder and `run.json` paths. Outputs remain under
-the app checkout's `formal/output/`, with separate folders for each invocation.
+Open the terminal's `Review` path (`README.md`) for relative links to generated
+Lean, results, logs, and shared sources. `Index` points to `run.json`. Outputs
+remain under the app checkout's `formal/output/`, with separate folders for each
+invocation.
 
 For each validator, the five undeclared purposes produce five pairs of Lean
 files: `Types.lean` embeds the compiled script and its evaluation interface;
@@ -45,13 +47,16 @@ The models are TxM-001 (mint), TxM-002 (withdraw), TxM-003 (publish), TxM-004
 (vote), and TxM-005 (propose). TxM-006 selects the declared spend purpose and
 therefore produces an INCONCLUSIVE no-obligation result with no Lean check.
 Expect 20 generated `.lean` files across both validators when generation succeeds,
-plus result JSON, execution manifests, input snapshots, and compiler logs.
+plus shared source snapshots, result JSON, execution manifests, input snapshots,
+and compiler logs.
 A timed-out check keeps its generated sources and reports INCONCLUSIVE.
 
 This example does not produce `Tx.lean`; current UP-001 models are imported
-directly. The maintained property/model/helper definitions also remain in the
-repository under the current output design. The existing UP-012 vesting scenario
-demonstrates the optional `Tx.lean` adapter.
+directly. The app captures and compiles their transitive project imports once
+per run under `sources/`; `sources/index.json` records hashes, imports, compilation
+state, and environment identities. External compiled libraries still come from
+the installed environment, so the folder is not an independent replay bundle.
+The existing UP-012 vesting scenario demonstrates the optional `Tx.lean` adapter.
 
 The app's exit code describes completion and retention. A deliberately failing
 vault check can therefore appear in a completed run with exit code 0; inspect
