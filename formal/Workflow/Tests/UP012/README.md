@@ -40,6 +40,14 @@ the first key. The original bound is 1,000,000 steps, and `rejectedWithin` requi
 an error or non-unit halt within the bound. Exhaustion does not establish rejection.
 Both applicability statements remain separate required jobs.
 
+For this example, assume the baseline contains only the intended required signer,
+with no unrelated extra signers. The models enforce one signer, but do not infer
+who the protocol should authorize. This assumption is descriptive and adds no
+Lean premise. Passing the removal check does not establish correct-owner
+authorization. The [property scope](../../../Formal/Properties/Universal/UP012/README.md)
+and combination metadata retain this limitation; broader required-signer semantics
+and universal applicability remain open in [issue #33](https://github.com/no-witness-labs/contracts-library/issues/33).
+
 The generated `Tx.lean` imports and aliases the native Claim and Cancel models,
 including their inputs, outputs, and signer.
 Blueprint schemas describe datum and redeemer encoding; they do not determine

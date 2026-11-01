@@ -19,6 +19,7 @@
     "preconditions": [
       "The original modeled context satisfies validScriptContext and is accepted within the 1,000,000-step allowance.",
       "The original signer list is nonempty.",
+      "Example assumption: the baseline contains only the intended required signer, with no unrelated extra signers. This describes the scenario's intended use; it is not an additional Lean premise or a requirement inferred by the tool.",
       "The context with its first signer removed still satisfies validScriptContext."
     ],
     "limitations": [
@@ -26,6 +27,7 @@
       "The Claim and Cancel shapes each contain one signer. The check does not cover arbitrary transaction shapes or multiple-signer lists.",
       "Explicit bounded rejection excludes fuel exhaustion; the CEK bound is not a ledger CPU or memory budget.",
       "The check does not determine which signatures a protocol ought to require or establish general authorization correctness.",
+      "Signer-removal rejection does not prove that the remaining authorization logic requires the correct owner. A validator that accepts any signer can satisfy this check on a one-signer model. Extra signers, alternative authorization, and threshold policies need separate review.",
       "The property and applicability observations establish only statements within the supplied model; they do not establish transaction reachability on a deployed ledger."
     ]
   },
@@ -34,6 +36,10 @@
     "theorems": []
   },
   "references": [
+    {
+      "label": "Open required-signer semantics and universal-property suitability review",
+      "target": "https://github.com/no-witness-labs/contracts-library/issues/33"
+    },
     {
       "label": "Shared primary property definition and applicability predicate",
       "target": "formal/Formal/Properties/Universal/UP012/Definition.lean"

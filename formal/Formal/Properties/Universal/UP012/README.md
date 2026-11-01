@@ -19,8 +19,20 @@ stdlib 3.0.0. Unknown artifacts remain unsupported. These are
 two applications of one property, with separate applicability obligations.
 
 The current models contain one signer, so the change removes the sole signer.
-The check does not identify which signatures a protocol should require or
-establish general authorization correctness. Property redesign remains issue #33.
+For this example, assume that the baseline contains only the intended required
+signer, with no unrelated extra signers. This is an assumption about the scenario's
+intended use, not an additional Lean premise or a requirement inferred by the tool.
+
+The check establishes dependence on that signer within the supplied model. It
+does not identify the correct owner or prove that the signer represents the
+protocol's intended authorization rule. A validator that requires any signature,
+including the wrong key, can satisfy signer-removal rejection while violating
+its intended owner requirement. Multiple signers, unrelated extras, alternative
+authorization, and threshold policies remain outside this example's coverage.
+
+Keep this as an experimental workflow test. Its suitability as a universal
+property and the meaning of a required signer remain open in
+[issue #33](https://github.com/no-witness-labs/contracts-library/issues/33).
 The adapter unfolds the shared definition before invoking Blaster. Workflow tests
 keep the previous expanded formulas as independent equivalence/negative-control
 fixtures. Model applications stay in the binding/test layer rather than separate
