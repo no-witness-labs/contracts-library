@@ -3,8 +3,10 @@
 Plutus UPV (Universal Property Verifier) checks universal properties against
 compiled Plutus validators using Lean and configured proof tools. The prototype
 accepts the documented Aiken-style Plutus V3 blueprint profile. By default, one
-command processes all logical validators and all eight registered property/model
-combinations: six for UP-001 and two experimental UP-012 vesting combinations.
+command processes all logical validators and all nine registered property/model
+combinations. They comprise six for UP-001, two for UP-012, and one for UP-015. These are
+experimental workflow bindings; registration does not establish general readiness
+of the properties or models.
 
 The app prints a terminal summary and retains local run files. The separate
 human-friendly final report remains future work in
@@ -74,13 +76,14 @@ other validators continue. Invalid shared JSON/title structure stops discovery.
 
 ## Select properties with a file
 
-Start with [checks.example.json](../../checks.example.json), which enables both
-registered properties, or save your own `checks.json`. For example, disable UP-012:
+Start with [checks.example.json](../../checks.example.json), which enables all three
+registered properties, or save your own `checks.json`. For example, enable only UP-001:
 
 ```json
 {
   "UP-001": true,
-  "UP-012": false
+  "UP-012": false,
+  "UP-015": false
 }
 ```
 
@@ -149,7 +152,7 @@ characters such as `/`; `run.json` preserves canonical validator names.
 | Per-check `check-result.json` | The assessed six-field result, including scope, reasons, and evidence references |
 | Per-check `input.json` | The same captured blueprint used to prepare that validator |
 | Per-check `execution.json` | Attempted commands, timing, raw observations, and diagnostics |
-| `Generated/` | Generated Lean, stdout/stderr logs, and successful compiled modules; UP-012 also generates `Tx.lean` |
+| `Generated/` | Generated Lean, stdout/stderr logs, and successful compiled modules; UP-012 and UP-015 also generate `Tx.lean` |
 
 An interrupted run can leave its last saved index unfinished. Files depend on how
 far an attempt progressed: unreadable input has no snapshot, and validator
@@ -220,6 +223,28 @@ and linked applicability obligation. They use the **1,000,000-step** bound and
 fixed one-signer models, and accept only the pinned vesting artifact. Other targets
 produce explained INCONCLUSIVE outcomes. Its intended universal meaning remains
 separate work in [issue #33](https://github.com/no-witness-labs/contracts-library/issues/33).
+
+UP-015 uses the same validator input and native Claim model, TxM-007:
+
+```sh
+plutus-upv run Workflow/Tests/UP012/Inputs/plutus.json linear_vesting.linear_vesting --check UP-015 --timeout-ms 300000
+```
+
+Its single combination checks acceptance after reversing the two Claim outputs
+within 1,000,000 CEK steps. Linked applicability requires a valid accepted original,
+a valid reversal, and an output list that changes. The vesting profiles share
+the pinned artifact guard and model preparation. This supplies no general
+output-permutation model. See the
+[UP-015 scenario](../Tests/UP015/README.md).
+
+The three scenarios test workflow behavior. They do not establish general
+property or model readiness. Definition work remains open in
+[UP-001 #23](https://github.com/no-witness-labs/contracts-library/issues/23),
+[UP-012 #33](https://github.com/no-witness-labs/contracts-library/issues/33), and
+[UP-015 #36](https://github.com/no-witness-labs/contracts-library/issues/36).
+[Model authoring #89](https://github.com/no-witness-labs/contracts-library/issues/89)
+and [candidate integration #96](https://github.com/no-witness-labs/contracts-library/issues/96)
+remain separate work.
 
 Solver results inherit Blaster's SMT trust boundary. Model validity, ledger
 reachability, source correspondence, and protocol relevance remain separate

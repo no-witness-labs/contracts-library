@@ -181,7 +181,9 @@ def run : IO Unit := do
       ((Candidates.Catalogue.withDefinitions (some "UP-001") invalidDefinitions).toOption.isNone)
   check "metadata cannot register a new executable provider"
     ((Candidates.Catalogue.withDefinitions (some "UP-unknown") #[(← catalogueRecord "UP-unknown")]).toOption.isNone)
-  for (id, primary) in [("UP-001", "Formal.Properties.Universal.UP001.statement"), ("UP-012", "Formal.Properties.Universal.UP012.statement")] do
+  for (id, primary) in [("UP-001", "Formal.Properties.Universal.UP001.statement"),
+      ("UP-012", "Formal.Properties.Universal.UP012.statement"),
+      ("UP-015", "Formal.Properties.Universal.UP015.statement")] do
     let provider ← IO.ofExcept (← Candidates.Catalogue.loadProvider (some id))
     check s!"maintained {id} record binds to its registered version and primary"
       (provider.propertyDefinition.any fun metadata => metadata.id? == some id &&

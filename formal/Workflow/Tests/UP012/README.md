@@ -4,8 +4,10 @@
 owns the shared signer-removal statement and applicability predicate.
 [Candidates/UP012.lean](../../../Candidates/UP012.lean) instantiates them for Claim
 and Cancel, preserving the four claims from PR #55 at
-`f5cbda7df624f2496dd2e6fe354a0cd15365b923`. [Profile.lean](Profile.lean) supplies
-the pinned artifact guard and imports the native types/models from Formal/TxModels.
+`f5cbda7df624f2496dd2e6fe354a0cd15365b923`. [Profile.lean](Profile.lean) composes
+these obligations with [shared test-only preparation](../Profiles/LinearVesting.lean),
+which owns the pinned artifact guard and imports the native types/models from Formal/TxModels.
+UP-015 reuses the same compiled validator input and native TxM-007 Claim model.
 
 From `formal/`:
 
@@ -53,3 +55,6 @@ provenance. Runtime generation uses the profile and candidate module. Edit the
 native model and rerun to change the generated scenario sources.
 General required-signer semantics
 remain outside this experimental scenario, as tracked in issue #33.
+UP-001, UP-012, UP-015, and their models remain experimental. Workflow test
+coverage does not establish their general readiness; definition work stays in
+issues #23, #33, and #36, model authoring in #89, and broader integration in #96.

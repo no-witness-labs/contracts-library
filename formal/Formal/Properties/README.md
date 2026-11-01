@@ -15,6 +15,7 @@ Properties/
     Index.lean
     UP001/{Definition.lean, metadata.json, README.md}
     UP012/{Definition.lean, metadata.json, README.md}
+    UP015/{Definition.lean, metadata.json, README.md}
 ```
 
 [Index.lean](Index.lean) references category indexes. Each category index imports
@@ -29,6 +30,10 @@ different models alone do not create different candidate IDs. Transaction models
 remain in the [model bank](../TxModels/README.md).
 
 The application still owns executable adapters and property/model bindings.
+The registered UP-001, UP-012, and UP-015 bindings are experimental workflow
+scenarios. Registration and metadata validation do not establish general property
+or model readiness. Their wider definitions remain tracked in issues #23, #33,
+and #36. Model authoring and candidate integration remain in #89 and #96.
 The CLI can currently bundle several applications for a selected property. This
 bank does not add multi-validator selection or change the verification-core contract.
 

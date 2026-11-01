@@ -26,7 +26,10 @@ statements or their expectations. See the [metadata contract](../Docs/DEVELOPER-
 UP-001 binds its shared definition to generic purpose contexts. UP-012's test
 profile applies one shared definition and its applicability predicate to the
 Claim/Cancel models, producing four obligations. Native statements and metadata
-live in the [property bank](../../Formal/Properties/README.md); model construction
+live in the [property bank](../../Formal/Properties/README.md). UP-015 applies
+output-reversal acceptance and nonidentity applicability to the same native Claim
+model, producing two obligations. Both vesting scenarios share the pinned artifact
+and [test-only preparation](../Tests/Profiles/LinearVesting.lean). Model construction
 lives in Formal/TxModels. Blueprint metadata alone does not supply those transaction
 shapes; the current profile supplies them explicitly.
 
@@ -55,9 +58,10 @@ remain design work.
 `App/CLI.lean` retains the legacy `universal` executable as a compatibility entry point.
 
 Generation adapters live in [Candidates/UP001.lean](../../Candidates/UP001.lean)
-and [Candidates/UP012.lean](../../Candidates/UP012.lean). They instantiate the native
+and [Candidates/UP012.lean](../../Candidates/UP012.lean), plus
+[Candidates/UP015.lean](../../Candidates/UP015.lean). They instantiate the native
 primary statements and unfold them before invoking Blaster. The experimental
-artifact guard remains in the [UP-012 scenario](../Tests/UP012/README.md).
+artifact guard lives in [shared test-only preparation](../Tests/Profiles/LinearVesting.lean).
 Tests retain expanded legacy formulas for kernel-checked equivalence and the
 independent signer-identity negative control.
 
@@ -65,13 +69,15 @@ The agreed direction is to supply reusable models with property definitions and
 accept the validator as an input. Definitions have versions and can run with
 different models; models have stable numbered TxM IDs, with new IDs for changed
 behavior. The catalogue resolves those combinations and reports retain their
-snapshots. Current generation still bundles several combinations; the separately
-callable preparation and single-combination verification API remains future work.
+snapshots. Legacy generation can bundle combinations; the
+[single-check API](../Docs/DEVELOPER-GUIDE.md#callable-single-check-api) selects
+one exact property/version/model binding.
 
-The fixed UP-012 vesting profile supplies an integration test. Generalizing or
-correcting its signer-removal property belongs in a separate property PR, outside
-the workflow implementation. Client-specific model authoring is not a prerequisite
-of the intended workflow.
+The fixed UP-012 and UP-015 vesting profiles supply integration tests. UP-001,
+UP-012, UP-015, and their models remain experimental; these tests do not establish
+general readiness. Definition work stays in issues #23, #33, and #36, model
+authoring in #89, and wider candidate integration in #96. Client-specific model
+authoring is not a prerequisite of the intended workflow.
 
 ## Tests
 
@@ -83,10 +89,10 @@ lake exe workflow_generator_integration
 ```
 
 The first command runs only generic contract checks with stub providers. The
-UP001 and UP012 workflow suites own their candidate-specific declaration/profile
+UP001, UP012, and UP015 workflow suites own their candidate-specific declaration/profile
 checks. The second command preserves the Input-to-Generator type-checking check;
 it compiles support and proposition definitions without proving them.
 
-The [test index](../Tests/README.md) lists the two complete workflow scenarios
+The [test index](../Tests/README.md) lists the three experimental workflow scenarios
 and component checks. The [validation history](../Docs/VALIDATION.md) keeps generation,
 type-checking, and actual solver observations distinct.
