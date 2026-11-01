@@ -22,7 +22,7 @@ private def identity (model : String) (property := "fixture") : CheckId :=
 
 private def registry : Array CheckId := #[
   identity "TxM-support", identity "TxM-fail", identity "TxM-slow",
-  identity "TxM-unsupported", identity "TxM-other" "other"]
+  identity "TxM-unsupported", identity "TxM-empty", identity "TxM-other" "other"]
 
 private def context (id : CheckId) : IO CheckContext := do
   let propertyDefinition ← IO.ofExcept (PropertyDefinition.parse (Json.mkObj [
@@ -53,6 +53,8 @@ private def fixtureCheck (id : CheckId) : IO ConfiguredCheck := do
     generate := fun target modulePrefix => do
       if id.modelId == "TxM-unsupported" then
         throw ⟨.unsupported, "unsupported app fixture"⟩
+      if id.modelId == "TxM-empty" then
+        return { targetName := target.name, modules := #[], jobs := #[] }
       let moduleName := if mode == "log-write-error" || mode == "log-full" then "Other.Checks"
         else s!"{modulePrefix}.Checks"
       let goal := if mode == "falsified" then "False" else "True"
@@ -111,8 +113,23 @@ private def assertSaved (run : RunRecord) : IO Unit := do
     ((index.getObjVal? "status").toOption.isNone &&
      (index.getObjVal? "counts").toOption.isNone &&
      (index.getObjVal? "overall").toOption.isNone)
-  for validator in run.validators do
-    for item in validator.checks do
+  let indexedValidators ← array index "validators"
+  for validatorIndex in [:run.validators.size] do
+    let validator := run.validators[validatorIndex]!
+    let indexedChecks ← array indexedValidators[validatorIndex]! "checks"
+    for checkIndex in [:validator.checks.size] do
+      let item := validator.checks[checkIndex]!
+      let indexedCheck := indexedChecks[checkIndex]!
+      let expectedNotRun := if validator.preparationError.isSome then Json.null else
+        match item.notRunReason with
+        | some .notApplicable => .str "not_applicable"
+        | some .unsupported => .str "unsupported"
+        | none => .null
+      ensure "index persists only the guarded non-execution reason"
+        ((← field indexedCheck "not_run") == expectedNotRun &&
+         (← field indexedCheck "timed_out") == .bool (validator.preparationError.isNone && item.timedOut) &&
+         (indexedCheck.getObjVal? "status").toOption.isNone &&
+         (indexedCheck.getObjVal? "counts").toOption.isNone)
       if let some result := item.result then
         let some reference := item.resultFile
           | throw (IO.userError "assessed result has no retained reference")
@@ -148,22 +165,40 @@ private def countsAndContinuation (temporary path : System.FilePath) : IO Unit :
       ((← resultAt run name "TxM-fail").status == .fail)
     ensure "timeouts remain inconclusive"
       ((← resultAt run name "TxM-slow").status == .inconclusive)
+    let unsupported ← checkAt run name "TxM-unsupported"
     ensure "unsupported combinations remain explained inconclusive attempts"
-      ((← resultAt run name "TxM-unsupported").status == .inconclusive &&
+      (unsupported.result.any (·.status == .inconclusive) &&
+       unsupported.notRunReason == some .unsupported && unsupported.displayStatus == "SKIPPED" &&
        !(← resultAt run name "TxM-unsupported").reasons.isEmpty)
+    let empty ← checkAt run name "TxM-empty"
+    ensure "empty generation is not applicable without becoming a pass"
+      (empty.result.any (fun result => result.status == .inconclusive && result.obligations.isEmpty) &&
+       empty.notRunReason == some .notApplicable && empty.displayStatus == "SKIPPED")
+    let slow ← checkAt run name "TxM-slow"
+    ensure "timeouts are never counted as non-execution"
+      (slow.notRunReason.isNone && slow.displayStatus == "TIMEOUT" && slow.timedOut)
     ensure "later checks receive a fresh budget and still run"
       ((← resultAt run name "TxM-other").status == .pass)
   ensure "terminal counts combinations rather than supporting obligations"
-    (contains run.text "Recorded checks: 10/10")
+    (contains run.text "Recorded checks: 12/12")
   for name in #["samples.alpha", "other.beta"] do
     let some row := (run.text.splitOn "\n").find? (·.startsWith name)
       | throw (IO.userError s!"missing terminal row: {name}")
     let columns := (row.splitOn " ").filter (!·.isEmpty)
     ensure "terminal displays one count per assessed combination"
-      (columns == [name, "2", "1", "2"])
+      (columns == [name, "2", "1", "2", "0", "1"])
   ensure "terminal has a count table and output reference without overall verdict"
-    (contains run.text "Validator" && contains run.text "INCONCLUSIVE" &&
+    (contains run.text "Validator" && contains run.text "TIMEOUT" &&
      contains run.text "Output: " && !contains run.text "Overall:")
+  let lines := run.text.splitOn "\n"
+  ensure "table separator matches the displayed header width"
+    ((lines[2]?.getD "").length == (lines[3]?.getD "").length)
+  ensure "terminal defines all five outcomes immediately below the table"
+    (contains run.text "\n\nKey:\n  PASS: met the check expectations within its model, assumptions, and bounds." &&
+     contains run.text "  FAIL: did not meet the check expectations;" &&
+     contains run.text "  SKIPPED: not applicable or unsupported for this validator/model combination." &&
+     contains run.text "  ERROR: no reliable result for another reason; see the recorded details." &&
+     contains run.text "  TIMEOUT: verification exceeded its execution time limit.")
   let later ← checkAt run "samples.alpha" "TxM-other"
   let some reference := later.resultFile | throw (IO.userError "missing later check reference")
   let some folder := (run.directory / reference).parent | throw (IO.userError "missing later check folder")
@@ -173,8 +208,57 @@ private def countsAndContinuation (temporary path : System.FilePath) : IO Unit :
   ensure "index checkpoints earlier outcomes before a later compiler starts"
     ((← field progress "finished") == .bool false &&
      (earlierChecks.filter fun check =>
-       (check.getObjVal? "result").toOption.any (· != .null)).size == 4)
+       (check.getObjVal? "result").toOption.any (· != .null)).size == 5)
   assertSaved run
+
+private def displayGuards (temporary path : System.FilePath) : IO Unit := do
+  let generated ← Run.runWith #[identity "TxM-unsupported"] load (request path)
+    (← options (temporary / "display-guards"))
+  let tagged ← checkAt generated "samples.alpha" "TxM-unsupported"
+  let some result := tagged.result | throw (IO.userError "missing tagged fixture result")
+  let missing : CheckRun := { id := tagged.id }
+  let blank : CheckRun := { tagged with result := some { result with notRun := none, reasons := #[] } }
+  let failed : CheckRun := { tagged with error := some "retention failed" }
+  let passing : CheckRun := { tagged with result := some { result with status := .pass } }
+  let timeout : CheckRun := { blank with result := some { result with notRun := none, timedOut := true } }
+  let errorTimeout : CheckRun := { timeout with error := some "retention failed" }
+  let reasonOnly : CheckRun := { blank with result := some {
+    result with notRun := none, reasons := #["timeout reported in ordinary error text"] } }
+  let falsifiedApplicability : CheckRun := { blank with result := some {
+    result with notRun := none, reasons := #["Applicability obligation was falsified"] } }
+  ensure "typed timeout evidence alone selects the timeout group"
+    (timeout.displayStatus == "TIMEOUT" && timeout.timedOut &&
+     (← field timeout.toJson "timed_out") == .bool true)
+  for check in #[errorTimeout, reasonOnly, falsifiedApplicability] do
+    ensure "errors and untyped inconclusive reasons do not become timeouts or skips"
+      (check.displayStatus == "ERROR" && !check.timedOut && check.notRunReason.isNone &&
+       (← field check.toJson "timed_out") == .bool false &&
+       (← field check.toJson "not_run") == .null)
+  for check in #[missing, blank, failed] do
+    ensure "missing, blank, and operationally failed outcomes never become skips"
+      (check.displayStatus == "ERROR" && check.notRunReason.isNone &&
+       (← field check.toJson "not_run") == .null)
+  let staleTimeout : CheckRun := { passing with result := some { result with status := .pass, timedOut := true } }
+  ensure "qualified results and skip tags suppress stale timeout evidence"
+    (!staleTimeout.timedOut && staleTimeout.displayStatus == "PASS" &&
+     !({ tagged with result := some { result with timedOut := true } } : CheckRun).timedOut)
+  ensure "non-execution tags cannot override assessed pass or fail"
+    (passing.displayStatus == "PASS" && passing.notRunReason.isNone &&
+     ({ passing with result := some { result with status := .fail } } : CheckRun).displayStatus == "FAIL")
+  let guards : RunRecord := { directory := temporary, finished := true, validators := #[
+    { name := "guards", checks := #[missing, blank, failed] },
+    { name := "preparation", preparationError := some "could not prepare", checks := #[tagged, timeout] }] }
+  for (name, expected) in #[("guards", ["guards", "0", "0", "0", "3", "0"]),
+      ("preparation", ["preparation", "0", "0", "0", "2", "0"])] do
+    let some row := (guards.text.splitOn "\n").find? (·.startsWith name)
+      | throw (IO.userError s!"missing guard row: {name}")
+    ensure "unresolved combinations and preparation failures count as errors"
+      ((row.splitOn " ").filter (!·.isEmpty) == expected)
+  let validators ← array guards.toJson "validators"
+  let checks ← array validators[1]! "checks"
+  ensure "preparation failure suppresses non-execution metadata"
+    ((← field checks[0]! "not_run") == .null &&
+     (← field checks[1]! "timed_out") == .bool false)
 
 private def preparationIsolation (temporary path : System.FilePath) : IO Unit := do
   IO.FS.writeFile path (blueprint #[
@@ -221,7 +305,7 @@ private def identityAndSnapshot (temporary path : System.FilePath) : IO Unit := 
   let mismatch ← Run.runWith single wrong (request path) (← options (temporary / "wrong-identity"))
   ensure "a resolver cannot execute a different property/model under the requested identity"
     (mismatch.exitCode == 2 && mismatch.validators.all fun validator =>
-      validator.checks.all fun check => check.result.isNone && check.error.isSome)
+      validator.checks.all fun check => check.result.isNone && check.error.isSome && check.displayStatus == "ERROR")
   assertSaved mismatch
 
   let outputRoot := temporary / "snapshot"
@@ -300,7 +384,8 @@ private def storageChecks (temporary path : System.FilePath) : IO Unit := do
       let affected ← checkAt logError validator.name model
       ensure "log-retention failure preserves an explained linked inconclusive result"
         (affected.error.isSome && affected.resultFile.isSome &&
-         affected.result.any (·.status == .inconclusive))
+         affected.result.any (·.status == .inconclusive) &&
+         affected.displayStatus == "ERROR" && !affected.timedOut)
       let some reference := affected.resultFile | throw (IO.userError "missing log-failure result")
       let some directory := (logError.directory / reference).parent
         | throw (IO.userError "missing log-failure directory")
@@ -365,6 +450,7 @@ private def bundleFailures (temporary path : System.FilePath) : IO Unit := do
     ((← (directory / "execution.json").pathExists) &&
       (← (failed.directory / "sources/index.json").pathExists) &&
       contains (← IO.FS.readFile (failed.directory / "README.md")) "could not")
+  ensure "generation and source errors display as errors" (row.displayStatus == "ERROR" && !row.timedOut)
   let later ← checkAt failed "samples.alpha" "TxM-later"
   ensure "shared-source failure prevents later checks from using a partial bundle"
     (later.error.isSome && later.result.any fun result =>
@@ -403,6 +489,7 @@ def run : IO Unit := do
     let path := temporary / "blueprint with spaces.json"
     IO.FS.writeFile path sample
     countsAndContinuation temporary path
+    displayGuards temporary path
     preparationIsolation temporary path
     selectionChecks temporary path
     identityAndSnapshot temporary path

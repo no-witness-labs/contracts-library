@@ -12,7 +12,7 @@ support-only or orphan applicability jobs cannot establish a passing check.
 
 ## Result contract
 
-One `CheckResult` has six fields:
+The serialized `CheckResult` has six fields:
 
 | Field | Contents |
 | --- | --- |
@@ -27,6 +27,12 @@ The coordinator attaches verified evidence paths and saves `check-result.json`.
 Large raw logs stay in their evidence files. `target.prepared_input` is null when
 the source snapshot was not retained successfully. Evidence is not fabricated for
 missing files, and a retention failure leaves the returned result INCONCLUSIVE.
+
+The coordinator also carries an internal typed `notRun` reason for unsupported
+generation or validated empty plans, plus a `timedOut` flag from the executor's
+state. The app uses these for terminal groups and the run index. They are separate
+from the assessed verdict and six-field JSON, and retention failures clear them.
+No proof is established by a non-execution reason or timeout flag.
 
 ## Qualification rules
 

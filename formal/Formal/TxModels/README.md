@@ -13,7 +13,7 @@ TxModels/
   Definitions/
     TxM001.lean
     ...
-    TxM008.lean
+    TxM009.lean
 ```
 
 | File | Contents |
@@ -35,6 +35,7 @@ The model IDs and constructors below belong to the `Formal.TxModels` namespace:
 | TxM-006 | `EverySpend.ctx` | [TxM006.lean](Definitions/TxM006.lean) |
 | TxM-007 | `TxM007.claim` | [TxM007.lean](Definitions/TxM007.lean) |
 | TxM-008 | `TxM008.cancel` | [TxM008.lean](Definitions/TxM008.lean) |
+| TxM-009 | `TxM009.spend` | [TxM009.lean](Definitions/TxM009.lean) |
 
 Each model maintains four metadata fields: `id`, `title`, `plutus_version`, and
 `description`. Its `metadata` declaration stays in the same file as its constructor.
@@ -57,3 +58,9 @@ Use `Formal.TxModels.Index.toJson` when a JSON consumer needs the catalogue.
 There is no separately authored model JSON list. The application checks the
 exported records with its existing metadata reader; external schema policies for
 required fields and list cardinality remain open.
+
+TxM-009 models one script input with an inline `Constr 0 [B owner]` datum,
+one key-recipient output containing input ADA minus the fee, a fixed
+`Constr 0 []` redeemer, and one signer. Owner, signer, and recipient vary
+independently. This native structural model is separate from the executable
+profile that pins two exact vault artifacts; it does not imply ledger reachability.

@@ -91,6 +91,7 @@ tracks their wider migration and other branches.
 | UP-001 spend, when undeclared | [TxM-006 / EverySpend](../../Formal/TxModels/Definitions/TxM006.lean) |
 | UP-012 Claim | [Shared UP012 definition](../../Formal/Properties/Universal/UP012/Definition.lean), [TxM-007](../../Formal/TxModels/Definitions/TxM007.lean) |
 | UP-012 Cancel | [TxM-008](../../Formal/TxModels/Definitions/TxM008.lean) |
+| UP-012 key-datum spend | [TxM-009](../../Formal/TxModels/Definitions/TxM009.lean), [exact vault preparation](../Tests/Profiles/Vault.lean) |
 | UP-015 Claim output reversal | [UP015 definition](../../Formal/Properties/Universal/UP015/Definition.lean), the same [TxM-007](../../Formal/TxModels/Definitions/TxM007.lean) |
 
 Every* models expose full `TxInfo` and purpose fields; the theorem supplies a raw
@@ -101,12 +102,18 @@ selecting a declared-purpose model produces an empty INCONCLUSIVE attempt with
 an explanation. It adds no ledger-validity premise.
 
 UP-012 applies one primary statement and a supporting applicability predicate to
-Claim and Cancel. Each of the two combinations has a property and linked
-applicability obligation, for four obligations across both. Baseline models have one signer;
+Claim, Cancel, and key-datum spend. Each of the three combinations has a property
+and linked applicability obligation, for six obligations across all three. Baseline models have one signer;
 the property removes it to construct a second context outside that baseline family.
 Its `validScriptContext` conditions are explicit premises, not guarantees of the
-constructor or evidence of ledger reachability. The profile accepts only the
-original unparameterized vesting artifact.
+constructor or evidence of ledger reachability. The adapter accepts two exact
+unparameterized vesting artifacts: the original PR #55 fixture and the reviewed
+vault-demo build using Aiken 1.1.21 with stdlib 3.0.0. Unknown compiled code remains
+unsupported for those models. TxM-009 uses separate exact two-vault preparation
+in `Tests/Profiles/Vault.lean`, with the same validity predicate and 1,000,000-step
+bound. Owner, signer, and recipient remain independent. The selected model chooses
+the profile; the legacy provider chooses the supported family and preserves the
+original four-vesting-job `checks`/`jobs` API. The catalogue remains Lean-owned.
 
 UP-015 reuses that exact artifact from `Workflow/Tests/UP012/Inputs/plutus.json`
 and the same native Claim constructor. Its primary proposition preserves bounded
@@ -114,6 +121,15 @@ acceptance after output reversal. Applicability also requires the output list to
 change, excluding identity-mutation witnesses. The two-output model makes reversal
 a swap. Shared vesting preparation stays test-only; it supplies no general model
 authoring or broader validator support.
+
+Both vesting properties share the two-artifact allowlist. The reviewed demo build
+has an independent snapshot at
+`Workflow/Tests/Profiles/Inputs/linear-vesting-aiken-1.1.21.json`; the original
+UP-012 input remains unchanged. The shared adapter emits the correct script hash
+for each recognized artifact. This artifact-specific preparation is distinct from
+the generic native property definitions and the fixed native transaction models.
+It changes neither their claims nor their bounds and supplies no generic adapter.
+The editable source project remains manual; workflow tests do not invoke Aiken.
 
 Adapters unfold shared definitions before Blaster, preserving goal polarity and
 the expanded formulas. Tests keep kernel-checked equivalences to frozen legacy
@@ -123,7 +139,7 @@ clears official metadata when changing the property proposition.
 | Per-check generated file | Contents |
 | --- | --- |
 | `Generated/Types.lean` | Embedded compiled program, argument conversion, acceptance predicate; the vesting profiles also alias native data/redeemer types and define rejection |
-| `Generated/Tx.lean` (UP-012/UP-015) | Aliases for the selected native Claim/Cancel model types, constructors, and datum helper |
+| `Generated/Tx.lean` (UP-012/UP-015) | Aliases for the selected native Claim/Cancel or key-datum spend model types and constructors |
 | `Generated/Checks.lean` | Concrete target/model theorem expressions and tactic calls |
 
 [Formal/Universal/Properties.lean](../../Formal/Universal/Properties.lean) retains
@@ -276,7 +292,7 @@ terminal printing for the product executable.
 The app reads the blueprint once, uses `Input.discover` to enumerate logical
 validator groups, and prepares each selected validator once from that snapshot.
 `App.Selection` owns CLI and JSON-switch selection. Defaults choose all logical
-validators and all nine registered combinations (six UP-001, two UP-012, and one UP-015). Repeat `--validator` or
+validators and all ten registered combinations (six UP-001, three UP-012, and one UP-015). Repeat `--validator` or
 `--check` to narrow them, or use `--checks-file` with a flat property-ID/boolean
 object. With a file, only explicit `true` entries run. Unknown IDs and nonboolean
 values are errors; property flags and a file cannot be combined. An empty enabled
@@ -287,6 +303,18 @@ continues independent checks after FAIL, INCONCLUSIVE, or a validator preparatio
 error. It preserves the existing core assessment policy, six-field CheckResult,
 native definitions, and CEK bounds. The terminal counts combinations rather than
 supporting obligations and has no overall verification verdict.
+
+The terminal groups results as PASS, FAIL, SKIPPED, ERROR, and TIMEOUT, with a key
+below its table. The coordinator supplies typed `CheckResult.notRun` metadata for
+validated empty plans or unsupported generation, and `timedOut` from the
+executor's recorded state. Both non-execution reasons display as SKIPPED.
+Unresolved executor timeouts display as TIMEOUT; other unresolved cases display
+as ERROR. A qualified PASS/FAIL retains its verdict, while operational and
+validator-preparation errors take precedence over all display hints.
+This internal metadata does not alter the six-field check-result JSON or the
+assessor's three verdicts. Each run-index check entry retains guarded `not_run`
+and `timed_out` fields. Retention failures clear the hints. Source-preparation
+failures remain operational ERROR cases; TIMEOUT describes the proof executor.
 
 `App.Output` stores a checkpointed `run.json` in a fresh
 `output/run.<timestamp>.<unique-id>/` folder. `App.Review` refreshes a root

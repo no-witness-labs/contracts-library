@@ -10,14 +10,19 @@ structure ConfiguredCheck where
 
 def generateOne (check : ConfiguredCheck) (target : TargetDescription)
     (modulePrefix : String) : Except Error GenerationPlan := do
-  check.context.validate target |>.mapError fun message => { kind := .unsupported, message }
+  let some propertyId := check.context.propertyDefinition.id?
+    | throw ⟨.invalidPlan, "configured check has no property ID"⟩
+  check.context.binding.validate propertyId check.context.propertyDefinition
+    |>.mapError fun message => { kind := .invalidPlan, message }
+  unless check.context.binding.txModel.plutusVersion? == some target.plutusVersion do
+    throw ⟨.unsupported, "configured model and target have different Plutus versions"⟩
   let provider : Provider := {
     id := check.context.propertyDefinition.id?.getD ""
     generate := check.generate
     propertyDefinition := some check.context.propertyDefinition
     bindings := some #[check.context.binding] }
   let plan ← Generator.generate provider target modulePrefix
-  check.context.validatePlan target plan |>.mapError fun message => { kind := .unsupported, message }
+  check.context.validatePlan target plan |>.mapError fun message => { kind := .invalidPlan, message }
   return plan
 
 end Workflow.Generator

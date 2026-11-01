@@ -3,7 +3,7 @@ version = "0.0.0"
 compiler = "v1.1.21"
 plutus = "v3"
 license = "Apache-2.0"
-description = "Unparameterized vaults for inspecting Plutus UPV generated Lean files"
+description = "Vault and vesting validators for inspecting Plutus UPV generated Lean files"
 
 [[dependencies]]
 name = "aiken-lang/stdlib"

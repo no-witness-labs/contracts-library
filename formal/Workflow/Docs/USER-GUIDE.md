@@ -3,8 +3,8 @@
 Plutus UPV (Universal Property Verifier) checks universal properties against
 compiled Plutus validators using Lean and configured proof tools. The prototype
 accepts the documented Aiken-style Plutus V3 blueprint profile. By default, one
-command processes all logical validators and all nine registered property/model
-combinations. They comprise six for UP-001, two for UP-012, and one for UP-015. These are
+command processes all logical validators and all ten registered property/model
+combinations. They comprise six for UP-001, three for UP-012, and one for UP-015. These are
 experimental workflow bindings; registration does not establish general readiness
 of the properties or models.
 
@@ -103,13 +103,25 @@ claim a pass.
 
 ## Read the terminal and run files
 
-The terminal table shows PASS, FAIL, and INCONCLUSIVE counts per validator.
+The terminal table shows PASS, FAIL, SKIPPED, ERROR, and TIMEOUT counts per
+validator. A key immediately below the table explains each term. SKIPPED combines
+attempts with no applicable obligations and unsupported validator/model pairs.
+TIMEOUT identifies unresolved verification that exceeded the executor's time
+limit. ERROR means no reliable result for another reason, including invalid plans,
+unestablished applicability, missing evidence, and preparation or storage failures.
+Operational failures take precedence over a recorded timeout.
+
 Each count represents one property/version/model combination; supporting
 applicability obligations do not add extra checks. The app also prints recorded
 check counts, elapsed time, errors, and output paths. Open the printed `Review`
 path (`README.md`) to browse relative links to generated Lean, check results,
 logs, and shared source snapshots. `Index` points to the machine-readable
 `run.json`. The app assigns no overall verification verdict.
+
+These are terminal categories. The saved check assessment retains its existing
+PASS/FAIL/INCONCLUSIVE status. `run.json` preserves the separate `not_run` reasons
+(`not_applicable` and `unsupported`) and a guarded `timed_out` flag. The app derives
+the terminal groups from these typed facts, rather than parsing reason text.
 
 Each invocation creates a fresh local folder:
 
@@ -218,10 +230,15 @@ Run the experimental vesting profile with:
 plutus-upv run Workflow/Tests/UP012/Inputs/plutus.json linear_vesting.linear_vesting --check UP-012 --timeout-ms 300000
 ```
 
-UP-012 has two registered combinations, Claim and Cancel. Each contains a property
+UP-012 has three registered combinations: Claim (TxM-007), Cancel (TxM-008),
+and key-datum spend (TxM-009). Each contains a property
 and linked applicability obligation. They use the **1,000,000-step** bound and
-fixed one-signer models, and accept only the pinned vesting artifact. Other targets
-produce explained INCONCLUSIVE outcomes. Its intended universal meaning remains
+fixed one-signer models. The adapter accepts two exact vesting artifacts: the original
+PR #55 fixture and the reviewed vault-demo build using Aiken 1.1.21 with stdlib
+3.0.0 for TxM-007/008. TxM-009 separately accepts the two exact vault artifacts
+from the UP-001 fixtures and demo. Unsupported artifact/model pairs appear as
+SKIPPED in the app, with an unsupported reason. Owner, signer, and recipient vary independently in
+TxM-009; passing does not establish correct-owner authorization. Its intended universal meaning remains
 separate work in [issue #33](https://github.com/no-witness-labs/contracts-library/issues/33).
 
 UP-015 uses the same validator input and native Claim model, TxM-007:
@@ -233,9 +250,16 @@ plutus-upv run Workflow/Tests/UP012/Inputs/plutus.json linear_vesting.linear_ves
 Its single combination checks acceptance after reversing the two Claim outputs
 within 1,000,000 CEK steps. Linked applicability requires a valid accepted original,
 a valid reversal, and an output list that changes. The vesting profiles share
-the pinned artifact guard and model preparation. This supplies no general
+the two-artifact allowlist and model preparation. This supplies no general
 output-permutation model. See the
 [UP-015 scenario](../Tests/UP015/README.md).
+
+The editable [vault-demo project](../Tests/Projects/vault-demo/README.md) combines
+the normal vault, buggy vault, and linear vesting in one manually built blueprint.
+Its default `aiken build` then `plutus-upv run` path selects all three validators
+and all registered combinations. The app and test command do not build Aiken
+sources automatically. The original UP-012 regression input remains unchanged;
+the reviewed demo build has an independent shared regression snapshot.
 
 The three scenarios test workflow behavior. They do not establish general
 property or model readiness. Definition work remains open in

@@ -14,6 +14,14 @@ def Status.label : Status → String
   | .fail => "FAIL"
   | .inconclusive => "INCONCLUSIVE"
 
+inductive NotRunReason where
+  | notApplicable | unsupported
+  deriving BEq, Repr
+
+def NotRunReason.label : NotRunReason → String
+  | .notApplicable => "NOT APPLICABLE"
+  | .unsupported => "UNSUPPORTED"
+
 structure Row where
   job : CheckJob
   observed : Option Executor.ObservedResult
@@ -140,6 +148,8 @@ structure CheckResult where
   reasons : Array String
   obligations : Array Row
   evidence : Array System.FilePath := #[]
+  notRun : Option NotRunReason := none
+  timedOut : Bool := false
 
 private def expectedText : ExpectedResult → String
   | .valid => "valid"
