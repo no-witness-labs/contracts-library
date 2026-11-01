@@ -304,13 +304,17 @@ error. It preserves the existing core assessment policy, six-field CheckResult,
 native definitions, and CEK bounds. The terminal counts combinations rather than
 supporting obligations and has no overall verification verdict.
 
-The terminal adds NOT APPLICABLE and UNSUPPORTED categories and a key below its
-table. The coordinator supplies typed `CheckResult.notRun` metadata for validated
-empty plans or unsupported generation. Invalid plans, failed applicability,
-timeouts, and retention failures stay INCONCLUSIVE. This internal metadata does
-not alter the six-field check-result JSON or the assessor's three verdicts.
-The app records the guarded `not_run` reason in each run-index check entry;
-operational and validator-preparation errors suppress that classification.
+The terminal groups results as PASS, FAIL, SKIPPED, ERROR, and TIMEOUT, with a key
+below its table. The coordinator supplies typed `CheckResult.notRun` metadata for
+validated empty plans or unsupported generation, and `timedOut` from the
+executor's recorded state. Both non-execution reasons display as SKIPPED.
+Unresolved executor timeouts display as TIMEOUT; other unresolved cases display
+as ERROR. A qualified PASS/FAIL retains its verdict, while operational and
+validator-preparation errors take precedence over all display hints.
+This internal metadata does not alter the six-field check-result JSON or the
+assessor's three verdicts. Each run-index check entry retains guarded `not_run`
+and `timed_out` fields. Retention failures clear the hints. Source-preparation
+failures remain operational ERROR cases; TIMEOUT describes the proof executor.
 
 `App.Output` stores a checkpointed `run.json` in a fresh
 `output/run.<timestamp>.<unique-id>/` folder. `App.Review` refreshes a root

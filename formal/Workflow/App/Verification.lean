@@ -27,7 +27,9 @@ private partial def retainedFiles (directory : System.FilePath) : IO (Array Syst
       files := files.push entry.path
   return files
 private def retentionFailure (result : Assessor.CheckResult) (message : String) : Assessor.CheckResult :=
-  { result with status := .inconclusive, notRun := none, reasons := result.reasons.push message }
+  { result with
+    status := .inconclusive, notRun := none, timedOut := false
+    reasons := result.reasons.push message }
 
 private def writeRetained (path : System.FilePath) (contents : String) : IO Unit := do
   let handle ← IO.FS.Handle.mk path .write
@@ -96,6 +98,7 @@ def Engine.verifyOne (engine : Engine) (prepared : InputResult)
           execution.state == .noObligations && execution.jobs.isEmpty && execution.modules.isEmpty &&
           execution.problems.isEmpty && execution.retentionErrors.isEmpty then
         some Assessor.NotRunReason.notApplicable else none
-      retain engine prepared execution.directory { result with notRun }
+      retain engine prepared execution.directory
+        { result with notRun, timedOut := execution.state == .timedOut }
 
 end Workflow.Verification
