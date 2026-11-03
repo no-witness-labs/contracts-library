@@ -13,6 +13,9 @@ From `formal/`, `./plutus-upv test` runs all workflow tests with verbose
 logs; `./plutus-upv run ...` verifies properties of a supplied compiled validator.
 The guide includes passing, failing, and inconclusive examples.
 
+For the smaller automatic build and unit-test checkpoint, see the
+[fast CI guide](Workflow/Docs/CI.md).
+
 Proofs are written in [Lean 4](https://lean-lang.org/) and discharged with
 [Lean-Blaster](https://github.com/input-output-hk/Lean-blaster), an SMT (Z3)
 backend invoked via the `blaster` tactic.
