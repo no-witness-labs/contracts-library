@@ -1,11 +1,3 @@
-/-
-Specification (replacement for `Spec.lean`)
-- schedule arithmetic
-- datum/redeemer types and encodings
-- `specAccepts` decides if a spend is acceptable
-- `TxSane` holds ledger sanity checks
--/
-
 import Blaster
 import PlutusCore.UPLC
 import CardanoLedgerApi.V3
@@ -96,10 +88,10 @@ def redeemerData : VestingRedeemer → Data
   | .claim  => Data.Constr 0 []
   | .cancel => Data.Constr 1 []
 
-def lowerBoundTime (range : Data) : Option POSIXTime :=
+def validityLowerBound (range : Data) : Option LowerBound :=
   match (IsData.fromData range : Option POSIXTimeRange) with
-  | some ⟨.FiniteLowerBound t _, _⟩ => some t
-  | _ => none
+  | some r => some r.ivFrom
+  | none => none
 
 def authorized (c : Credential) (info : TxInfo) : Bool :=
   match c with
@@ -121,21 +113,27 @@ def claimOk (d : VestingDatum) (own : TxOut) (info : TxInfo) (now : POSIXTime) :
   own.txOutDatum == inline &&
   (now ≥ d.endTime || (k ≤ conts.length && conts.all holdsRequired))
 
-def cancelOk (d : VestingDatum) (info : TxInfo) (now : POSIXTime) : Bool :=
+def cancelOk (d : VestingDatum) (info : TxInfo) (low : LowerBound) : Bool :=
+  let afterRecovery : Bool :=
+    match low with
+    | .FiniteLowerBound t true  => d.recoveryTime < t
+    | .FiniteLowerBound t false => d.recoveryTime ≤ t
+    | .InfiniteLowerBound .NegInf => false
+    | .InfiniteLowerBound .PosInf => true
   d.startTime < d.endTime && d.endTime < d.recoveryTime &&
   authorized d.locker info &&
-  now > d.recoveryTime
+  afterRecovery
 
 def specAccepts (d : VestingDatum) (r : VestingRedeemer) (ctx : ScriptContext) : Bool :=
   let info := ctx.scriptContextTxInfo
-  match ctx.scriptContextScriptInfo, lowerBoundTime info.txInfoValidRange with
-  | .SpendingScript ref _, some now =>
+  match ctx.scriptContextScriptInfo, validityLowerBound info.txInfoValidRange with
+  | .SpendingScript ref _, some low =>
       match r with
       | .claim =>
-          match resolveInput ref info.txInfoInputs with
-          | some own => claimOk d own.txInInfoResolved info now
-          | none     => false
-      | .cancel => cancelOk d info now
+          match low, resolveInput ref info.txInfoInputs with
+          | .FiniteLowerBound now _, some own => claimOk d own.txInInfoResolved info now
+          | _, _ => false
+      | .cancel => cancelOk d info low
   | _, _ => false
 
 def TxSane (d : VestingDatum) (r : VestingRedeemer) (ctx : ScriptContext) : Prop :=
