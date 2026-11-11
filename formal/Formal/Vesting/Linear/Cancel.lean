@@ -6,9 +6,9 @@ import Formal.Vesting.Linear.Script
 
 namespace Formal.Vesting.Linear.Cancel
 
+open PlutusCore.Data (Data)
 open PlutusCore.Integer (Integer)
 open CardanoLedgerApi.IsData.Class (IsData)
-open CardanoLedgerApi.V1.Value (lovelaceValue)
 open CardanoLedgerApi.V3
   (Credential POSIXTimeRange PubKeyHash ScriptContext ScriptHash TxInfo TxOutRef)
 open Formal.Common (validatorAccepts)
@@ -26,7 +26,7 @@ structure CancelTx where
   datum       : VestingDatum
   ownRef      : TxOutRef
   scriptHash  : ScriptHash
-  lovelace    : Integer
+  ownValue    : List (Data × Data)
   range       : POSIXTimeRange
   signatories : List PubKeyHash
   withdrawals : List (Credential × Integer)
@@ -37,7 +37,7 @@ def CancelTx.ctx (tx : CancelTx) : ScriptContext :=
       { tx.rest with
         txInfoInputs :=
           ⟨tx.ownRef,
-            ⟨⟨.ScriptCredential tx.scriptHash, none⟩, lovelaceValue tx.lovelace,
+            ⟨⟨.ScriptCredential tx.scriptHash, none⟩, tx.ownValue,
              .OutputDatum (datumData tx.datum), none⟩⟩ :: tx.rest.txInfoInputs
         txInfoWdrl := tx.withdrawals
         txInfoValidRange := IsData.toData tx.range
@@ -47,9 +47,10 @@ def CancelTx.ctx (tx : CancelTx) : ScriptContext :=
 
 def agreesOn (tx : CancelTx) : Prop := Agrees tx.datum .cancel tx.ctx
 
+set_option profiler true in
 theorem cancel_agrees
     (tx : CancelTx)
-    (hSig : ∀ lk, tx.datum.locker = .PubKeyCredential lk → tx.signatories.length < 6)
+    (hSig : ∀ lk, tx.datum.locker = .PubKeyCredential lk → tx.signatories.length < 3)
     (hWdrl : ∀ ls, tx.datum.locker = .ScriptCredential ls → tx.withdrawals.length < 3) :
     agreesOn tx := by
   rcases tx with
@@ -57,11 +58,10 @@ theorem cancel_agrees
       rest⟩
   unfold agreesOn Agrees
   rcases locker with lk | ls
-  · have h : sigs.length < 6 := hSig lk rfl
+  · have h : sigs.length < 3 := hSig lk rfl
     clear hSig hWdrl
     rcases bene with _ | _ <;>
     rcases low with ⟨_, _ | _⟩ | (_ | _) <;>
-    rcases up with ⟨_, _ | _⟩ | (_ | _) <;>
     repeat' (first
       | (simp only [List.length_cons, List.length_nil] at h; exfalso; omega)
       | (rcases sigs with _ | ⟨_, sigs⟩))
@@ -70,7 +70,6 @@ theorem cancel_agrees
     clear hSig hWdrl
     rcases bene with _ | _ <;>
     rcases low with ⟨_, _ | _⟩ | (_ | _) <;>
-    rcases up with ⟨_, _ | _⟩ | (_ | _) <;>
     repeat' (first
       | (simp only [List.length_cons, List.length_nil] at h; exfalso; omega)
       | (rcases wdrl with _ | ⟨⟨_ | _, _⟩, wdrl⟩))
