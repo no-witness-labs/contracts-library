@@ -133,7 +133,7 @@ Both are closed by one rule. A continuation is recognized only if its inline dat
 
 ### 5.2 Reading "now" from the validity range
 
-Scripts cannot read a clock; they read the transaction's validity range. The contract uses the **lower bound** as `now`. Because the ledger guarantees the real slot is `>= lower bound`, and `vested` is non-decreasing, using the lower bound guarantees the beneficiary can never withdraw more than has *actually* vested at inclusion time, and the locker can never `Cancel` until `recovery_time` has truly passed (the `Cancel` check requires the range to be *strictly* after `recovery_time`; see §4.3). The lower bound MUST be finite for a non-trivial claim; an unbounded-below range yields `now <= start` ⇒ zero vested.
+Scripts cannot read a clock; they read the transaction's validity range. The contract uses the **lower bound** as `now`. Because the ledger guarantees the real slot is `>= lower bound`, and `vested` is non-decreasing, using the lower bound guarantees the beneficiary can never withdraw more than has *actually* vested at inclusion time, and the locker can never `Cancel` until `recovery_time` has truly passed (the `Cancel` check requires the range to be *strictly* after `recovery_time`; see §4.3). The lower bound MUST be finite for every `Claim`; an unbounded-below range is rejected, even if no tokens are withdrawn.
 
 ## 6. Invariants
 
@@ -216,9 +216,9 @@ The validator returns `False` (the spend is rejected) whenever **any** of the fo
 
 These are properties of `vested` and of the time read; the prover uses them to close the cases above:
 
-- **B1 (floor).** `vested(T, start, end, now) ≤ T · (now − start) / (end − start)` and is integer-valued, so a `Claim` can never release more than the real-valued schedule. *(§3.3)*
+- **B1 (floor).** For `start < end` and `start ≤ now ≤ end`, `vested(T, start, end, now) ≤ T · (now − start) / (end − start)`, with real-valued division on the right. Outside this interval, use the boundary cases in §3.3.
 - **B2 (monotonicity).** `vested` is non-decreasing in `now`; combined with the ledger guarantee `real_slot ≥ lower_bound`, reading `now` as the lower bound means a `Claim` never releases more than has *actually* vested at inclusion. *(§5.2)*
-- **B3 (pre-start floor).** `now ≤ start_time ⇒ vested = 0 ⇒ required = T`, so an unbounded-below (or pre-start) validity range forces the full bundle to remain locked. *(§5.2)*
+- **B3 (pre-start floor).** For a finite lower bound `now`, `now ≤ start_time ⇒ vested = 0 ⇒ required = T`, so a pre-start claim must keep the full bundle locked. *(§5.2)*
 
 ### Scope of the formalization
 

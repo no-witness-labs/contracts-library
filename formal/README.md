@@ -1,10 +1,9 @@
 # Formal proofs
 
-Machine-checked proofs of the contract **specifications** under [`docs/<contract>/spec.md`](../docs).
-This is a fourth artifact alongside `onchain/`, `offchain/`, and the spec
-(`docs/<contract>/spec.md`): the
-proofs are *about the spec* (the source of truth), not about any one
-implementation. See [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) §2.
+Lean specifications and proof targets for the contracts described under
+[`docs/<contract>/spec.md`](../docs). The modules include pure model lemmas
+and statements about imported compiled validators. A statement's hypotheses
+and constructed context delimit its scope.
 
 Proofs are written in [Lean 4](https://lean-lang.org/) and discharged with
 [Lean-Blaster](https://github.com/input-output-hk/Lean-blaster), an SMT (Z3)
@@ -27,15 +26,16 @@ formal/
         ├── Linear.lean      # aggregator for the vesting/linear contract
         └── Linear/
             ├── Spec.lean          # pure model: `vested`, datum encoding (no UPLC)
-            ├── Completeness.lean  # spec ⇒ accepts (§8); `#import_uplc`s the flat
+            ├── Script.lean        # imports the compiled spend validator
+            ├── Completeness.lean  # spec ⇒ accepts (§8)
             ├── Soundness.lean     # accepts ⇒ spec (§9) + shared context scaffold
             └── Robustness.lean    # rejection theorems incl. no-double-satisfaction
 ```
 
 Each contract gets its own `Completeness`/`Soundness`/`Robustness` under its
 folder, because the properties differ per contract. The layout follows
-`francolq/aiken-good-practices` (`order-book/verify`). Every theorem carries a
-doc comment citing the spec section it discharges (e.g. `§9 B1`).
+`francolq/aiken-good-practices` (`order-book/verify`). Contract READMEs map theorems
+to the spec clauses they cover.
 
 ## Prerequisites
 
@@ -70,24 +70,29 @@ just deps        # once: fetch Blaster + PlutusCore + CardanoLedgerApi (lake upd
 just verify      # build -> flats -> lake build (annotated)
 ```
 
-Or directly, inside the dev shell:
+For the manual sequence, put `just` and Aiken **v1.1.22** on `PATH`, alongside
+Lean 4.24.0 and Z3 4.15.2 (provided by the dev shell).
 
 ```bash
 cd formal
 # (in `nix develop`, or with elan + z3 on PATH)
 lake update      # fetch Blaster + PlutusCore + CardanoLedgerApi
+just flats       # compile Aiken and generate Scripts/*.flat
 lake build       # type-check all modules and run every `blaster` proof
 ```
+
+Git ignores the generated files under `Scripts/`. `lake build` requires them;
+run `just flats` before the first build and after changing the on-chain source.
 
 A failing `blaster` goal can be debugged with its options, e.g.
 `blaster (verbose: 1)` or `blaster (gen-cex: 1)` to print a counterexample.
 
 ## How each contract is verified
 
-For each contract the compiled validator is loaded once (via `#import_uplc`) and
-every theorem runs `blaster` against that concrete program; the
-datum/redeemer/value encodings mirror the on-chain types. Proofs are organized
-in three directions plus the pure spec arithmetic:
+`Spec.lean` contains pure model lemmas. `Script.lean` loads the compiled
+validator once via `#import_uplc`; the other proof modules use it with
+constructed script contexts. The modules separate pure spec arithmetic
+from completeness, soundness, and rejection targets:
 
 - **Spec** (`Spec.lean`): the contract's arithmetic and relations, no UPLC.
 - **Completeness** (`spec ⇒ accepts`, spec §8): honest actions are accepted.
@@ -108,12 +113,11 @@ These apply to any contract:
 - Keep symbolic **structure** bounded. A fully symbolic `Value` (an arbitrary
   `Data` list) makes `quantity_of` run over an unbounded structure and does not
   terminate; shape values with builders and leave only Int/Datum leaves symbolic.
-- Fully `∀`-quantified statements over an unconstrained `ScriptContext` generally
-  do not terminate. Prove concrete instances; if a general statement is worth
-  recording, keep it as a documented `sorry` target (we leave
-  `warn.sorry` enabled so those surface as build warnings).
+- Fully quantified contexts can make direct symbolic execution intractable.
+  A declaration containing `sorry` is an unfinished proof target. A passing
+  build or a proof of a restricted instance does not discharge that target.
 
 ## Contracts
 
 - **vesting/linear** — see [`Formal/Vesting/Linear/README.md`](Formal/Vesting/Linear/README.md)
-  for its coverage tables and open targets.
+  for its coverage tables and proof status.
