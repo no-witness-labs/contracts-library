@@ -67,7 +67,7 @@ const claimTx = await buildClaimTx({
   txBuilder: new MeshTxBuilder({ fetcher: provider, submitter: provider }),
   vestingUtxo,                 // the script UTxO produced by the lock
   datum,                       // the same terms you locked with
-  now: Date.now(),             // becomes the validity-range lower bound
+  now: Date.now(),             // the enclosing slot sets the validity lower bound
   beneficiaryAddress: await wallet.getChangeAddress(),
   collateralUtxo: (await wallet.getCollateral())[0],
   utxos: await wallet.getUtxos(),
@@ -76,7 +76,7 @@ const claimTx = await buildClaimTx({
 await wallet.submitTx(await wallet.signTx(claimTx));
 ```
 
-The claimed funds flow to `beneficiaryAddress` via change; the required remainder is returned to the script automatically. When `now >= endTime`, no continuing output is created and the whole bundle is taken.
+Claimed funds flow to `beneficiaryAddress` via change. Before `endTime`, the builder keeps the required remainder at the input's full address with the same inline datum. A claim can take the entire bundle when the slot starts at or after `endTime`.
 
 ```ts
 // --- Cancel (locker recovers the remainder, only after recoveryTime) ---
@@ -84,7 +84,7 @@ const cancelTx = await buildCancelTx({
   txBuilder: new MeshTxBuilder({ fetcher: provider, submitter: provider }),
   vestingUtxo,
   datum,
-  now: Date.now(),            // must be >= datum.recoveryTime
+  now: Date.now(),            // the slot must start after datum.recoveryTime
   lockerAddress: await lockerWallet.getChangeAddress(),
   collateralUtxo: (await lockerWallet.getCollateral())[0],
   utxos: await lockerWallet.getUtxos(),

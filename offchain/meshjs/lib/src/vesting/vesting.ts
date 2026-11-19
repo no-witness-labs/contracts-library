@@ -15,7 +15,6 @@ import {
   Network,
   serializePlutusScript,
   SLOT_CONFIG_NETWORK,
-  unixTimeToEnclosingSlot,
   type Asset,
   type MeshTxBuilder,
   type PlutusScript,
@@ -24,6 +23,7 @@ import {
 } from "@meshsdk/core";
 
 import { applyAuthorization, type ScriptAuthorizer } from "../authorization";
+import { enclosingSlotBound } from "../common";
 import { compiledCode, plutusVersion } from "./blueprint";
 import {
   assertValidBundle,
@@ -126,7 +126,7 @@ export interface ClaimParams {
   vestingUtxo: UTxO;
   /** Its datum (the value you locked with). */
   datum: VestingDatum;
-  /** POSIX ms used as the validity-range lower bound; the on-chain "now". */
+  /** Requested POSIX time in ms. The enclosing slot sets the lower bound. */
   now: number;
   /** Where claimed funds go (also used as change address). */
   beneficiaryAddress: string;
@@ -168,7 +168,7 @@ export async function buildClaimTx(p: ClaimParams): Promise<string> {
   const network = p.network ?? "preprod";
   const minLovelace = p.minUtxoLovelace ?? DEFAULT_MIN_UTXO_LOVELACE;
   const slotConfig = p.customSlotConfig ?? SLOT_CONFIG_NETWORK[network];
-  const lowerBoundSlot = unixTimeToEnclosingSlot(now, slotConfig);
+  const { slot: lowerBoundSlot, startMs } = enclosingSlotBound(now, slotConfig);
   const script = vestingScript();
   const { input, output } = p.vestingUtxo;
 
@@ -179,8 +179,8 @@ export async function buildClaimTx(p: ClaimParams): Promise<string> {
     .txInRedeemerValue(claimRedeemer())
     .txInScript(script.code);
 
-  const remainder = requiredRemainder(datum, now);
-  if (remainder.length > 0) {
+  if (startMs < datum.endTime) {
+    const remainder = requiredRemainder(datum, startMs);
     p.txBuilder
       .txOut(output.address, remainderToAssets(remainder, minLovelace))
       .txOutInlineDatumValue(vestingDatumToData(datum));
@@ -212,7 +212,7 @@ export interface CancelParams {
   vestingUtxo: UTxO;
   /** Its datum. */
   datum: VestingDatum;
-  /** POSIX ms used as the validity-range lower bound; must be >= recoveryTime. */
+  /** Requested POSIX time in ms. Its slot must start after recoveryTime. */
   now: number;
   /** Where recovered funds go (also the change address). */
   lockerAddress: string;
@@ -250,13 +250,12 @@ export async function buildCancelTx(p: CancelParams): Promise<string> {
       "Invalid schedule: require startTime < endTime < recoveryTime",
     );
   }
-  if (now < datum.recoveryTime) {
-    throw new Error("Cannot cancel before recoveryTime");
-  }
-
   const network = p.network ?? "preprod";
   const slotConfig = p.customSlotConfig ?? SLOT_CONFIG_NETWORK[network];
-  const lowerBoundSlot = unixTimeToEnclosingSlot(now, slotConfig);
+  const { slot: lowerBoundSlot, startMs } = enclosingSlotBound(now, slotConfig);
+  if (startMs <= datum.recoveryTime) {
+    throw new Error("The validity lower bound must be after recoveryTime");
+  }
   const script = vestingScript();
   const { input, output } = p.vestingUtxo;
 

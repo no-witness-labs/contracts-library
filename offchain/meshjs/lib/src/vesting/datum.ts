@@ -59,7 +59,8 @@ export function vestedQuantity(
 /**
  * For each asset in the bundle, the quantity that must REMAIN locked in the
  * continuing output at time `now`: `total - vested(now)`. Entries that reach
- * zero are dropped. Returns [] when fully vested (no continuing output needed).
+ * zero are dropped. The validity lower bound determines whether the
+ * transaction needs a continuation.
  */
 export function requiredRemainder(
   datum: VestingDatum,
