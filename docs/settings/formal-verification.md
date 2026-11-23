@@ -8,6 +8,11 @@ Record the exact source commit, compiler, Plutus version, and script hash with
 each validator artifact. Record the parameter values when proofs use a
 parameterized instance. [Settings source and specification](https://github.com/input-output-hk/contracts-library/blob/42048b7af58ca12a6c5bbeb1e152079048ffa460/docs/settings/spec.md)
 
+The reference Settings validator uses the same compiled script for spend and
+mint. Its Plutus V3 hash with all five parameters unapplied is
+`5ed5acc070051e9caf983610acde7e61e56441d66f1ce90a62623510`.
+[Validator metadata](../../formal/Formal/Settings/validator-metadata.json) · [Metadata schema](../property-catalogue/validator-metadata.schema.json)
+
 Use the existing schemas as the source of truth for the catalogue records.
 Validate each record against its schema before adding it to the catalogue.
 
