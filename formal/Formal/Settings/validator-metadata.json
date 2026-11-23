@@ -1,5 +1,5 @@
 {
-  "validator_name": "settings/settings.settings.spend",
+  "validator_name": "settings",
   "source_repository": "https://github.com/input-output-hk/contracts-library",
   "source_commit": "42048b7af58ca12a6c5bbeb1e152079048ffa460",
   "file_name": "onchain/validators/settings/settings.ak",
