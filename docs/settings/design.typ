@@ -2,6 +2,9 @@
 
 #show: report
 
+Reference Settings at IO commit `42048b7`. The figures show withdrawals for
+script authorization. Key authorization uses an extra signer.
+
 = Launch settings
 
 #let launch_tx = vanilla_transaction(
@@ -26,11 +29,9 @@
       address: "settings_addr",
       value: (
         "Settings NFT": "1",
-        // "ADA": "min_ada",
+        "ADA": "funded",
       ),
       datum: (
-        // current: "Data",
-        // next: "Option(Data)",
         current: [*data*],
         next: [None],
         next_apply: [None],
@@ -42,7 +43,7 @@
     - continuations must reproduce the spent input's full address, so the staking key cannot be changed once deployed
     - `settings_nft`: policy is `settings_hash`, token name is `settings_token_name`
     - `settings_hash = hash(settings_validator(seed_utxo, propose_auth, apply_auth, apply_delay, settings_token_name))`
-    - `data`: the settings data. it is such that `validate_datum(data)` is true
+    - `out_ix` selects the output with an inline datum and no reference script.
   ],
 )
 
@@ -73,6 +74,10 @@
   withdrawals: (
     "propose_auth",
   ),
+  validRange: (
+    "lower": [`since_slot`],
+    "upper": [`until_slot - 1`],
+  ),
   outputs: (
     (
       name: "Settings UTxO",
@@ -85,21 +90,20 @@
         // current: "Data",
         // next: "Option(Data)",
         current: [data],
-        next: [*proposed*],
-        next_apply: [*timestamp*],
+        next: [*Some(proposed)*],
+        next_apply: [*Some(timestamp)*],
       ),
     ),
-  ),
-  validRange: (
-    upper: [*upper*],
   ),
   notes: [
     - `settings_addr`: payment is `settings_hash`, staking is unchanged
     - `settings_nft`: policy is `settings_hash`, token name is `settings_token_name`
     - `settings_hash = hash(settings_validator(seed_utxo, propose_auth, apply_auth, apply_delay, settings_token_name))`
     - `maybe_data`: can be `None` or `Some(data)`
-    - `proposed`: the proposed settings data. it is such that `validate_datum(proposed)` is true
-    - `timestamp >= upper + apply_delay`, where `upper` is the transaction's validity upper bound (required) and `apply_delay` is the minimum time that must pass before the proposed settings can be applied. A transaction cannot land after its upper bound, so the delay cannot be shortened by backdating
+    - The output at `out_ix` keeps the full input address and all non-ADA assets. It carries at least the input's ADA, an inline datum, and no reference script.
+    - The new pending value differs from `current`.
+    - The timing check requires a finite upper bound. In this example it is the start of the exclusive `until_slot` in POSIX milliseconds.
+    - The pending deadline `timestamp` is at least that upper bound plus `apply_delay`.
   ],
 )
 
@@ -122,13 +126,16 @@
         // current: "Data",
         // next: "Option(Data)",
         current: [data1],
-        next: [data2],
-        next_apply: [timestamp],
+        next: [Some(data2)],
+        next_apply: [Some(timestamp)],
       ),
     ),
   ),
   withdrawals: (
     "apply_auth",
+  ),
+  validRange: (
+    "lower": [`since_slot`],
   ),
   outputs: (
     (
@@ -151,7 +158,8 @@
     - `settings_addr`: payment is `settings_hash`, staking is unchanged
     - `settings_nft`: policy is `settings_hash`, token name is `settings_token_name`
     - `settings_hash = hash(settings_validator(seed_utxo, propose_auth, apply_auth, apply_delay, settings_token_name))`
-    - delay must have expired: `now >= timestamp`
+    - The finite lower bound is the start of `since_slot` in POSIX milliseconds. It must be at or after `timestamp`.
+    - The output at `out_ix` keeps the full input address and all non-ADA assets. It carries at least the input's ADA, an inline datum, and no reference script.
   ],
 )
 
@@ -182,13 +190,9 @@
     - `settings_addr`: payment is `settings_hash`, staking is any
     - `settings_nft`: policy is `settings_hash`, token name is `settings_token_name`
     - `settings_hash = hash(settings_validator(seed_utxo, propose_auth, apply_auth, apply_delay, settings_token_name))`
-    - the `Settings NFT` must be burned (`quantity < 0`)
-    - the datum is not checked
+    - `Close` requires an authorized spend and one negative entry under the policy. The `Burn` mint handler requires one entry of quantity `-1`.
+    - The close helper reads no datum fields and requires no continuation.
   ],
 )
 
 #figure(close_tx, caption: [Close settings transaction]) <fig:close>
-
-
-
-#pagebreak()

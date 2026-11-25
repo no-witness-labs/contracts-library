@@ -8,18 +8,18 @@ The entire state is a single **Settings UTxO**, uniquely identified by a
 one-shot **Settings NFT**, whose inline datum holds the active configuration
 (`current`) and an optional pending proposal (`next`, `next_apply`). A
 **proposer** can only stage changes behind a configurable delay; an
-**applier** commits or discards them.
+**applier** commits them or closes the instance.
 
 > **Source of truth.** Behavior, threat model, and invariants are specified in
 > [`spec.md`](spec.md).
-> This guide only covers day-to-day usage.
+> The examples use [IO commit `42048b7`](https://github.com/input-output-hk/contracts-library/commit/42048b7af58ca12a6c5bbeb1e152079048ffa460).
 
 | Part | Where |
 |---|---|
-| On-chain validator | [`onchain/validators/settings.ak`](../../onchain/validators/settings.ak) (+ composable predicates in [`onchain/lib/settings/`](../../onchain/lib/settings/)) |
-| MeshJS builders | [`offchain/meshjs/lib/src/settings/`](../../offchain/meshjs/lib/src/settings/) |
-| Tx3 protocol + client | [`offchain/tx3/settings/`](../../offchain/tx3/settings/) |
-| Compiled blueprint | [`onchain/plutus.json`](../../onchain/plutus.json) |
+| On-chain validators | [`onchain/validators/settings/`](https://github.com/input-output-hk/contracts-library/tree/42048b7af58ca12a6c5bbeb1e152079048ffa460/onchain/validators/settings) (`settings.ak`, `settings_typed.ak`) (+ composable predicates in [`onchain/lib/settings/`](https://github.com/input-output-hk/contracts-library/tree/42048b7af58ca12a6c5bbeb1e152079048ffa460/onchain/lib/settings)) |
+| MeshJS builders | [`offchain/meshjs/lib/src/settings/`](https://github.com/input-output-hk/contracts-library/tree/42048b7af58ca12a6c5bbeb1e152079048ffa460/offchain/meshjs/lib/src/settings) |
+| Tx3 protocol + client | [`offchain/tx3/settings/`](https://github.com/input-output-hk/contracts-library/tree/42048b7af58ca12a6c5bbeb1e152079048ffa460/offchain/tx3/settings) |
+| Compiled blueprint | [`onchain/plutus.json`](https://github.com/input-output-hk/contracts-library/blob/42048b7af58ca12a6c5bbeb1e152079048ffa460/onchain/plutus.json) |
 
 ## Contents
 
@@ -40,7 +40,7 @@ Every instance goes through the same cycle:
 stateDiagram-v2
     direction LR
     [*] --> Active: launch (applier)<br/>mints the Settings NFT
-    Active --> Proposed: propose (proposer)<br/>next = v, next_apply = upper + delay
+    Active --> Proposed: propose (proposer)<br/>next = v, next_apply ≥ upper + delay
     Proposed --> Proposed: propose (proposer)<br/>supersedes the pending pair
     Proposed --> Active: apply (applier)<br/>current = next, pair cleared
     Active --> [*]: close (applier)<br/>burns the NFT
@@ -52,10 +52,10 @@ stateDiagram-v2
   Minting requires spending the parameterized `seed_utxo`, which makes the
   instance one-shot: at most one Settings UTxO can ever exist per script.
 - **propose** — the proposer writes a pending pair
-  `(next, next_apply)` into the datum, with `next_apply >= upper + apply_delay`
-  (`upper` being the transaction's validity upper bound: it cannot land later,
-  so the delay can't be shortened by backdating). It cannot touch
-  `current`, and a new proposal **supersedes** any pending one.
+  `(next, next_apply ≥ upper + apply_delay)` into the datum, where `upper` is
+  the propose transaction's validity **upper** bound (the reference builders
+  bound the validity window and use the minimum). It cannot touch `current`,
+  and a new proposal **supersedes** any pending one.
 - **apply** — once `now >= next_apply` (`now` being the transaction's validity
   lower bound), the applier promotes `next` to `current` and clears the pair.
 - **close** — the applier burns the NFT and recovers the locked lovelace.
@@ -71,9 +71,9 @@ stateDiagram-v2
 | **Consumer** | — | Reads `current` from the Settings UTxO as a reference input |
 
 Both `propose_auth` and `apply_auth` are pluggable `Credential`s: a key
-(required signer) or a script (invoked via a withdraw-0 reward withdrawal).
+(required signer) or a script (the credential appears in the withdrawals). The builders use a zero withdrawal for script authorization.
 A multisig, DAO, or smart wallet can fill either role — see
-[offchain/meshjs/lib/src/authorization.ts](../../offchain/meshjs/lib/src/authorization.ts)
+[offchain/meshjs/lib/src/authorization.ts](https://github.com/input-output-hk/contracts-library/blob/42048b7af58ca12a6c5bbeb1e152079048ffa460/offchain/meshjs/lib/src/authorization.ts)
 and ARCHITECTURE.md §3.
 
 ## Deploying an instance
@@ -92,8 +92,8 @@ payment credential of the Settings address:
 
 The setting value itself is arbitrary `Data`. The reference validator accepts
 anything (`validate_datum` is a `True` stub); the `settings_typed` fork
-requires the value to be `Constr(0, [Int])`. If you need a real predicate,
-fork the validator (§6.a of the spec).
+requires `Constr(0, [_])` — a single-field constructor whose field may be any
+`Data`. If you need a different predicate, fork the validator (§6.a of the spec).
 
 ## Reading the settings (consumers)
 
@@ -101,10 +101,10 @@ The main protocol never spends the Settings UTxO — it reads `current` by
 adding the Settings UTxO to its transactions as a **reference input**:
 
 - **On-chain (Aiken):** use
-  [`onchain/lib/settings/utils.ak`](../../onchain/lib/settings/utils.ak) →
+  [`onchain/lib/settings/utils.ak`](https://github.com/input-output-hk/contracts-library/blob/42048b7af58ca12a6c5bbeb1e152079048ffa460/onchain/lib/settings/utils.ak) →
 
   ```aiken
-  let settings = get_settings_datum(tx, settings_ref, policy, token_name)
+  let settings = get_settings_datum(tx, policy, token_name)
   // settings.current is the active value
   ```
 
@@ -143,7 +143,7 @@ const scriptAddr = settingsScriptAddress(script, networkId);
 ```
 
 Use `settingsTypedScript(params)` instead if you deploy the `settings_typed`
-fork (integer-valued settings).
+fork with its constructor-shape check.
 
 ### 2. Launch
 
@@ -164,12 +164,14 @@ await buildLaunchTx({
 
 ### 3. Propose
 
-The transaction is valid until `now + ttlMs` (default 10 minutes,
-`DEFAULT_PROPOSE_TTL_MS`). The builder converts that instant to the enclosing
-slot for the validity upper bound and computes `nextApply = slotStart +
-applyDelay` with the same slot-start conversion the validator uses
-(`proposalTiming` returns both). The delay counts from the end of the window,
-so a longer `ttlMs` also delays the apply.
+The builder sets a **bounded validity window** for the propose transaction:
+`invalidBefore` is the enclosing slot of `now`, `invalidHereafter` is
+`validityWindowSlots` slots later (default `PROPOSE_WINDOW_SLOTS` = 30, ~30s on
+1s-slot networks). The validator anchors `next_apply` to the window's upper
+bound — the ledger only includes a tx whose range covers the actual slot, so
+the delay is measured from the proposal landing on-chain. The builder computes
+`nextApply` from the exclusive upper bound (the start of the slot after the
+window) with the same slot-start conversion the validator uses.
 
 ```ts
 const settingsUtxo = /* fetch the NFT-bearing UTxO at scriptAddr */;
@@ -181,19 +183,20 @@ await buildProposeTx({
   datum: spentDatum,            // the Settings UTxO's current datum
   newValue,                     // proposed value (Data) — must differ from `current`
   now: Date.now(),
-  ttlMs: 10 * 60 * 1000,        // optional; the default
   outputIndex: 0,
   utxos: proposerUtxos,
   changeAddress: proposerAddress,
   collateralUtxo,
   proposeAuth: params.proposeAuth,
   applyDelay: params.applyDelay,
+  // validityWindowSlots: 30,   // optional — default PROPOSE_WINDOW_SLOTS
   network: "preprod",
 });
 ```
 
 Proposing always writes a **fresh** pending pair: it overwrites any pending
-proposal and resets the deadline to `upper + apply_delay`.
+proposal and resets the earliest apply time to `upper + apply_delay` (the
+builder uses the minimum; the validator accepts a later time).
 
 ### 4. Apply
 
@@ -203,7 +206,7 @@ await buildApplyTx({
   script,
   settingsUtxo,
   datum: spentDatum,            // must carry the pending proposal (next, nextApply)
-  now: Date.now(),              // throws early if now < nextApply
+  now: Date.now(),              // the enclosing slot start must meet nextApply
   outputIndex: 0,
   utxos: applierUtxos,
   changeAddress: applierAddress,
@@ -246,10 +249,10 @@ authorizer: { scriptCbor: daoScriptCbor },            // redeemer defaults to un
 ## Off-chain usage: Tx3 client
 
 The Tx3 implementation lives in
-[`offchain/tx3/settings/`](../../offchain/tx3/settings/) with a generated
+[`offchain/tx3/settings/`](https://github.com/input-output-hk/contracts-library/tree/42048b7af58ca12a6c5bbeb1e152079048ffa460/offchain/tx3/settings) with a generated
 TypeScript client in
 `codegen/ts-client/config-parameter-management`
-(regenerate it from [`main.tx3`](../../offchain/tx3/settings/main.tx3) with
+(regenerate it from [`main.tx3`](https://github.com/input-output-hk/contracts-library/blob/42048b7af58ca12a6c5bbeb1e152079048ffa460/offchain/tx3/settings/main.tx3) with
 `trix codegen`; do not edit by hand).
 
 Install the runtime SDK in the directory that consumes the client:
@@ -301,18 +304,23 @@ await client
   .then((r) => r.sign())
   .then((s) => s.submit());
 
-// Propose: `until_slot` is the validity upper bound (the tx is invalid from it
-// on) and `until_ms` its start time in unix ms; next_apply = until_ms +
-// apply_delay
+// The validity window is [sinceSlot, untilSlot).
+// untilMs is the start of untilSlot in POSIX milliseconds.
 await client
-  .propose({ new_value: value, until_ms: untilMs, until_slot: untilSlot, out_ix: 0 })
+  .propose({
+    new_value: value,
+    since_slot: sinceSlot,
+    until_slot: untilSlot,
+    until_ms: untilMs,
+    out_ix: 0,
+  })
   .env(env)
   .resolve()
   .then((r) => r.sign())
   .then((s) => s.submit());
 
-// Apply: promote the pending `next` — must equal it, and `since_slot` must be
-// at or after `next_apply`
+// Apply promotes the pending value. The start of since_slot must be
+// at or after next_apply.
 await client
   .apply({ new_current: value, since_slot: slot, out_ix: 0 })
   .env(env)
@@ -344,38 +352,44 @@ and invoked via a withdraw-0 keyed by its reward address
 
 > Note: the generated parameter types may name fields in camelCase while the
 > Tx3 template's runtime arguments are snake_case (see
-> [`offchain/tx3/settings/tests/devnet.test.ts`](../../offchain/tx3/settings/tests/devnet.test.ts)
+> [`offchain/tx3/settings/tests/devnet.test.ts`](https://github.com/input-output-hk/contracts-library/blob/42048b7af58ca12a6c5bbeb1e152079048ffa460/offchain/tx3/settings/tests/devnet.test.ts)
 > for the exact call shapes used in CI).
 
 ## Gotchas and safety notes
 
 - **Proposals supersede each other.** A new `propose` overwrites the pending
   pair and resets the deadline — there is no proposal queue.
-- **The delay counts from the propose's upper bound.** The validator requires
-  `next_apply >= upper + apply_delay`, so a propose must set a validity upper
-  bound, and at least `apply_delay` always separates the proposal landing from
-  the apply. A proposer can only push the apply later, never sooner (§6.a of
-  the spec).
-- **The apply boundary is non-strict.** `now == next_apply` is accepted.
+- **The delay anchor is the propose tx's validity upper bound.** The validator
+  requires `next_apply ≥ upper + apply_delay`, where `upper` is the propose
+  transaction's validity upper bound. The ledger only includes a tx whose range
+  covers the actual slot, so the upper bound cannot predate the proposal's
+  landing on-chain: the enforced delay is a real minimum window measured from
+  inclusion. The reference builders bound the validity window (30 slots by
+  default) and compute exactly `upper + apply_delay`; a proposer can delay an
+  apply further but never accelerate it.
+- **The apply timing check includes equality.** A finite lower bound at `next_apply` meets the timing check.
 - **Closing is irreversible.** The seed nonce is spent and the NFT burned —
   the same script hash can never host a second instance. Re-deploy with a new
   seed to start over (new script hash).
 - **The staking credential is frozen at launch.** Every continuation must
   reproduce the spent UTxO's full address; move the instance to a new staking
   key only via a fresh deployment.
-- **`validate_datum` is a stub.** Nothing validates the *meaning* of the
-  value unless you deploy the `settings_typed` fork or your own fork.
-- **Slot/ms rounding.** Builders compute `next_apply` from the slot-start
-  millisecond conversion; keep that convention if you write your own builders.
+- **Payload validation.** The reference predicate is `True`. The typed
+  variant checks the outer constructor shape. Domain-specific rules need a
+  validator with a corresponding predicate.
+- **Slot/ms rounding.** Builders compute `next_apply` from the validity upper
+  bound's slot-start millisecond conversion (exclusive upper bound: the start
+  of the slot after the window); keep that convention if you write your own
+  builders.
 
 ## Where to go next
 
 - [Spec](spec.md) — full behavior,
   threat model (§6), invariants, and the formal must-accept/must-reject
   characterization.
-- [On-chain code](../../onchain/validators/settings.ak) — reference
-  validator; composable predicates in [`onchain/lib/settings/`](../../onchain/lib/settings/).
-- [Devnet e2e test](../../offchain/tx3/settings/tests/devnet.test.ts) —
+- [On-chain code](https://github.com/input-output-hk/contracts-library/tree/42048b7af58ca12a6c5bbeb1e152079048ffa460/onchain/validators/settings) — reference
+  validator; composable predicates in [`onchain/lib/settings/`](https://github.com/input-output-hk/contracts-library/tree/42048b7af58ca12a6c5bbeb1e152079048ffa460/onchain/lib/settings).
+- [Devnet e2e test](https://github.com/input-output-hk/contracts-library/blob/42048b7af58ca12a6c5bbeb1e152079048ffa460/offchain/tx3/settings/tests/devnet.test.ts) —
   end-to-end usage of both key- and script-authorized paths, including the
   negative (must-reject) cases.
 - [Architecture](../ARCHITECTURE.md) — composability conventions shared by
