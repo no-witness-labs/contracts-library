@@ -1,0 +1,16 @@
+[
+  {
+    "id": "SET-001",
+    "title": "Apply respects the pending deadline",
+    "category": "settings",
+    "summary": "Every accepted Apply has a pending deadline t and a finite validity lower bound l such that t ≤ l.",
+    "theorems": []
+  },
+  {
+    "id": "SET-002",
+    "title": "Apply promotes the pending value and clears the proposal",
+    "category": "settings",
+    "summary": "Every accepted Apply sets current in the selected continuation’s inline datum to the input’s pending value and sets both next and next_apply to None.",
+    "theorems": []
+  }
+]
