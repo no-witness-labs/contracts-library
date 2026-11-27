@@ -68,5 +68,12 @@
     "category": "settings",
     "summary": "Within documented execution bounds, changing unrelated inputs or outputs leaves the Settings validator’s Propose or Apply acceptance unchanged when the parameters, redeemer, spending datum, selected input and continuation, authorization result, and relevant validity bound are preserved.",
     "theorems": []
+  },
+  {
+    "id": "SET-011",
+    "title": "A linked proposal and apply respect the configured delay",
+    "category": "settings",
+    "summary": "In a ledger-valid trace with a nonnegative apply_delay, if an accepted Apply spends the output of an accepted Propose for the same Settings instance, at least apply_delay milliseconds separate their inclusion times.",
+    "theorems": []
   }
 ]
