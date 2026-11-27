@@ -54,5 +54,12 @@
     "category": "settings",
     "summary": "A ledger-valid transaction that closes a genuine Settings output using Close and Burn burns exactly one copy of its configured NFT. The same instance cannot relaunch because launch already consumed its seed.",
     "theorems": []
+  },
+  {
+    "id": "SET-009",
+    "title": "Settings updates preserve the continuation address and form",
+    "category": "settings",
+    "summary": "Every accepted Propose or Apply has a continuation at out_ix with the spent Settings input’s full address, including its staking credential. The continuation has an inline datum and no reference script.",
+    "theorems": []
   }
 ]
