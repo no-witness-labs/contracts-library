@@ -12,5 +12,12 @@
     "category": "settings",
     "summary": "Every accepted Apply sets current in the selected continuation’s inline datum to the input’s pending value and sets both next and next_apply to None.",
     "theorems": []
+  },
+  {
+    "id": "SET-003",
+    "title": "Settings updates preserve the input’s value",
+    "category": "settings",
+    "summary": "In a ledger-valid transaction, every accepted Propose or Apply preserves the spent Settings input’s non-ADA assets and quantities exactly, and the selected continuation keeps at least as much lovelace.",
+    "theorems": []
   }
 ]
