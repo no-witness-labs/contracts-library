@@ -19,5 +19,12 @@
     "category": "settings",
     "summary": "In a ledger-valid transaction, every accepted Propose or Apply preserves the spent Settings input’s non-ADA assets and quantities exactly, and the selected continuation keeps at least as much lovelace.",
     "theorems": []
+  },
+  {
+    "id": "SET-004",
+    "title": "Proposals respect the delay floor",
+    "category": "settings",
+    "summary": "Every accepted Propose has a finite validity upper bound u and sets the pending deadline to at least u + apply_delay.",
+    "theorems": []
   }
 ]
