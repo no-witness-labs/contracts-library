@@ -96,5 +96,12 @@
     "category": "settings",
     "summary": "The Settings authorization check satisfies a key credential exactly when its hash appears in extra_signatories, and satisfies a script credential exactly when the withdrawals include that script credential.",
     "theorems": []
+  },
+  {
+    "id": "SET-015",
+    "title": "Apply uses the latest proposal",
+    "category": "settings",
+    "summary": "In a ledger-valid Settings lifecycle, an accepted Apply installs the value from the most recent accepted Propose for that instance since launch or the previous Apply.",
+    "theorems": []
   }
 ]
