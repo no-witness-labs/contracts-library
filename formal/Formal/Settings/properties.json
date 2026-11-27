@@ -40,5 +40,12 @@
     "category": "settings",
     "summary": "Every accepted Propose satisfies the configured proposer credential. Every accepted launch (Mint), Apply, or Close satisfies the configured applier credential.",
     "theorems": []
+  },
+  {
+    "id": "SET-007",
+    "title": "Launch establishes the initial Settings output",
+    "category": "settings",
+    "summary": "Every accepted launch spends the configured seed and mints exactly one named Settings NFT under its policy. The selected output is locked at the Settings script, holds that NFT as its only non-ADA asset, and has an inline datum with both pending fields empty.",
+    "theorems": []
   }
 ]
