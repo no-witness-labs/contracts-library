@@ -75,5 +75,12 @@
     "category": "settings",
     "summary": "In a ledger-valid trace with a nonnegative apply_delay, if an accepted Apply spends the output of an accepted Propose for the same Settings instance, at least apply_delay milliseconds separate their inclusion times.",
     "theorems": []
+  },
+  {
+    "id": "SET-012",
+    "title": "The Settings NFT stays at its launch address",
+    "category": "settings",
+    "summary": "In a ledger-valid trace for one instance, every live output holding the configured Settings NFT uses the full address selected at launch, including its staking credential.",
+    "theorems": []
   }
 ]
