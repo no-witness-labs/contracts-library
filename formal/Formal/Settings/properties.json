@@ -82,5 +82,12 @@
     "category": "settings",
     "summary": "In a ledger-valid trace for one instance, every live output holding the configured Settings NFT uses the full address selected at launch, including its staking credential.",
     "theorems": []
+  },
+  {
+    "id": "SET-013",
+    "title": "The Settings NFT has one unit of supply while live",
+    "category": "settings",
+    "summary": "In a ledger-valid trace starting with the seed unspent and no units of the configured NFT, the total quantity across all unspent outputs is zero before launch, one while the instance is live, and zero after close and burn.",
+    "theorems": []
   }
 ]
