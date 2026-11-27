@@ -264,15 +264,12 @@ Attacks the protocol defends against, each backed by the invariants of §6.b:
 - **`apply_delay` is trusted at deployment.** The reference validator does not
   constrain it (a negative delay would admit immediate applies); it is part of
   the script hash, so all parties can see it. A nonnegative waiting-period guarantee assumes `apply_delay ≥ 0`.
-- **The delay anchor is the propose transaction's validity upper bound.** The
-  continuation's `next_apply` must satisfy `t ≥ upper + apply_delay`, where
-  `upper` is the propose transaction's validity upper bound (§5.b). The ledger
-  only includes a transaction whose range covers the actual slot, so `upper`
-  cannot predate the proposal's inclusion: the enforced minimum delay is
-  measured from the proposal landing on-chain, not from a proposer-chosen
-  instant. The reference builders bound the validity window to a small number
-  of slots past `now` and use the minimum, `t = upper + apply_delay`; a
-  proposer can only push an apply later, never earlier.
+- **Each proposal sets its own deadline floor.** The continuation's
+  `next_apply` must be at least `upper + apply_delay`, using that proposal's
+  finite validity upper bound (§5.b). Replacing a proposal writes a new
+  pending pair with a deadline that meets this floor. The reference builders
+  use `upper + apply_delay`. The ledger requires the proposal's inclusion
+  time to fall within its validity range.
 - **Closing is irreversible.** After `Close`, no instance can be relaunched at
   this script hash (seed spent, NFT burned).
 - **The staking credential is frozen at launch.** The launch output may pick any
@@ -449,6 +446,6 @@ obligation**:
   the ledger and slot-start conversion (§5, §6.a).
 - **The one-shot NFT property** is a lemma about the seed nonce: inputs cannot
   be double-spent (ledger axiom), so `Mint` can pass at most once (R10).
-- **Composability** (I8): the validator quantifies only over its own input, the
-  seed input, its own policy's mint, and the `out_ix` output. Soundness proofs
-  must therefore hold for an arbitrary number of unrelated inputs and outputs.
+- **Composability (I8).** Compiled-script proofs state the transaction shapes
+  and execution bounds under which varying unrelated inputs or outputs
+  preserves the validator's acceptance result.
