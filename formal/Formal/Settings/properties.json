@@ -26,5 +26,12 @@
     "category": "settings",
     "summary": "Every accepted Propose has a finite validity upper bound u and sets the pending deadline to at least u + apply_delay.",
     "theorems": []
+  },
+  {
+    "id": "SET-005",
+    "title": "Propose preserves the active value and stages a different one",
+    "category": "settings",
+    "summary": "Every accepted Propose preserves current in the continuation’s inline datum and writes a complete pending pair whose proposed value differs from current.",
+    "theorems": []
   }
 ]
