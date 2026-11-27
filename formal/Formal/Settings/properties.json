@@ -33,5 +33,12 @@
     "category": "settings",
     "summary": "Every accepted Propose preserves current in the continuation’s inline datum and writes a complete pending pair whose proposed value differs from current.",
     "theorems": []
+  },
+  {
+    "id": "SET-006",
+    "title": "Settings actions require their configured credential",
+    "category": "settings",
+    "summary": "Every accepted Propose satisfies the configured proposer credential. Every accepted launch (Mint), Apply, or Close satisfies the configured applier credential.",
+    "theorems": []
   }
 ]
