@@ -47,5 +47,12 @@
     "category": "settings",
     "summary": "Every accepted launch spends the configured seed and mints exactly one named Settings NFT under its policy. The selected output is locked at the Settings script, holds that NFT as its only non-ADA asset, and has an inline datum with both pending fields empty.",
     "theorems": []
+  },
+  {
+    "id": "SET-008",
+    "title": "Close burns the instance NFT and ends the lifecycle",
+    "category": "settings",
+    "summary": "A ledger-valid transaction that closes a genuine Settings output using Close and Burn burns exactly one copy of its configured NFT. The same instance cannot relaunch because launch already consumed its seed.",
+    "theorems": []
   }
 ]
