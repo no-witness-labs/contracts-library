@@ -61,5 +61,12 @@
     "category": "settings",
     "summary": "Every accepted Propose or Apply has a continuation at out_ix with the spent Settings input’s full address, including its staking credential. The continuation has an inline datum and no reference script.",
     "theorems": []
+  },
+  {
+    "id": "SET-010",
+    "title": "Settings updates compose with unrelated inputs and outputs",
+    "category": "settings",
+    "summary": "Within documented execution bounds, changing unrelated inputs or outputs leaves the Settings validator’s Propose or Apply acceptance unchanged when the parameters, redeemer, spending datum, selected input and continuation, authorization result, and relevant validity bound are preserved.",
+    "theorems": []
   }
 ]
