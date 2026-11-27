@@ -89,5 +89,12 @@
     "category": "settings",
     "summary": "In a ledger-valid trace starting with the seed unspent and no units of the configured NFT, the total quantity across all unspent outputs is zero before launch, one while the instance is live, and zero after close and burn.",
     "theorems": []
+  },
+  {
+    "id": "SET-014",
+    "title": "Authorization matches the configured credential",
+    "category": "settings",
+    "summary": "The Settings authorization check satisfies a key credential exactly when its hash appears in extra_signatories, and satisfies a script credential exactly when the withdrawals include that script credential.",
+    "theorems": []
   }
 ]
