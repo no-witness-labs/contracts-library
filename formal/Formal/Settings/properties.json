@@ -1,0 +1,107 @@
+[
+  {
+    "id": "SET-001",
+    "title": "Apply respects the pending deadline",
+    "category": "settings",
+    "summary": "Every accepted Apply has a pending deadline t and a finite validity lower bound l such that t ≤ l.",
+    "theorems": []
+  },
+  {
+    "id": "SET-002",
+    "title": "Apply promotes the pending value and clears the proposal",
+    "category": "settings",
+    "summary": "Every accepted Apply sets current in the selected continuation’s inline datum to the input’s pending value and sets both next and next_apply to None.",
+    "theorems": []
+  },
+  {
+    "id": "SET-003",
+    "title": "Settings updates preserve the input’s value",
+    "category": "settings",
+    "summary": "In a ledger-valid transaction, every accepted Propose or Apply preserves the spent Settings input’s non-ADA assets and quantities exactly, and the selected continuation keeps at least as much lovelace.",
+    "theorems": []
+  },
+  {
+    "id": "SET-004",
+    "title": "Proposals respect the delay floor",
+    "category": "settings",
+    "summary": "Every accepted Propose has a finite validity upper bound u and sets the pending deadline to at least u + apply_delay.",
+    "theorems": []
+  },
+  {
+    "id": "SET-005",
+    "title": "Propose preserves the active value and stages a different one",
+    "category": "settings",
+    "summary": "Every accepted Propose preserves current in the continuation’s inline datum and writes a complete pending pair whose proposed value differs from current.",
+    "theorems": []
+  },
+  {
+    "id": "SET-006",
+    "title": "Settings actions require their configured credential",
+    "category": "settings",
+    "summary": "Every accepted Propose satisfies the configured proposer credential. Every accepted launch (Mint), Apply, or Close satisfies the configured applier credential.",
+    "theorems": []
+  },
+  {
+    "id": "SET-007",
+    "title": "Launch establishes the initial Settings output",
+    "category": "settings",
+    "summary": "Every accepted launch spends the configured seed and mints exactly one named Settings NFT under its policy. The selected output is locked at the Settings script, holds that NFT as its only non-ADA asset, and has an inline datum with both pending fields empty.",
+    "theorems": []
+  },
+  {
+    "id": "SET-008",
+    "title": "Close burns the instance NFT and ends the lifecycle",
+    "category": "settings",
+    "summary": "A ledger-valid transaction that closes a genuine Settings output using Close and Burn burns exactly one copy of its configured NFT. The same instance cannot relaunch because launch already consumed its seed.",
+    "theorems": []
+  },
+  {
+    "id": "SET-009",
+    "title": "Settings updates preserve the continuation address and form",
+    "category": "settings",
+    "summary": "Every accepted Propose or Apply has a continuation at out_ix with the spent Settings input’s full address, including its staking credential. The continuation has an inline datum and no reference script.",
+    "theorems": []
+  },
+  {
+    "id": "SET-010",
+    "title": "Settings updates compose with unrelated inputs and outputs",
+    "category": "settings",
+    "summary": "Within documented execution bounds, changing unrelated inputs or outputs leaves the Settings validator’s Propose or Apply acceptance unchanged when the parameters, redeemer, spending datum, selected input and continuation, authorization result, and relevant validity bound are preserved.",
+    "theorems": []
+  },
+  {
+    "id": "SET-011",
+    "title": "A linked proposal and apply respect the configured delay",
+    "category": "settings",
+    "summary": "In a ledger-valid trace with a nonnegative apply_delay, if an accepted Apply spends the output of an accepted Propose for the same Settings instance, at least apply_delay milliseconds separate their inclusion times.",
+    "theorems": []
+  },
+  {
+    "id": "SET-012",
+    "title": "The Settings NFT stays at its launch address",
+    "category": "settings",
+    "summary": "In a ledger-valid trace for one instance, every live output holding the configured Settings NFT uses the full address selected at launch, including its staking credential.",
+    "theorems": []
+  },
+  {
+    "id": "SET-013",
+    "title": "The Settings NFT has one unit of supply while live",
+    "category": "settings",
+    "summary": "In a ledger-valid trace starting with the seed unspent and no units of the configured NFT, the total quantity across all unspent outputs is zero before launch, one while the instance is live, and zero after close and burn.",
+    "theorems": []
+  },
+  {
+    "id": "SET-014",
+    "title": "Authorization matches the configured credential",
+    "category": "settings",
+    "summary": "The Settings authorization check satisfies a key credential exactly when its hash appears in extra_signatories, and satisfies a script credential exactly when the withdrawals include that script credential.",
+    "theorems": []
+  },
+  {
+    "id": "SET-015",
+    "title": "Apply uses the latest proposal",
+    "category": "settings",
+    "summary": "In a ledger-valid Settings lifecycle, an accepted Apply installs the value from the most recent accepted Propose for that instance since launch or the previous Apply.",
+    "theorems": []
+  }
+]
